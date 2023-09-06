@@ -10,8 +10,11 @@ use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
 type StreamResult = Result<TokenStream, syn::Error>;
+type VecStreamResult = Result<Vec<TokenStream>, syn::Error>;
 
-#[proc_macro_derive(Builder)]
+const MANDATORY_NAME: &str = "M";
+
+#[proc_macro_derive(Builder, attributes(mandatory))]
 pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = syn::parse_macro_input!(input as DeriveInput);
     match impl_my_derive(&ast) {

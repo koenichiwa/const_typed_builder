@@ -1,13 +1,13 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned, token::Token};
+use syn::spanned::Spanned;
 
 use crate::{
     builder_info::BuilderInfo,
-    data_info::{self, DataInfo},
+    data_info::DataInfo,
     field_info::{FieldInfo, FieldSettings},
     struct_info::StructInfo,
-    StreamResult,
+    StreamResult, VecStreamResult,
 };
 
 pub struct Generator<'a> {
@@ -79,15 +79,14 @@ impl<'a> Generator<'a> {
 
     pub fn generate(&self) -> StreamResult {
         let target = self.gen_target_impl();
-        let data = self.gen_data();
+        let data = self.gen_data()?;
         let builder = self.gen_builder()?;
-        Ok(quote!(
+        let tokens = quote!(
             #target
-
             #builder
-
             #data
-        ))
+        );
+        Ok(tokens)
     }
 
     fn gen_target_impl(&self) -> TokenStream {
@@ -98,27 +97,35 @@ impl<'a> Generator<'a> {
         let BuilderInfo {
             name: ref builder_name,
         } = self.builder_info;
+
+        let consts: Vec<syn::LitBool> = self
+            .struct_info
+            .mandatory_identifiers()
+            .iter()
+            .map(|ident| syn::LitBool::new(false, ident.span()))
+            .collect();
         quote! {
             impl #target_name {
-                pub fn builder() -> #builder_name {
+                pub fn builder() -> #builder_name<#(#consts),*> {
                     #builder_name::new()
                 }
             }
         }
     }
 
-    fn gen_data(&self) -> TokenStream {
-        let __struct = self.gen_data_struct();
-        let __impl = self.gen_data_impl();
+    fn gen_data(&self) -> StreamResult {
+        let __struct = self.gen_data_struct()?;
+        let __impl = self.gen_data_impl()?;
 
-        quote!(
+        let tokens = quote!(
             #__struct
-
             #__impl
-        )
+        );
+
+        Ok(tokens)
     }
 
-    fn gen_data_impl(&self) -> TokenStream {
+    fn gen_data_impl(&self) -> StreamResult {
         let DataInfo {
             name: ref data_name,
             ..
@@ -133,26 +140,26 @@ impl<'a> Generator<'a> {
         let fields: Vec<_> = field_infos
             .iter()
             .map(|info| {
-                let FieldInfo { name: field_name, ty, settings, .. } = info;
-                let FieldSettings { mandatory, ..} = settings;
-
-                match (mandatory, info.is_option()) {
-                    (true, true) => {
-                        quote!(#field_name: data.#field_name)
-                    }
-                    (true, false) => {
+                let FieldInfo {
+                    name: field_name, ..
+                } = info;
+                let mandatory_status = info.mandatory_status()?;
+                let tokens = match mandatory_status {
+                    crate::field_info::MandatoryStatus::Mandatory => {
                         quote!(#field_name: data.#field_name.unwrap())
                     }
-                    (false, true) => {
-                        // Should I collapse or not?
+                    crate::field_info::MandatoryStatus::MandatoryOption(_) => {
                         quote!(#field_name: data.#field_name)
                     }
-                    (false, false) => unreachable!("Non-optional types are always mandatory"),
-                }
+                    crate::field_info::MandatoryStatus::Optional(_) => {
+                        quote!(#field_name: data.#field_name)
+                    }
+                };
+                Ok(tokens)
             })
-            .collect();
+            .collect::<VecStreamResult>()?;
 
-        quote!(
+        let tokens = quote!(
             impl From<#data_name> for #struct_name {
                 fn from(data: #data_name) -> #struct_name {
                     #struct_name {
@@ -160,10 +167,11 @@ impl<'a> Generator<'a> {
                     }
                 }
             }
-        )
+        );
+        Ok(tokens)
     }
 
-    fn gen_data_struct(&self) -> TokenStream {
+    fn gen_data_struct(&self) -> StreamResult {
         let DataInfo {
             name: ref data_name,
             ..
@@ -179,51 +187,46 @@ impl<'a> Generator<'a> {
                 let FieldInfo {
                     name: field_name,
                     ty,
-                    settings,
                     ..
                 } = info;
 
-                let FieldSettings { mandatory, .. } = settings;
+                // let comment = format!("mandatory {} option {}", mandatory, info.is_option());
 
-                let comment = format!("mandatory {} option {}", mandatory, info.is_option());
-
-                let field_typed = match (mandatory, info.is_option()) {
-                    (true, true) => {
-                        quote!(#field_name: #ty)
-                    }
-                    (true, false) => {
+                let field_typed = match info.mandatory_status()? {
+                    crate::field_info::MandatoryStatus::Mandatory => {
                         quote!(#field_name: Option<#ty>)
                     }
-                    (false, true) => {
-                        // Should I collapse or not?
+                    crate::field_info::MandatoryStatus::MandatoryOption(_) => {
                         quote!(#field_name: #ty)
                     }
-                    (false, false) => unreachable!("Non-optional types are always mandatory"),
+                    crate::field_info::MandatoryStatus::Optional(_) => quote!(#field_name: #ty),
                 };
 
-                quote!(
-                    #[doc = #comment]
+                let tokens = quote!(
+                    // #[doc = #comment]
                     pub #field_typed
-                )
+                );
+                Ok(tokens)
             })
-            .collect();
+            .collect::<VecStreamResult>()?;
 
-        quote!(
+        let tokens = quote!(
             #[derive(Default, Debug)]
             pub struct #data_name {
                 #(#fields),*
             }
-        )
+        );
+        Ok(tokens)
     }
 
     fn gen_builder(&self) -> StreamResult {
         let __struct = self.gen_builder_struct();
         let __impl = self.gen_builder_impl()?;
-        Ok(quote!(
+        let tokens = quote!(
             #__struct
-
             #__impl
-        ))
+        );
+        Ok(tokens)
     }
 
     fn gen_builder_struct(&self) -> TokenStream {
@@ -235,9 +238,10 @@ impl<'a> Generator<'a> {
             name: ref builder_name,
         } = self.builder_info;
 
+        let const_idents = self.struct_info.mandatory_identifiers();
         quote!(
             #[derive(Default, Debug)]
-            pub struct #builder_name {
+            pub struct #builder_name<#(const #const_idents: bool),*> {
                 data: #data_name
             }
         )
@@ -247,22 +251,28 @@ impl<'a> Generator<'a> {
         let __new = self.gen_builder_new_impl();
         let __setters = self.gen_builder_setters_impl()?;
         let __build = self.gen_builder_build_impl();
-        Ok(quote!(
+        let tokens = quote!(
             #__new
-
             #__setters
-
             #__build
-        ))
+        );
+        Ok(tokens)
     }
 
     fn gen_builder_new_impl(&self) -> TokenStream {
         let BuilderInfo {
             name: ref builder_name,
         } = self.builder_info;
+
+        let consts: Vec<syn::LitBool> = self
+            .struct_info
+            .mandatory_identifiers()
+            .iter()
+            .map(|ident| syn::LitBool::new(false, ident.span()))
+            .collect();
         quote!(
-            impl #builder_name {
-                pub fn new() -> #builder_name {
+            impl #builder_name<#(#consts),*> {
+                pub fn new() -> #builder_name<#(#consts),*> {
                     Self::default()
                 }
             }
@@ -277,8 +287,16 @@ impl<'a> Generator<'a> {
         let BuilderInfo {
             name: ref builder_name,
         } = self.builder_info;
+
+        let consts: Vec<syn::LitBool> = self
+            .struct_info
+            .mandatory_identifiers()
+            .iter()
+            .map(|ident| syn::LitBool::new(true, ident.span()))
+            .collect();
+
         quote!(
-            impl #builder_name {
+            impl #builder_name<#(#consts),*> {
                 pub fn build(self) -> #target_name {
                     self.data.into()
                 }
@@ -296,46 +314,65 @@ impl<'a> Generator<'a> {
 
         let setters = field_infos
             .iter()
-            .map(|info| {
+            .map(|field| {
                 let FieldInfo {
                     name: field_name,
                     ty,
                     ref settings,
                     ..
-                } = info;
+                } = field;
                 let FieldSettings {
-                    mandatory,
                     ref input_name,
+                    ..
                 } = settings;
 
-                let (input_typed, input_value) = match (mandatory, info.is_option()) {
-                    (true, true) => {
-                        let inner_ty = info
-                            .inner_type()
-                            .ok_or(syn::Error::new(Span::call_site(), "Can't reach inner type"))?;
-                        (quote!(#input_name: #inner_ty), quote!(Some(#input_name)))
+                let const_idents_generic: Vec<_> = self.struct_info.mandatory_identifiers().iter().filter_map(|ident|{
+                    if Some(ident) == field.mandatory_ident().as_ref() {
+                        None
+                    } else {
+                        Some(ident.clone())
                     }
-                    (true, false) => (quote!(#input_name: #ty), quote!(Some(#input_name))),
-                    (false, true) => {
-                        // Should I collapse or not?
-                        (quote!(#input_name: #ty), quote!(#input_name))
+                }).collect();
+
+                let const_idents_input: Vec<_> = self.struct_info.mandatory_identifiers().iter().map(|ident|{
+                    if Some(ident) == field.mandatory_ident().as_ref() {
+                        quote!(false)
+                    } else {
+                        quote!(#ident)
                     }
-                    (false, false) => unreachable!("Non-optional types are always mandatory"),
+                }).collect();
+
+                let const_idents_output: Vec<_> = self.struct_info.mandatory_identifiers().iter().map(|ident|{
+                    if Some(ident) == field.mandatory_ident().as_ref() {
+                        quote!(true)
+                    } else {
+                        quote!(#ident)
+                    }
+                }).collect();
+
+                let (input_typed, input_value) = match field.mandatory_status()? {
+                    crate::field_info::MandatoryStatus::Mandatory => (quote!(#input_name: #ty), quote!(Some(#input_name))),
+                    crate::field_info::MandatoryStatus::MandatoryOption(inner_ty) => (quote!(#input_name: #inner_ty), quote!(Some(#input_name))),
+                    crate::field_info::MandatoryStatus::Optional(_) => (quote!(#input_name: #ty), quote!(#input_name)),
                 };
 
-                Ok(quote!(
-                    impl #builder_name {
-                        pub fn #field_name (mut self, #input_typed) -> #builder_name {
-                            self.data.#field_name = #input_value;
-                            self
+                let tokens = quote!(
+                    impl <#(const #const_idents_generic: bool),*> #builder_name <#(#const_idents_input),*> {
+                        pub fn #field_name (self, #input_typed) -> #builder_name <#(#const_idents_output),*> {
+                            let mut data = self.data;
+                            data.#field_name = #input_value;
+                            #builder_name {
+                                data,
+                            }
                         }
                     }
-
-                ))
+                );
+                Ok(tokens)
             })
-            .collect::<Result<Vec<TokenStream>, syn::Error>>()?;
-        Ok(quote!(
+            .collect::<VecStreamResult>()?;
+        let tokens = quote!(
             #(#setters)*
-        ))
+        );
+        Ok(tokens)
     }
 }
