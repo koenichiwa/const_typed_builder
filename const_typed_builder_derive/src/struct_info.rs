@@ -1,6 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
-use crate::field_info::{FieldInfo, FieldSettings};
+use syn::Token;
+
+use crate::{
+    field_info::{FieldInfo, FieldSettings},
+    symbol::GROUP,
+};
 
 pub struct StructInfo<'a> {
     pub name: &'a syn::Ident,
@@ -32,10 +37,56 @@ impl<'a> StructInfo<'a> {
                 Ok(field)
             })
             .collect::<Result<Vec<FieldInfo>, syn::Error>>()?;
-        Ok(StructInfo {
+        StructInfo {
             name: &ast.ident,
             field_infos,
             settings,
+        }
+        .post_process(ast)
+    }
+
+    fn post_process(mut self, ast: &'a syn::DeriveInput) -> syn::Result<Self> {
+        ast.attrs
+            .iter()
+            .map(|attr| self.handle_attribute(attr))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(self)
+    }
+
+    fn handle_attribute(&mut self, attr: &syn::Attribute) -> Result<(), syn::Error> {
+        if let Some(ident) = attr.path().get_ident() {
+            if ident != "builder" {
+                return Ok(())
+            }
+        }
+        if let syn::Meta::List(list) = &attr.meta {
+            if list.tokens.is_empty() {
+                return Ok(());
+            }
+        }
+
+        attr.parse_nested_meta(|meta| {
+            // if meta.path == GROUP {
+            //     dbg!(&meta.path);
+            //     if meta.input.peek(Token![=]) {
+            //         let value = meta.value()?;
+            //         // if let syn::Expr::Lit(syn::ExprLit {
+            //         //     lit: syn::Lit::Str(lit),
+            //         //     ..
+            //         // }) = &expr
+            //         // {
+            //         //     if !self.settings.groups.insert(lit.value()) {
+            //         //         return Err(syn::Error::new_spanned(
+            //         //             &expr,
+            //         //             "Multiple adds to the same group",
+            //         //         ));
+            //         //     }
+            //         // }
+            //         value;
+            //     }
+            // }
+            Ok(())
         })
     }
 
@@ -49,12 +100,14 @@ impl<'a> StructInfo<'a> {
 
 pub struct StructSettings {
     default_field_settings: FieldSettings,
+    available_groups: HashSet<String>,
 }
 
 impl Default for StructSettings {
     fn default() -> Self {
         StructSettings {
             default_field_settings: FieldSettings::new(),
+            available_groups: HashSet::new(),
         }
     }
 }

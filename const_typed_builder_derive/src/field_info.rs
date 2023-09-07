@@ -1,10 +1,13 @@
+use std::collections::HashSet;
+
 use proc_macro2::Span;
 use quote::format_ident;
-use syn::Attribute;
+use syn::{Token, ExprPath};
 
 use crate::{
+    symbol::{GROUP, MANDATORY},
     util::{inner_type, is_option},
-    MANDATORY_NAME,
+    MANDATORY_PREFIX,
 };
 
 #[derive(Debug)]
@@ -21,6 +24,7 @@ pub struct FieldInfo<'a> {
 pub struct FieldSettings {
     pub mandatory: bool,
     pub input_name: syn::Ident,
+    pub groups: HashSet<String>,
 }
 
 impl<'a> FieldInfo<'a> {
@@ -46,23 +50,61 @@ impl<'a> FieldInfo<'a> {
         }
     }
 
-    fn handle_attribute(&mut self, attr: &Attribute) -> Result<(), syn::Error> {
-        match &attr.meta {
-            syn::Meta::Path(path) => {
-                let ident = &path
-                    .segments
-                    .first()
-                    .ok_or(syn::Error::new_spanned(&path, "Can't parse attribute"))?
-                    .ident;
-                match ident.to_string().as_str() {
-                    "mandatory" => self.settings.mandatory = true,
-                    _ => return Err(syn::Error::new(ident.span(), "Unknown attribute")),
+    fn handle_attribute(&mut self, attr: &syn::Attribute) -> Result<(), syn::Error> {
+        if let Some(ident) = attr.path().get_ident() {
+            if ident != "builder" {
+                return Ok(());
+            }
+        }
+        if let syn::Meta::List(list) = &attr.meta {
+            if list.tokens.is_empty() {
+                return Ok(());
+            }
+        }
+
+        attr.parse_nested_meta(|meta| {
+            if meta.path == MANDATORY {
+                if meta.input.peek(Token![=]) {
+                    let expr: syn::Expr = meta.value()?.parse()?;
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                        ..
+                    }) = expr
+                    {
+                        self.settings.mandatory = value;
+                    }
+                } else {
+                    self.settings.mandatory = true;
                 }
             }
-            syn::Meta::List(_) => (),
-            syn::Meta::NameValue(_) => (),
-        }
-        Ok(())
+            // if meta.path == GROUP {
+            //     if meta.input.peek(Token![=]) {
+            //         let expr: syn::Expr = meta.value()?.parse()?;
+            //         if let syn::Expr::Path(ExprPath {path, ..}) = &expr {
+            //             let group_name = path.get_ident().ok_or(syn::Error::new_spanned(&path, "Can't parse group"))?;
+            //             if !self.settings.groups.insert(dbg!(group_name.to_string())) {
+            //                 return Err(syn::Error::new_spanned(
+            //                     &expr,
+            //                     "Multiple adds to the same group",
+            //                 ));
+            //             }
+            //         }
+            //         if let syn::Expr::Lit(syn::ExprLit {
+            //             lit: syn::Lit::Str(lit),
+            //             ..
+            //         }) = &expr
+            //         {
+            //             if !self.settings.groups.insert(lit.value()) {
+            //                 return Err(syn::Error::new_spanned(
+            //                     &expr,
+            //                     "Multiple adds to the same group",
+            //                 ));
+            //             }
+            //         }
+            //     }
+            // }
+            Ok(())
+        })
     }
 
     fn post_process(
@@ -73,7 +115,7 @@ impl<'a> FieldInfo<'a> {
         field
             .attrs
             .iter()
-            .map(|attr| self.handle_attribute(dbg!(attr)))
+            .map(|attr| self.handle_attribute(attr))
             .collect::<Result<Vec<_>, _>>()?;
 
         if !self.settings.mandatory {
@@ -88,15 +130,15 @@ impl<'a> FieldInfo<'a> {
     }
 
     pub fn mandatory_status(&self) -> Result<MandatoryStatus, syn::Error> {
+        let inner_type_error = || syn::Error::new_spanned(self.ty, "Cannot read inner type");
+
         match (self.settings.mandatory, is_option(self.ty)) {
             (true, true) => Ok(MandatoryStatus::MandatoryOption(
-                inner_type(self.ty)
-                    .ok_or(syn::Error::new_spanned(self.ty, "Cannot read inner type"))?,
+                inner_type(self.ty).ok_or_else(inner_type_error)?,
             )),
             (true, false) => Ok(MandatoryStatus::Mandatory),
             (false, true) => Ok(MandatoryStatus::Optional(
-                inner_type(self.ty)
-                    .ok_or(syn::Error::new_spanned(self.ty, "Cannot read inner type"))?,
+                inner_type(self.ty).ok_or_else(inner_type_error)?,
             )),
             (false, false) => unreachable!("Non-optional types are always mandatory"),
         }
@@ -104,7 +146,7 @@ impl<'a> FieldInfo<'a> {
 
     pub fn mandatory_ident(&self) -> Option<syn::Ident> {
         self.mandatory_index
-            .map(|idx| format_ident!("{}_{}", MANDATORY_NAME, idx))
+            .map(|idx| format_ident!("{}_{}", MANDATORY_PREFIX, idx))
     }
 }
 
@@ -113,6 +155,7 @@ impl Default for FieldSettings {
         FieldSettings {
             mandatory: false,
             input_name: syn::Ident::new("input", Span::call_site()),
+            groups: HashSet::new(),
         }
     }
 }

@@ -1,26 +1,27 @@
 mod builder_info;
+mod context;
 mod data_info;
 mod field_info;
 mod generator;
 mod struct_info;
+mod symbol;
 mod util;
 
 use generator::Generator;
 use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
-type StreamResult = Result<TokenStream, syn::Error>;
+type StreamResult = syn::Result<TokenStream>;
 type VecStreamResult = Result<Vec<TokenStream>, syn::Error>;
 
-const MANDATORY_NAME: &str = "M";
+const MANDATORY_PREFIX: &str = "M";
 
-#[proc_macro_derive(Builder, attributes(mandatory))]
+#[proc_macro_derive(Builder, attributes(builder, group))]
 pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = syn::parse_macro_input!(input as DeriveInput);
-    match impl_my_derive(&ast) {
-        Ok(output) => output.into(),
-        Err(error) => error.to_compile_error().into(),
-    }
+    impl_my_derive(&ast)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 fn impl_my_derive(ast: &syn::DeriveInput) -> StreamResult {

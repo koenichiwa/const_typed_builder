@@ -4,6 +4,7 @@ use syn::spanned::Spanned;
 
 use crate::{
     builder_info::BuilderInfo,
+    context::Context,
     data_info::DataInfo,
     field_info::{FieldInfo, FieldSettings},
     struct_info::StructInfo,
@@ -14,6 +15,7 @@ pub struct Generator<'a> {
     struct_info: StructInfo<'a>,
     builder_info: BuilderInfo,
     data_info: DataInfo,
+    context: Context,
 }
 
 impl<'a> Generator<'a> {
@@ -28,6 +30,7 @@ impl<'a> Generator<'a> {
                         struct_info,
                         builder_info,
                         data_info,
+                        context: Context::new(),
                     }
 
                     // let builder_creation = struct_info.builder_creation_impl()?;
