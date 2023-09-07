@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 use proc_macro2::Span;
 use quote::format_ident;
@@ -21,6 +21,7 @@ pub struct FieldInfo<'a> {
     ty: &'a syn::Type,
     index: usize,
     mandatory_index: Option<usize>,
+    group_indices: HashMap<String, usize>,
     settings: FieldSettings,
 }
 
@@ -62,6 +63,7 @@ impl<'a> FieldInfo<'a> {
                 ty,
                 index,
                 mandatory_index: Some(mandatory_index).filter(|_| settings.mandatory),
+                group_indices: HashMap::new(), // Set by struct_info
                 settings,
             };
 
@@ -176,32 +178,32 @@ impl FieldSettings {
                     self.mandatory = true;
                 }
             }
-            // if meta.path == GROUP {
-            //     if meta.input.peek(Token![=]) {
-            //         let expr: syn::Expr = meta.value()?.parse()?;
-            //         if let syn::Expr::Path(ExprPath {path, ..}) = &expr {
-            //             let group_name = path.get_ident().ok_or(syn::Error::new_spanned(&path, "Can't parse group"))?;
-            //             if !self.settings.groups.insert(dbg!(group_name.to_string())) {
-            //                 return Err(syn::Error::new_spanned(
-            //                     &expr,
-            //                     "Multiple adds to the same group",
-            //                 ));
-            //             }
-            //         }
-            //         if let syn::Expr::Lit(syn::ExprLit {
-            //             lit: syn::Lit::Str(lit),
-            //             ..
-            //         }) = &expr
-            //         {
-            //             if !self.settings.groups.insert(lit.value()) {
-            //                 return Err(syn::Error::new_spanned(
-            //                     &expr,
-            //                     "Multiple adds to the same group",
-            //                 ));
-            //             }
-            //         }
-            //     }
-            // }
+            if meta.path == GROUP {
+                if meta.input.peek(Token![=]) {
+                    let expr: syn::Expr = meta.value()?.parse()?;
+                    if let syn::Expr::Path(ExprPath {path, ..}) = &expr {
+                        let group_name = path.get_ident().ok_or(syn::Error::new_spanned(&path, "Can't parse group"))?;
+                        if !self.groups.insert(dbg!(group_name.to_string())) {
+                            return Err(syn::Error::new_spanned(
+                                &expr,
+                                "Multiple adds to the same group",
+                            ));
+                        }
+                    }
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit),
+                        ..
+                    }) = &expr
+                    {
+                        if !self.groups.insert(lit.value()) {
+                            return Err(syn::Error::new_spanned(
+                                &expr,
+                                "Multiple adds to the same group",
+                            ));
+                        }
+                    }
+                }
+            }
             Ok(())
         })
     }
