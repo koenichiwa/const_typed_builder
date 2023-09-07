@@ -2,22 +2,26 @@ use std::collections::HashSet;
 
 use proc_macro2::Span;
 use quote::format_ident;
-use syn::{Token, ExprPath};
+use syn::{Attribute, ExprPath, Token};
 
 use crate::{
-    symbol::{GROUP, MANDATORY},
+    context::{self, Context},
+    struct_info::StructSettings,
+    symbol::{BUILDER, GROUP, MANDATORY},
     util::{inner_type, is_option},
     MANDATORY_PREFIX,
 };
 
 #[derive(Debug)]
 pub struct FieldInfo<'a> {
-    pub index: usize,
-    pub mandatory_index: Option<usize>,
-    pub name: &'a syn::Ident,
-    pub ty: &'a syn::Type,
-    pub settings: FieldSettings,
-    // generic_ident: syn::Ident,
+    field: &'a syn::Field,
+    attrs: &'a Vec<syn::Attribute>,
+    vis: &'a syn::Visibility,
+    ident: &'a syn::Ident,
+    ty: &'a syn::Type,
+    index: usize,
+    mandatory_index: Option<usize>,
+    settings: FieldSettings,
 }
 
 #[derive(Debug, Clone)]
@@ -29,30 +33,125 @@ pub struct FieldSettings {
 
 impl<'a> FieldInfo<'a> {
     pub fn new(
+        context: &mut Context,
         index: usize,
         mandatory_index: usize,
         field: &'a syn::Field,
-        default_settings: &FieldSettings,
-    ) -> Result<FieldInfo<'a>, syn::Error> {
-        if let Some(ref name) = field.ident {
-            let settings = default_settings.clone().with(&field.attrs);
-            FieldInfo {
+        struct_settings: &StructSettings,
+    ) -> Option<Self> {
+        if let syn::Field {
+            attrs,
+            vis,
+            mutability,
+            ident: Some(ident),
+            ty,
+            ..
+        } = field
+        {
+            let settings = struct_settings
+                .default_field_settings()
+                .clone()
+                .with_attrs(context, attrs)
+                .with_ty(ty);
+
+            let info = FieldInfo {
+                field,
+                attrs,
+                vis,
+                ident,
+                ty,
                 index,
-                mandatory_index: None,
-                name,
-                ty: &field.ty,
+                mandatory_index: Some(mandatory_index).filter(|_| settings.mandatory),
                 settings,
-                // generic_ident: syn::Ident::new(&format!("__{}", strip_raw_ident_prefix(name.to_string())), Span::call_site()),
-            }
-            .post_process(field, mandatory_index)
+            };
+
+            Some(info)
         } else {
-            Err(syn::Error::new_spanned(field, "Nameless field in struct"))
+            context.error_spanned_by(field, "Cannot parse field");
+            None
         }
     }
 
-    fn handle_attribute(&mut self, attr: &syn::Attribute) -> Result<(), syn::Error> {
+    pub fn name(&self) -> &syn::Ident {
+        self.ident
+    }
+
+    pub fn mandatory(&self) -> bool {
+        self.settings.mandatory
+    }
+
+    pub fn input_name(&self) -> &syn::Ident {
+        &self.settings.input_name
+    }
+
+    pub fn type_kind(&self, context: &mut Context) -> Option<TypeKind> {
+        let type_kind = if is_option(self.ty) {
+            let inner_ty = inner_type(self.ty)
+                .ok_or_else(|| {
+                    context.error_spanned_by(self.ty, "Cannot read inner type");
+                })
+                .ok()?;
+
+            if self.settings.mandatory {
+                TypeKind::MandatoryOption {
+                    ty: self.ty,
+                    inner_ty,
+                }
+            } else {
+                TypeKind::Optional {
+                    ty: self.ty,
+                    inner_ty,
+                }
+            }
+        } else {
+            if self.settings.mandatory {
+                TypeKind::Mandatory { ty: self.ty }
+            } else {
+                unreachable!("Non-optional types are always mandatory")
+            }
+        };
+        Some(type_kind)
+    }
+
+    pub fn mandatory_ident(&self) -> Option<syn::Ident> {
+        self.mandatory_index
+            .map(|idx| format_ident!("{}_{}", MANDATORY_PREFIX, idx))
+    }
+}
+
+impl Default for FieldSettings {
+    fn default() -> FieldSettings {
+        FieldSettings {
+            mandatory: false,
+            input_name: syn::Ident::new("input", Span::call_site()),
+            groups: HashSet::new(),
+        }
+    }
+}
+
+impl FieldSettings {
+    pub fn new() -> FieldSettings {
+        Self::default()
+    }
+
+    pub fn with_attrs(mut self, context: &mut Context, attrs: &Vec<syn::Attribute>) -> Self {
+        attrs.iter().for_each(|attr| {
+            self.handle_attribute(attr)
+                .unwrap_or_else(|err| context.syn_error(err))
+        });
+        self
+    }
+
+    pub fn with_ty(mut self, ty: &syn::Type) -> Self {
+        if !self.mandatory && !is_option(ty) {
+            self.mandatory = true;
+        }
+        self
+    }
+
+    fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         if let Some(ident) = attr.path().get_ident() {
-            if ident != "builder" {
+            if ident != BUILDER {
                 return Ok(());
             }
         }
@@ -71,10 +170,10 @@ impl<'a> FieldInfo<'a> {
                         ..
                     }) = expr
                     {
-                        self.settings.mandatory = value;
+                        self.mandatory = value;
                     }
                 } else {
-                    self.settings.mandatory = true;
+                    self.mandatory = true;
                 }
             }
             // if meta.path == GROUP {
@@ -106,80 +205,19 @@ impl<'a> FieldInfo<'a> {
             Ok(())
         })
     }
-
-    fn post_process(
-        mut self,
-        field: &'a syn::Field,
-        mandatory_index: usize,
-    ) -> Result<Self, syn::Error> {
-        field
-            .attrs
-            .iter()
-            .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        if !self.settings.mandatory {
-            self.settings.mandatory = !is_option(self.ty);
-        }
-
-        if self.settings.mandatory {
-            self.mandatory_index = Some(mandatory_index)
-        }
-
-        Ok(self)
-    }
-
-    pub fn mandatory_status(&self) -> Result<MandatoryStatus, syn::Error> {
-        let inner_type_error = || syn::Error::new_spanned(self.ty, "Cannot read inner type");
-
-        match (self.settings.mandatory, is_option(self.ty)) {
-            (true, true) => Ok(MandatoryStatus::MandatoryOption(
-                inner_type(self.ty).ok_or_else(inner_type_error)?,
-            )),
-            (true, false) => Ok(MandatoryStatus::Mandatory),
-            (false, true) => Ok(MandatoryStatus::Optional(
-                inner_type(self.ty).ok_or_else(inner_type_error)?,
-            )),
-            (false, false) => unreachable!("Non-optional types are always mandatory"),
-        }
-    }
-
-    pub fn mandatory_ident(&self) -> Option<syn::Ident> {
-        self.mandatory_index
-            .map(|idx| format_ident!("{}_{}", MANDATORY_PREFIX, idx))
-    }
-}
-
-impl Default for FieldSettings {
-    fn default() -> FieldSettings {
-        FieldSettings {
-            mandatory: false,
-            input_name: syn::Ident::new("input", Span::call_site()),
-            groups: HashSet::new(),
-        }
-    }
-}
-
-impl FieldSettings {
-    pub fn new() -> FieldSettings {
-        Self::default()
-    }
-
-    fn with(self, attrs: &[syn::Attribute]) -> FieldSettings {
-        attrs.iter().for_each(|attr| {
-            match &attr.meta {
-                syn::Meta::Path(path) => println!("{path:?}"),
-                syn::Meta::List(list) => println!("{list:?}"),
-                syn::Meta::NameValue(n_value) => println!("{n_value:?}"),
-            };
-        });
-        self
-    }
 }
 
 #[derive(Debug)]
-pub enum MandatoryStatus<'a> {
-    Mandatory,
-    MandatoryOption(&'a syn::Type),
-    Optional(&'a syn::Type),
+pub enum TypeKind<'a> {
+    Mandatory {
+        ty: &'a syn::Type,
+    },
+    MandatoryOption {
+        ty: &'a syn::Type,
+        inner_ty: &'a syn::Type,
+    },
+    Optional {
+        ty: &'a syn::Type,
+        inner_ty: &'a syn::Type,
+    },
 }

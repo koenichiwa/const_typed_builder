@@ -187,21 +187,4 @@ mod test {
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
     }
-
-    // #[test]
-    // fn group() {
-    //     #[derive(Debug, Default, PartialEq, Eq, Builder)]
-    //     #[builder(group(foo, single))]
-    //     #[builder(group(baz, exact(1))]
-    //     pub struct Foo {
-    //         #[builder(group = baz)]
-    //         bar: Option<String>,
-    //     }
-
-    //     let expected = Foo {
-    //         bar: Some("Hello world!".to_string()),
-    //     };
-    //     let foo = Foo::builder().bar(Some("Hello world!".to_string())).build();
-    //     assert_eq!(expected, foo);
-    // }
 }

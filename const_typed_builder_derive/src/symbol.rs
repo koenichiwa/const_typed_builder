@@ -6,6 +6,7 @@ pub struct Symbol(&'static str);
 
 pub const MANDATORY: Symbol = Symbol("mandatory");
 pub const GROUP: Symbol = Symbol("group");
+pub const BUILDER: Symbol = Symbol("builder");
 
 impl PartialEq<Symbol> for Ident {
     fn eq(&self, word: &Symbol) -> bool {

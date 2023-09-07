@@ -1,93 +1,97 @@
-use std::collections::{BTreeSet, HashSet};
-
-use syn::Token;
+use std::{borrow::Cow, collections::BTreeSet};
 
 use crate::{
+    context::Context,
     field_info::{FieldInfo, FieldSettings},
-    symbol::GROUP,
 };
 
+type FieldInfos<'a> = Vec<FieldInfo<'a>>;
+
 pub struct StructInfo<'a> {
-    pub name: &'a syn::Ident,
-    pub field_infos: Vec<FieldInfo<'a>>,
-    pub settings: StructSettings,
+    input: &'a syn::DeriveInput,
+    attrs: &'a Vec<syn::Attribute>,
+    vis: &'a syn::Visibility,
+    ident: &'a syn::Ident,
+    generics: &'a syn::Generics,
+    fields: &'a syn::FieldsNamed,
+    field_infos: FieldInfos<'a>,
+    settings: StructSettings,
 }
 
 impl<'a> StructInfo<'a> {
-    pub fn new(
-        ast: &'a syn::DeriveInput,
+    pub fn new(context: &mut Context, ast: &'a syn::DeriveInput) -> Option<Self> {
+        if let syn::DeriveInput {
+            attrs,
+            vis,
+            ident,
+            generics,
+            data:
+                syn::Data::Struct(syn::DataStruct {
+                    fields: syn::Fields::Named(fields),
+                    ..
+                }),
+        } = &ast
+        {
+            let settings = StructSettings::new();
+            let field_infos = Self::parse_fields(context, &settings, fields)?;
+
+            let info = StructInfo {
+                input: ast,
+                attrs,
+                vis,
+                ident,
+                generics,
+                fields,
+                field_infos,
+                settings,
+            };
+            Some(info)
+        } else {
+            context.error_spanned_by(ast, "Builder is only supported for named structs");
+            None
+        }
+    }
+
+    fn parse_fields(
+        context: &mut Context,
+        settings: &StructSettings,
         fields: &'a syn::FieldsNamed,
-    ) -> Result<StructInfo<'a>, syn::Error> {
-        let settings = StructSettings::new();
+    ) -> Option<FieldInfos<'a>> {
+        if fields.named.is_empty() {
+            context.error_spanned_by(fields, "No fields found");
+        }
+
         let mut mandatory_index = 0;
-        let field_infos = fields
+
+        fields
             .named
             .iter()
             .enumerate()
             .map(|(index, field)| {
-                let field = FieldInfo::new(
-                    index,
-                    mandatory_index,
-                    field,
-                    &settings.default_field_settings,
-                )?;
-                if field.mandatory_index.is_some() {
-                    mandatory_index += 1;
-                }
-                Ok(field)
+                FieldInfo::new(context, index, mandatory_index, field, settings).map(|info| {
+                    if info.mandatory() {
+                        mandatory_index += 1;
+                    }
+                    info
+                })
             })
-            .collect::<Result<Vec<FieldInfo>, syn::Error>>()?;
-        StructInfo {
-            name: &ast.ident,
-            field_infos,
-            settings,
-        }
-        .post_process(ast)
+            .collect::<Option<Vec<_>>>()
     }
 
-    fn post_process(mut self, ast: &'a syn::DeriveInput) -> syn::Result<Self> {
-        ast.attrs
-            .iter()
-            .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(self)
+    pub fn name(&self) -> &syn::Ident {
+        self.ident
     }
 
-    fn handle_attribute(&mut self, attr: &syn::Attribute) -> Result<(), syn::Error> {
-        if let Some(ident) = attr.path().get_ident() {
-            if ident != "builder" {
-                return Ok(())
-            }
-        }
-        if let syn::Meta::List(list) = &attr.meta {
-            if list.tokens.is_empty() {
-                return Ok(());
-            }
-        }
+    pub fn builder_name(&self) -> syn::Ident {
+        quote::format_ident!("{}{}", self.ident, self.settings.builder_suffix)
+    }
 
-        attr.parse_nested_meta(|meta| {
-            // if meta.path == GROUP {
-            //     dbg!(&meta.path);
-            //     if meta.input.peek(Token![=]) {
-            //         let value = meta.value()?;
-            //         // if let syn::Expr::Lit(syn::ExprLit {
-            //         //     lit: syn::Lit::Str(lit),
-            //         //     ..
-            //         // }) = &expr
-            //         // {
-            //         //     if !self.settings.groups.insert(lit.value()) {
-            //         //         return Err(syn::Error::new_spanned(
-            //         //             &expr,
-            //         //             "Multiple adds to the same group",
-            //         //         ));
-            //         //     }
-            //         // }
-            //         value;
-            //     }
-            // }
-            Ok(())
-        })
+    pub fn data_name(&self) -> syn::Ident {
+        quote::format_ident!("{}{}", self.ident, self.settings.data_suffix)
+    }
+
+    pub fn field_infos(&self) -> &FieldInfos {
+        &self.field_infos
     }
 
     pub fn mandatory_identifiers(&self) -> BTreeSet<syn::Ident> {
@@ -99,21 +103,27 @@ impl<'a> StructInfo<'a> {
 }
 
 pub struct StructSettings {
+    builder_suffix: String,
+    data_suffix: String,
     default_field_settings: FieldSettings,
-    available_groups: HashSet<String>,
 }
 
 impl Default for StructSettings {
     fn default() -> Self {
         StructSettings {
+            builder_suffix: "Builder".to_string(),
+            data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
-            available_groups: HashSet::new(),
         }
     }
 }
 
 impl StructSettings {
-    fn new() -> StructSettings {
+    fn new() -> Self {
         Default::default()
+    }
+
+    pub fn default_field_settings(&self) -> &FieldSettings {
+        &self.default_field_settings
     }
 }
