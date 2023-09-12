@@ -142,11 +142,9 @@ impl<'a> Generator<'a> {
     fn gen_builder(&self, context: &mut Context) -> Option<TokenStream> {
         let __struct = self.gen_builder_struct();
         let __impl = self.gen_builder_impl(context)?;
-        let funcs = self.gen_builder_group_const_fn();
         let tokens = quote!(
             #__struct
             #__impl
-            #funcs
         );
         Some(tokens)
     }
@@ -282,23 +280,11 @@ impl<'a> Generator<'a> {
         Some(tokens)
     }
 
-    fn gen_builder_group_const_fn(&self) -> TokenStream {
-        let builder_name = self.info.builder_name();
-        let partial_idents = self.gen_builder_const_generic_group_partial_idents();
-        let builder_generics = self.gen_builder_const_generic_idents_final();
-        quote!(
-            impl #partial_idents #builder_name #builder_generics {
-                
-            }
-        )
-    }
-
     fn gen_builder_const_generic_idents(&self) -> TokenStream {
         let mandatory = (0..self.info.mandatory_count()).map(|index| format_ident!("{}_{}", MANDATORY_PREFIX, index));
         let groups = self.info.groups().values().flat_map(|group| {
             (0..group.member_count())
                 .map(|index| group.partial_const_ident(index))
-                // .chain(std::iter::once(group.const_ident()))
         });
         let all = mandatory.chain(groups);
         quote!(<#(const #all: bool),*>)
@@ -308,14 +294,7 @@ impl<'a> Generator<'a> {
         let iter = std::iter::repeat(syn::LitBool::new(value, proc_macro2::Span::call_site()).to_token_stream());
         let mandatory = iter.clone().take(self.info.mandatory_count());
         let groups = self.info.groups().values().flat_map(|group| {
-            let variables = iter.clone().take(group.member_count());
-            let function_name = group.function_ident();
-            let function_vars = variables.clone();
-            let number = group.expected_count();
-            let modname = format_ident!("{}Mod", self.info.name());
-            let function_call = quote!({#modname::#function_name(&[#(#function_vars),*], #number)});
-            // variables.chain(std::iter::once(function_call))
-            variables
+            iter.clone().take(group.member_count())
         });
         let all = mandatory.chain(groups);
         quote!(<#(#all),*>)
@@ -330,21 +309,14 @@ impl<'a> Generator<'a> {
             }
         });
         let groups = self.info.groups().values().flat_map(|group| {
-            let variables = (0..group.member_count())
+            (0..group.member_count())
                 .map(|index| {
                     if field_info.get_group_index(group) == Some(index) {
                         syn::LitBool::new(value, proc_macro2::Span::call_site()).into_token_stream()
                     } else {
                         group.partial_const_ident(index).into_token_stream()
                     }
-                });
-            let function_name = group.function_ident();
-            let function_vars = variables.clone();
-            let number = group.expected_count();
-            let modname = format_ident!("{}Mod", self.info.name());
-            let function_call = quote!({#modname::#function_name(&[#(#function_vars),*], #number)});
-            // variables.chain(std::iter::once(function_call))
-            variables
+                })
         });
         let all = mandatory.chain(groups);
         quote!(<#(#all),*>)
@@ -379,7 +351,6 @@ impl<'a> Generator<'a> {
         let groups = self.info.groups().values().flat_map(|group| {
             (0..group.member_count())
                 .map(|index| group.partial_const_ident(index).to_token_stream())
-                // .chain(std::iter::once(value.clone()))
         });
         let all = mandatory.chain(groups);
         quote!(<#(#all),*>)
@@ -400,9 +371,10 @@ impl<'a> Generator<'a> {
             let function_call = group.function_ident();
             let count = group.expected_count();
             let name = group.name();
+            let err_text = format!("Group {name} not verified");
             quote!(
                 if !Self::#function_call(&[#(#partials),*], #count) {
-                    panic!("Group #name not verified");
+                    panic!(#err_text);
                 }
             )
         });
