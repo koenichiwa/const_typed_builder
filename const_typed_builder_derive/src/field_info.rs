@@ -4,12 +4,52 @@ use proc_macro2::Span;
 use syn::{ExprPath, Token};
 
 use crate::{
-    context::Context,
     group_info::GroupInfo,
     struct_info::StructSettings,
     symbol::{BUILDER, GROUP, MANDATORY},
-    util::{inner_type, is_option}
+    util::{inner_type, is_option},
 };
+
+enum FieldInfoKind<'a> {
+    Optional { ident: &'a syn::Ident, ty: &'a syn::Type, inner_ty: &'a syn::Type, settings: FieldSettings },
+    Mandatory { ident: &'a syn::Ident, ty: &'a syn::Type, inner_ty: Option<&'a syn::Type>, settings: FieldSettings, mandatory_index: usize},
+    Grouped { ident: &'a syn::Ident, ty: &'a syn::Type, inner_ty: &'a syn::Type, settings: FieldSettings, group_indices: HashMap<GroupInfo, usize>,}
+}
+
+impl <'a> FieldInfoKind <'a> {
+    pub fn new(
+        field: &'a syn::Field,
+        struct_settings: &StructSettings,
+    ) -> syn::Result<Self> {
+        if let syn::Field {
+            attrs,
+            vis,
+            mutability,
+            ident: Some(ident),
+            ty,
+            ..
+        } = field
+        {
+            let settings = struct_settings
+                .default_field_settings()
+                .clone()
+                .with_ty(ty)
+                .with_attrs(attrs)?;
+
+            let info = if settings.mandatory {
+                Self::Mandatory { ident, ty, inner_ty: inner_type(ty), settings, mandatory_index: 0 }
+            } else if !settings.groups.is_empty() {
+                Self::Grouped { ident, ty, inner_ty: inner_type(ty).ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?, settings, group_indices: HashMap::new() }
+            } else {
+                Self::Optional { ident , ty, inner_ty: inner_type(ty).ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?, settings }
+            };
+
+            Ok(info)
+        } else {
+            Err(syn::Error::new_spanned(field, "Unnamed fields are not supported"))
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct FieldInfo<'a> {
@@ -18,7 +58,6 @@ pub struct FieldInfo<'a> {
     vis: &'a syn::Visibility,
     ident: &'a syn::Ident,
     ty: &'a syn::Type,
-    index: usize,
     mandatory_index: Option<usize>,
     group_indices: HashMap<GroupInfo, usize>,
     settings: FieldSettings,
@@ -33,11 +72,9 @@ pub struct FieldSettings {
 
 impl<'a> FieldInfo<'a> {
     pub fn new(
-        context: &mut Context,
-        index: usize,
         field: &'a syn::Field,
         struct_settings: &StructSettings,
-    ) -> Option<Self> {
+    ) -> syn::Result<Self> {
         if let syn::Field {
             attrs,
             vis,
@@ -51,7 +88,7 @@ impl<'a> FieldInfo<'a> {
                 .default_field_settings()
                 .clone()
                 .with_ty(ty)
-                .with_attrs(context, attrs)?;
+                .with_attrs(attrs)?;
 
             let info = FieldInfo {
                 field,
@@ -59,16 +96,14 @@ impl<'a> FieldInfo<'a> {
                 vis,
                 ident,
                 ty,
-                index,
                 mandatory_index: None,
                 group_indices: HashMap::new(), // Set by struct_info
                 settings,
             };
 
-            Some(info)
+            Ok(info)
         } else {
-            context.error_spanned_by(field, "Cannot parse field");
-            None
+            Err(syn::Error::new_spanned(field, "Unnamed fields are not supported"))
         }
     }
 
@@ -103,9 +138,7 @@ impl<'a> FieldInfo<'a> {
     pub fn type_kind(&self) -> syn::Result<TypeKind> {
         let type_kind = if is_option(self.ty) {
             let inner_ty = inner_type(self.ty)
-                .ok_or_else(|| {
-                    syn::Error::new_spanned(self.ty, "Cannot read inner type")
-                })?;
+                .ok_or_else(|| syn::Error::new_spanned(self.ty, "Cannot read inner type"))?;
 
             if !self.group_names().is_empty() {
                 TypeKind::GroupOption {
@@ -155,19 +188,13 @@ impl FieldSettings {
 
     pub fn with_attrs(
         mut self,
-        context: &mut Context,
         attrs: &Vec<syn::Attribute>,
-    ) -> Option<Self> {
-        if let Err(err) = attrs
+    ) -> syn::Result<Self> {
+        attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()
-        {
-            context.syn_error(err);
-            None
-        } else {
-            Some(self)
-        }
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(self)
     }
 
     pub fn with_ty(mut self, ty: &syn::Type) -> Self {

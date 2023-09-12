@@ -4,13 +4,13 @@ use quote::format_ident;
 
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
-    name: String,
+    name: syn::Ident,
     member_count: usize,
     group_type: GroupType,
 }
 
-impl GroupInfo {
-    pub fn new(name: String, group_type: GroupType) -> Self {
+impl  GroupInfo {
+    pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
             member_count: 0,
@@ -18,7 +18,7 @@ impl GroupInfo {
         }
     }
 
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &syn::Ident {
         &self.name
     }
 
@@ -38,12 +38,8 @@ impl GroupInfo {
         self.member_count += 1;
     }
 
-    pub fn const_ident(&self) -> syn::Ident {
-        format_ident!("{}", &self.name.to_ascii_uppercase())
-    }
-
     pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
-        format_ident!("{}_{}", &self.name.to_ascii_uppercase(), index)
+        format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
     }
 
     pub fn function_ident(&self) -> syn::Ident {
@@ -55,17 +51,17 @@ impl GroupInfo {
     }
 }
 
-impl Eq for GroupInfo {}
+impl  Eq for GroupInfo {}
 
-impl PartialEq for GroupInfo {
+impl  PartialEq for GroupInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+        self.name.to_string() == other.name.to_string()
     }
 }
 
-impl Hash for GroupInfo {
+impl  Hash for GroupInfo {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
+        self.name.to_string().hash(state);
     }
 }
 

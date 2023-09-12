@@ -4,7 +4,7 @@ use quote::{format_ident, quote, ToTokens};
 use crate::{
     field_info::{FieldInfo, TypeKind},
     struct_info::StructInfo,
-    MANDATORY_PREFIX, StreamResult,
+    StreamResult, MANDATORY_PREFIX,
 };
 
 pub struct Generator<'a> {
@@ -303,7 +303,7 @@ impl<'a> Generator<'a> {
     ) -> TokenStream {
         let mandatory = (0..self.info.mandatory_count()).map(|index| {
             if field_info.mandatory_index() == Some(index) {
-                syn::LitBool::new(value, proc_macro2::Span::call_site()).into_token_stream()
+                syn::LitBool::new(value, field_info.name().span()).into_token_stream()
             } else {
                 format_ident!("{}_{}", MANDATORY_PREFIX, index).into_token_stream()
             }
@@ -311,7 +311,7 @@ impl<'a> Generator<'a> {
         let groups = self.info.groups().values().flat_map(|group| {
             (0..group.member_count()).map(|index| {
                 if field_info.get_group_index(group) == Some(index) {
-                    syn::LitBool::new(value, proc_macro2::Span::call_site()).into_token_stream()
+                    syn::LitBool::new(value, group.name().span()).into_token_stream()
                 } else {
                     group.partial_const_ident(index).into_token_stream()
                 }

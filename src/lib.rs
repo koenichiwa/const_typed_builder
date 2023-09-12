@@ -5,7 +5,7 @@ mod test {
     use const_typed_builder_derive::Builder;
 
     #[test]
-    fn simple() {
+    fn single_mandatory() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
         pub struct Foo {
             bar: String,
@@ -237,5 +237,182 @@ mod test {
         // };
         // let foo = Foo::builder().bar("Hello world!".to_string()).qux("Hello world!".to_string()).build();
         // assert_eq!(expected, foo);
+    }
+
+    #[test]
+    fn group_and_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(quz = single)]
+        pub struct Foo {
+            #[builder(group = quz)]
+            bar: Option<String>,
+            #[builder(group = quz)]
+            baz: Option<String>,
+            qux: String,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello".to_string()),
+            baz: None,
+            qux: "world!".to_string(),
+        };
+
+        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: None,
+            baz: Some("Hello".to_string()),
+            qux: "world!".to_string(),
+        };
+
+        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().baz("Hello".to_string()).build();
+        // let foo = Foo::builder().bar("Hello".to_string()).baz("Hello".to_string()).qux("world!".to_string()).build();
+    }
+
+    #[test]
+    fn group_and_option_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(quz = single)]
+        pub struct Foo {
+            #[builder(group = quz)]
+            bar: Option<String>,
+            #[builder(group = quz)]
+            baz: Option<String>,
+            #[builder(mandatory)]
+            qux: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello".to_string()),
+            baz: None,
+            qux: Some("world!".to_string()),
+        };
+
+        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: None,
+            baz: Some("Hello".to_string()),
+            qux: Some("world!".to_string()),
+        };
+
+        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().baz("Hello".to_string()).build();
+        // let foo = Foo::builder().bar("Hello".to_string()).baz("Hello".to_string()).qux("world!".to_string()).build();
+
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(quz = single)]
+        pub struct Nope {
+            #[builder(group = quz)]
+            bar: Option<String>,
+            #[builder(group = quz)]
+            #[builder(mandatory)]
+            baz: Option<String>,
+            #[builder(mandatory)]
+            qux: Option<String>,
+        }
+    }
+
+    #[test]
+    fn group_at_least() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(quz = at_least(2))]
+        pub struct Foo {
+            #[builder(group = quz)]
+            bar: Option<String>,
+            #[builder(group = quz)]
+            baz: Option<String>,
+            #[builder(group = quz)]
+            qux: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello".to_string()),
+            baz: None,
+            qux: Some("world!".to_string()),
+        };
+
+        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: None,
+            baz: Some("Hello".to_string()),
+            qux: Some("world!".to_string()),
+        };
+
+        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: Some("Hello".to_string()),
+            baz: Some("world".to_string()),
+            qux: Some("!".to_string()),
+        };
+
+        let foo = Foo::builder().qux("!".to_string()).baz("world".to_string()).bar("Hello".to_string()).build();
+        assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().baz("Hello".to_string()).build();
+        // let foo = Foo::builder().bar("Hello".to_string()).bar("Hello".to_string()).qux("world!".to_string()).build();
+    }
+
+
+    #[test]
+    fn group_at_most() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(quz = at_most(2))]
+        pub struct Foo {
+            #[builder(group = quz)]
+            bar: Option<String>,
+            #[builder(group = quz)]
+            baz: Option<String>,
+            #[builder(group = quz)]
+            qux: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello".to_string()),
+            baz: None,
+            qux: Some("world!".to_string()),
+        };
+
+        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: None,
+            baz: Some("Hello".to_string()),
+            qux: Some("world!".to_string()),
+        };
+
+        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: None,
+            baz: Some("Hello world!".to_string()),
+            qux: None
+        };
+        let foo = Foo::builder().baz("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        // let expected = Foo {
+        //     bar: Some("Hello".to_string()),
+        //     baz: Some("world".to_string()),
+        //     qux: Some("!".to_string()),
+        // };
+
+        // let foo = Foo::builder().qux("!".to_string()).baz("world".to_string()).bar("Hello".to_string()).build();
+        // assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().bar("Hello".to_string()).bar("Hello".to_string()).qux("world!".to_string()).build();
     }
 }

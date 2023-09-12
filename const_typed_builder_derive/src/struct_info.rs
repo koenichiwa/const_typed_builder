@@ -22,7 +22,7 @@ pub struct StructInfo<'a> {
 }
 
 impl<'a> StructInfo<'a> {
-    pub fn new(context: &mut Context, ast: &'a syn::DeriveInput) -> Option<Self> {
+    pub fn new(context: &mut Context, ast: &'a syn::DeriveInput) -> syn::Result<Self> {
         if let syn::DeriveInput {
             attrs,
             vis,
@@ -35,8 +35,8 @@ impl<'a> StructInfo<'a> {
                 }),
         } = &ast
         {
-            let mut settings = StructSettings::new().with_attrs(context, attrs)?;
-            let field_infos = Self::parse_fields(context, &mut settings, fields)?;
+            let settings = StructSettings::new().with_attrs(attrs)?;
+            let (field_infos, settings) = Self::parse_fields(settings, fields)?;
 
             let info = StructInfo {
                 input: ast,
@@ -48,56 +48,54 @@ impl<'a> StructInfo<'a> {
                 field_infos,
                 settings,
             };
-            Some(info)
+            Ok(info)
         } else {
-            context.error_spanned_by(ast, "Builder is only supported for named structs");
-            None
+            Err(syn::Error::new_spanned(ast, "Builder is only supported for named structs"))
         }
     }
 
     fn parse_fields(
-        context: &mut Context,
-        settings: &mut StructSettings,
+        settings: StructSettings,
         fields: &'a syn::FieldsNamed,
-    ) -> Option<FieldInfos<'a>> {
+    ) -> syn::Result<(FieldInfos<'a>, StructSettings)> {
         if fields.named.is_empty() {
-            context.error_spanned_by(fields, "No fields found");
+            return Err(syn::Error::new_spanned(fields, "No fields found"));
         }
-
         fields
             .named
             .iter()
-            .enumerate()
-            .map(|(index, field)| FieldInfo::new(context, index, field, settings))
-            .collect::<Option<Vec<_>>>()
-            .map(|infos| Self::fields_with_indices(infos, settings))
+            .map(|field| FieldInfo::new( field, &settings))
+            .collect::<syn::Result<Vec<_>>>()
+            .map_or(Err(syn::Error::new_spanned(fields, "No fields found")), |infos| Self::fields_with_indices(infos, settings))
     }
 
     fn fields_with_indices(
         fields: FieldInfos<'a>,
-        settings: &mut StructSettings,
-    ) -> FieldInfos<'a> {
-        fields
+        mut settings: StructSettings,
+    ) -> syn::Result<(FieldInfos<'a>, StructSettings)> {
+        let infos = fields
             .into_iter()
             .map(|mut info| {
                 if !&info.group_names().is_empty() {
-                    info.group_names().clone().iter().for_each(|group_name| {
+                    info.group_names().clone().iter().map(|group_name| {
                         let group = settings
                             .groups
                             .get_mut(group_name.as_str())
-                            .expect("GROUP NAME NOT FOUND");
+                            .ok_or(syn::Error::new_spanned(info.name(), format!("Group {} not found", group_name.as_str())))?;
                         info.set_group_index(group.clone(), group.member_count());
                         group.incr_member_count();
-                    })
+                        Ok(())
+                    }).collect::<syn::Result<()>>()?;
                 }
 
                 if info.mandatory() {
                     info.set_mandatory_index(settings.mandatory_count);
                     settings.mandatory_count += 1;
                 }
-                info
+                Ok(info)
             })
-            .collect()
+            .collect::<syn::Result<Vec<_>>>()?;
+        Ok((infos, settings))
     }
 
     pub fn name(&self) -> &syn::Ident {
@@ -134,7 +132,7 @@ pub struct StructSettings {
     mandatory_count: usize,
 }
 
-impl Default for StructSettings {
+impl  Default for StructSettings {
     fn default() -> Self {
         StructSettings {
             builder_suffix: "Builder".to_string(),
@@ -157,19 +155,13 @@ impl StructSettings {
 
     pub fn with_attrs(
         mut self,
-        context: &mut Context,
         attrs: &Vec<syn::Attribute>,
-    ) -> Option<Self> {
-        if let Err(err) = attrs
+    ) -> syn::Result<Self> {
+        attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()
-        {
-            context.syn_error(err);
-            None
-        } else {
-            Some(self)
-        }
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(self)
     }
 
     fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
@@ -185,18 +177,17 @@ impl StructSettings {
     }
 
     fn handle_group_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        if let syn::Meta::List(list) = &attr.meta {
-            if list.tokens.is_empty() {
-                return Ok(());
-            }
+        let list = attr.meta.require_list()?;
+        if list.tokens.is_empty() {
+            return Ok(());
         }
 
         attr.parse_nested_meta(|meta| {
             let group_name = meta
                 .path
                 .get_ident()
-                .ok_or_else(|| syn::Error::new_spanned(&meta.path, "Can't parse group name"))?
-                .to_string();
+                .ok_or_else(|| syn::Error::new_spanned(&attr.meta, "Can't parse group name"))?
+                .clone();
 
             let expr: syn::Expr = meta.value()?.parse()?;
 
@@ -250,7 +241,7 @@ impl StructSettings {
 
             self.groups.insert(
                 group_name.to_string(),
-                GroupInfo::new(group_name.to_string(), group_type?),
+                GroupInfo::new(group_name, group_type?),
             );
             Ok(())
         })

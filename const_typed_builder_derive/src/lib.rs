@@ -5,7 +5,8 @@ mod group_info;
 mod struct_info;
 mod symbol;
 mod util;
-
+mod field_generator;
+mod group_generator;
 use context::Context;
 use generator::Generator;
 use proc_macro2::TokenStream;
@@ -27,11 +28,7 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
 fn impl_my_derive(ast: &syn::DeriveInput) -> StreamResult {
     let mut context = Context::new();
-    let struct_info = StructInfo::new(&mut context, ast).ok_or_else(|| {
-        context
-            .get_error()
-            .unwrap_or_else(|| syn::Error::new_spanned(ast, "Unknown error during parsing"))
-    })?;
+    let struct_info = StructInfo::new(&mut context, ast)?;
     let generator = Generator::new(struct_info);
     generator.generate()
 }
