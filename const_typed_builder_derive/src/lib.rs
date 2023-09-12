@@ -1,11 +1,11 @@
+// #![allow(unused, unused_variables, dead_code)]
 mod field_info;
 mod generator;
 mod group_info;
 mod struct_info;
 mod symbol;
 mod util;
-mod field_generator;
-mod group_generator;
+
 use generator::Generator;
 use proc_macro2::TokenStream;
 use struct_info::StructInfo;
@@ -26,6 +26,6 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
 fn impl_my_derive(ast: &syn::DeriveInput) -> StreamResult {
     let struct_info = StructInfo::new(ast)?;
-    let generator = Generator::new(struct_info);
+    let generator = Generator::new(&struct_info);
     generator.generate()
 }

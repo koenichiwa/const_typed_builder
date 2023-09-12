@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use quote::format_ident;
+
 use crate::{
     field_info::{FieldInfo, FieldSettings},
     group_info::{GroupInfo, GroupType},
@@ -11,13 +13,11 @@ type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 #[derive(Debug)]
 pub struct StructInfo<'a> {
     input: &'a syn::DeriveInput,
-    attrs: &'a Vec<syn::Attribute>,
-    vis: &'a syn::Visibility,
     ident: &'a syn::Ident,
-    generics: &'a syn::Generics,
-    fields: &'a syn::FieldsNamed,
+    builder_ident: syn::Ident,
+    data_ident: syn::Ident,
+    groups: HashMap<String, GroupInfo>,
     field_infos: FieldInfos<'a>,
-    settings: StructSettings,
 }
 
 impl<'a> StructInfo<'a> {
@@ -34,91 +34,58 @@ impl<'a> StructInfo<'a> {
                 }),
         } = &ast
         {
-            let settings = StructSettings::new().with_attrs(attrs)?;
-            let (field_infos, settings) = Self::parse_fields(settings, fields)?;
+            let mut settings = StructSettings::new().with_attrs(attrs)?;
+            let field_infos = Self::parse_fields(&mut settings, fields)?;
 
             let info = StructInfo {
                 input: ast,
-                attrs,
-                vis,
                 ident,
-                generics,
-                fields,
+                builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
+                data_ident: format_ident!("{}{}", ident, settings.data_suffix),
+                groups: settings.groups,
                 field_infos,
-                settings,
             };
             Ok(info)
         } else {
-            Err(syn::Error::new_spanned(ast, "Builder is only supported for named structs"))
+            Err(syn::Error::new_spanned(
+                ast,
+                "Builder is only supported for named structs",
+            ))
         }
     }
 
     fn parse_fields(
-        settings: StructSettings,
+        settings: &mut StructSettings,
         fields: &'a syn::FieldsNamed,
-    ) -> syn::Result<(FieldInfos<'a>, StructSettings)> {
+    ) -> syn::Result<FieldInfos<'a>> {
         if fields.named.is_empty() {
             return Err(syn::Error::new_spanned(fields, "No fields found"));
         }
         fields
             .named
             .iter()
-            .map(|field| FieldInfo::new( field, &settings))
+            .map(|field| FieldInfo::new(field, settings))
             .collect::<syn::Result<Vec<_>>>()
-            .map_or(Err(syn::Error::new_spanned(fields, "No fields found")), |infos| Self::fields_with_indices(infos, settings))
-    }
-
-    fn fields_with_indices(
-        fields: FieldInfos<'a>,
-        mut settings: StructSettings,
-    ) -> syn::Result<(FieldInfos<'a>, StructSettings)> {
-        let infos = fields
-            .into_iter()
-            .map(|mut info| {
-                if !&info.group_names().is_empty() {
-                    info.group_names().clone().iter().map(|group_name| {
-                        let group = settings
-                            .groups
-                            .get_mut(group_name.as_str())
-                            .ok_or(syn::Error::new_spanned(info.name(), format!("Group {} not found", group_name.as_str())))?;
-                        info.set_group_index(group.clone(), group.member_count());
-                        group.incr_member_count();
-                        Ok(())
-                    }).collect::<syn::Result<()>>()?;
-                }
-
-                if info.mandatory() {
-                    info.set_mandatory_index(settings.mandatory_count);
-                    settings.mandatory_count += 1;
-                }
-                Ok(info)
-            })
-            .collect::<syn::Result<Vec<_>>>()?;
-        Ok((infos, settings))
     }
 
     pub fn name(&self) -> &syn::Ident {
         self.ident
     }
 
-    pub fn builder_name(&self) -> syn::Ident {
-        quote::format_ident!("{}{}", self.ident, self.settings.builder_suffix)
+    pub fn builder_name(&self) -> &syn::Ident {
+        &self.builder_ident
     }
 
-    pub fn data_name(&self) -> syn::Ident {
-        quote::format_ident!("{}{}", self.ident, self.settings.data_suffix)
+    pub fn data_name(&self) -> &syn::Ident {
+        &self.data_ident
     }
 
     pub fn field_infos(&self) -> &FieldInfos {
         &self.field_infos
     }
 
-    pub fn mandatory_count(&self) -> usize {
-        self.settings.mandatory_count
-    }
-
     pub fn groups(&self) -> &HashMap<String, GroupInfo> {
-        &self.settings.groups
+        &self.groups
     }
 }
 
@@ -131,7 +98,7 @@ pub struct StructSettings {
     mandatory_count: usize,
 }
 
-impl  Default for StructSettings {
+impl Default for StructSettings {
     fn default() -> Self {
         StructSettings {
             builder_suffix: "Builder".to_string(),
@@ -148,14 +115,25 @@ impl StructSettings {
         Default::default()
     }
 
+    pub fn next_mandatory(&mut self) -> usize {
+        self.mandatory_count += 1;
+        self.mandatory_count - 1
+    }
+
+    pub fn next_group_index(&mut self, group_name: &String) -> Option<usize> {
+        let res = self.groups.get_mut(group_name)?.next_index();
+        Some(res)
+    }
+
+    pub fn group_by_name(&self, group_name: &String) -> Option<&GroupInfo> {
+        self.groups.get(group_name)
+    }
+
     pub fn default_field_settings(&self) -> &FieldSettings {
         &self.default_field_settings
     }
 
-    pub fn with_attrs(
-        mut self,
-        attrs: &Vec<syn::Attribute>,
-    ) -> syn::Result<Self> {
+    pub fn with_attrs(mut self, attrs: &Vec<syn::Attribute>) -> syn::Result<Self> {
         attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))

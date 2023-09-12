@@ -9,7 +9,7 @@ pub struct GroupInfo {
     group_type: GroupType,
 }
 
-impl  GroupInfo {
+impl GroupInfo {
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
@@ -34,8 +34,9 @@ impl  GroupInfo {
         self.member_count
     }
 
-    pub fn incr_member_count(&mut self) {
+    pub fn next_index(&mut self) -> usize{
         self.member_count += 1;
+        self.member_count - 1
     }
 
     pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
@@ -49,17 +50,21 @@ impl  GroupInfo {
             GroupType::AtMost(_) => format_ident!("{}", "at_most"),
         }
     }
+
+    pub fn group_type(&self) -> &GroupType {
+        &self.group_type
+    }
 }
 
-impl  Eq for GroupInfo {}
+impl Eq for GroupInfo {}
 
-impl  PartialEq for GroupInfo {
+impl PartialEq for GroupInfo {
     fn eq(&self, other: &Self) -> bool {
         self.name.to_string() == other.name.to_string()
     }
 }
 
-impl  Hash for GroupInfo {
+impl Hash for GroupInfo {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.to_string().hash(state);
     }

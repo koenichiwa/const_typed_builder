@@ -257,7 +257,10 @@ mod test {
             qux: "world!".to_string(),
         };
 
-        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        let foo = Foo::builder()
+            .bar("Hello".to_string())
+            .qux("world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let expected = Foo {
@@ -266,7 +269,10 @@ mod test {
             qux: "world!".to_string(),
         };
 
-        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        let foo = Foo::builder()
+            .qux("world!".to_string())
+            .baz("Hello".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         // let foo = Foo::builder().baz("Hello".to_string()).build();
@@ -292,7 +298,10 @@ mod test {
             qux: Some("world!".to_string()),
         };
 
-        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        let foo = Foo::builder()
+            .bar("Hello".to_string())
+            .qux("world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let expected = Foo {
@@ -301,7 +310,10 @@ mod test {
             qux: Some("world!".to_string()),
         };
 
-        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        let foo = Foo::builder()
+            .qux("world!".to_string())
+            .baz("Hello".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         // let foo = Foo::builder().baz("Hello".to_string()).build();
@@ -339,7 +351,10 @@ mod test {
             qux: Some("world!".to_string()),
         };
 
-        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        let foo = Foo::builder()
+            .bar("Hello".to_string())
+            .qux("world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let expected = Foo {
@@ -348,7 +363,10 @@ mod test {
             qux: Some("world!".to_string()),
         };
 
-        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        let foo = Foo::builder()
+            .qux("world!".to_string())
+            .baz("Hello".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let expected = Foo {
@@ -357,13 +375,16 @@ mod test {
             qux: Some("!".to_string()),
         };
 
-        let foo = Foo::builder().qux("!".to_string()).baz("world".to_string()).bar("Hello".to_string()).build();
+        let foo = Foo::builder()
+            .qux("!".to_string())
+            .baz("world".to_string())
+            .bar("Hello".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         // let foo = Foo::builder().baz("Hello".to_string()).build();
         // let foo = Foo::builder().bar("Hello".to_string()).bar("Hello".to_string()).qux("world!".to_string()).build();
     }
-
 
     #[test]
     fn group_at_most() {
@@ -384,7 +405,10 @@ mod test {
             qux: Some("world!".to_string()),
         };
 
-        let foo = Foo::builder().bar("Hello".to_string()).qux("world!".to_string()).build();
+        let foo = Foo::builder()
+            .bar("Hello".to_string())
+            .qux("world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let expected = Foo {
@@ -393,13 +417,16 @@ mod test {
             qux: Some("world!".to_string()),
         };
 
-        let foo = Foo::builder().qux("world!".to_string()).baz("Hello".to_string()).build();
+        let foo = Foo::builder()
+            .qux("world!".to_string())
+            .baz("Hello".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let expected = Foo {
             bar: None,
             baz: Some("Hello world!".to_string()),
-            qux: None
+            qux: None,
         };
         let foo = Foo::builder().baz("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
