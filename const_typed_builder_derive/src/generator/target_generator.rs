@@ -10,9 +10,12 @@ pub struct TargetGenerator<'a> {
     builder_name: &'a syn::Ident,
 }
 
-impl <'a> TargetGenerator<'a> {
-
-    pub fn new(field_gen: FieldGenerator<'a>, target_name: &'a syn::Ident, builder_name: &'a syn::Ident) -> Self {
+impl<'a> TargetGenerator<'a> {
+    pub fn new(
+        field_gen: FieldGenerator<'a>,
+        target_name: &'a syn::Ident,
+        builder_name: &'a syn::Ident,
+    ) -> Self {
         Self {
             field_gen,
             target_name,

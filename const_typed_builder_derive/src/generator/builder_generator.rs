@@ -14,13 +14,13 @@ pub struct BuilderGenerator<'a> {
     data_name: &'a syn::Ident,
 }
 
-impl <'a> BuilderGenerator<'a> {
+impl<'a> BuilderGenerator<'a> {
     pub fn new(
         group_gen: GroupGenerator<'a>,
         field_gen: FieldGenerator<'a>,
         target_name: &'a syn::Ident,
         builder_name: &'a syn::Ident,
-        data_name: &'a syn::Ident
+        data_name: &'a syn::Ident,
     ) -> Self {
         Self {
             group_gen,

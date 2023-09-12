@@ -1,14 +1,15 @@
 // #![allow(unused, unused_variables, dead_code)]
-mod field_info;
+// mod field_info;
 mod generator;
-mod group_info;
-mod struct_info;
+// mod group_info;
+// mod struct_info;
+mod info;
 mod symbol;
 mod util;
 
 use generator::Generator;
+use info::StructInfo;
 use proc_macro2::TokenStream;
-use struct_info::StructInfo;
 use syn::DeriveInput;
 
 type StreamResult = syn::Result<TokenStream>;

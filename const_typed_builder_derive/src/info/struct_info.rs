@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
+use super::field_info::{FieldInfo, FieldSettings};
+use super::group_info::{GroupInfo, GroupType};
 use quote::format_ident;
 
-use crate::{
-    field_info::{FieldInfo, FieldSettings},
-    group_info::{GroupInfo, GroupType},
-    symbol::GROUP,
-};
+use crate::symbol::GROUP;
 
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 

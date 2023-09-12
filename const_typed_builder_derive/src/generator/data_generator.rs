@@ -10,8 +10,12 @@ pub struct DataGenerator<'a> {
     data_name: &'a syn::Ident,
 }
 
-impl <'a> DataGenerator <'a> {
-    pub fn new(field_gen: FieldGenerator<'a>, target_name: &'a syn::Ident, data_name: &'a syn::Ident) -> Self {
+impl<'a> DataGenerator<'a> {
+    pub fn new(
+        field_gen: FieldGenerator<'a>,
+        target_name: &'a syn::Ident,
+        data_name: &'a syn::Ident,
+    ) -> Self {
         Self {
             field_gen,
             target_name,

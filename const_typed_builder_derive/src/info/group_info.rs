@@ -34,7 +34,7 @@ impl GroupInfo {
         self.member_count
     }
 
-    pub fn next_index(&mut self) -> usize{
+    pub fn next_index(&mut self) -> usize {
         self.member_count += 1;
         self.member_count - 1
     }

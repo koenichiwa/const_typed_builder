@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
+use super::{group_info::GroupInfo, struct_info::StructSettings};
 use proc_macro2::Span;
 use syn::{ExprPath, Token};
 
 use crate::{
-    group_info::GroupInfo,
-    struct_info::StructSettings,
     symbol::{BUILDER, GROUP, MANDATORY},
     util::{inner_type, is_option},
 };
@@ -35,15 +34,22 @@ impl<'a> FieldInfo<'a> {
                 .with_attrs(attrs)?;
 
             let info = if settings.mandatory {
-                Self::Mandatory(
-                    FieldInfoMandatory::new(field, ident, struct_settings.next_mandatory())?
-                )
+                Self::Mandatory(FieldInfoMandatory::new(
+                    field,
+                    ident,
+                    struct_settings.next_mandatory(),
+                )?)
             } else if !settings.groups.is_empty() {
                 let mut group_indices = HashMap::with_capacity(settings.groups.len());
                 for group_name in settings.groups {
                     group_indices.insert(
-                        struct_settings.group_by_name(&group_name).ok_or(syn::Error::new_spanned(field, "Can't find group"))?.clone(), 
-                        struct_settings.next_group_index(&group_name).ok_or(syn::Error::new_spanned(field, "Can't find group"))?
+                        struct_settings
+                            .group_by_name(&group_name)
+                            .ok_or(syn::Error::new_spanned(field, "Can't find group"))?
+                            .clone(),
+                        struct_settings
+                            .next_group_index(&group_name)
+                            .ok_or(syn::Error::new_spanned(field, "Can't find group"))?,
                     );
                 }
                 Self::Grouped(FieldInfoGrouped::new(field, ident, group_indices)?)
@@ -76,15 +82,14 @@ pub struct FieldInfoOptional<'a> {
     inner_ty: &'a syn::Type,
 }
 
-impl <'a> FieldInfoOptional<'a> {
+impl<'a> FieldInfoOptional<'a> {
     fn new(field: &'a syn::Field, ident: &'a syn::Ident) -> syn::Result<Self> {
-        Ok(
-            Self {
-                field,
-                ident,
-                inner_ty: inner_type(&field.ty).ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
-            }
-        )
+        Ok(Self {
+            field,
+            ident,
+            inner_ty: inner_type(&field.ty)
+                .ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
+        })
     }
 
     pub fn ty(&self) -> &syn::Type {
@@ -108,16 +113,18 @@ pub struct FieldInfoMandatory<'a> {
     mandatory_index: usize,
 }
 
-impl <'a> FieldInfoMandatory<'a> {
-    fn new(field: &'a syn::Field, ident: &'a syn::Ident, mandatory_index: usize) -> syn::Result<Self> {
-        Ok(
-            Self {
-                field,
-                ident,
-                inner_ty: inner_type(&field.ty),
-                mandatory_index,
-            }
-        )
+impl<'a> FieldInfoMandatory<'a> {
+    fn new(
+        field: &'a syn::Field,
+        ident: &'a syn::Ident,
+        mandatory_index: usize,
+    ) -> syn::Result<Self> {
+        Ok(Self {
+            field,
+            ident,
+            inner_ty: inner_type(&field.ty),
+            mandatory_index,
+        })
     }
 
     pub fn ty(&self) -> &syn::Type {
@@ -149,16 +156,19 @@ pub struct FieldInfoGrouped<'a> {
     group_indices: HashMap<GroupInfo, usize>,
 }
 
-impl <'a> FieldInfoGrouped<'a> {
-    fn new(field: &'a syn::Field, ident: &'a syn::Ident, group_indices: HashMap<GroupInfo, usize>) -> syn::Result<Self> {
-        Ok(
-            Self {
-                field,
-                ident,
-                inner_ty: inner_type(&field.ty).ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
-                group_indices,
-            }
-        )
+impl<'a> FieldInfoGrouped<'a> {
+    fn new(
+        field: &'a syn::Field,
+        ident: &'a syn::Ident,
+        group_indices: HashMap<GroupInfo, usize>,
+    ) -> syn::Result<Self> {
+        Ok(Self {
+            field,
+            ident,
+            inner_ty: inner_type(&field.ty)
+                .ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
+            group_indices,
+        })
     }
 
     pub fn ty(&self) -> &syn::Type {
@@ -194,7 +204,6 @@ impl Default for FieldSettings {
         }
     }
 }
-
 
 impl FieldSettings {
     pub fn new() -> FieldSettings {
