@@ -1,7 +1,7 @@
 mod context;
 mod field_info;
 mod generator;
-mod group;
+mod group_info;
 mod struct_info;
 mod symbol;
 mod util;
@@ -33,9 +33,5 @@ fn impl_my_derive(ast: &syn::DeriveInput) -> StreamResult {
             .unwrap_or_else(|| syn::Error::new_spanned(ast, "Unknown error during parsing"))
     })?;
     let generator = Generator::new(struct_info);
-    generator.generate(&mut context).ok_or_else(|| {
-        context
-            .get_error()
-            .unwrap_or_else(|| syn::Error::new_spanned(ast, "Unknown error during generating"))
-    })
+    generator.generate()
 }

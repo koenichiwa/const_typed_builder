@@ -1,21 +1,14 @@
-use std::{
-    borrow::BorrowMut,
-    cell::{Ref, RefCell},
-    collections::{HashMap, HashSet},
-    rc::Rc,
-};
+use std::collections::{HashMap, HashSet};
 
 use proc_macro2::Span;
-use quote::format_ident;
-use syn::{Attribute, ExprPath, Token};
+use syn::{ExprPath, Token};
 
 use crate::{
     context::Context,
-    group::Group,
+    group_info::GroupInfo,
     struct_info::StructSettings,
     symbol::{BUILDER, GROUP, MANDATORY},
-    util::{inner_type, is_option},
-    MANDATORY_PREFIX,
+    util::{inner_type, is_option}
 };
 
 #[derive(Debug)]
@@ -27,7 +20,7 @@ pub struct FieldInfo<'a> {
     ty: &'a syn::Type,
     index: usize,
     mandatory_index: Option<usize>,
-    group_indices: HashMap<Group, usize>,
+    group_indices: HashMap<GroupInfo, usize>,
     settings: FieldSettings,
 }
 
@@ -87,11 +80,11 @@ impl<'a> FieldInfo<'a> {
         self.mandatory_index = Some(mandatory_index);
     }
 
-    pub fn set_group_index(&mut self, group: Group, index: usize) {
+    pub fn set_group_index(&mut self, group: GroupInfo, index: usize) {
         self.group_indices.insert(group, index);
     }
 
-    pub fn get_group_index(&self, group: &Group) -> Option<usize> {
+    pub fn get_group_index(&self, group: &GroupInfo) -> Option<usize> {
         self.group_indices.get(group).copied()
     }
 
@@ -107,13 +100,12 @@ impl<'a> FieldInfo<'a> {
         &self.settings.input_name
     }
 
-    pub fn type_kind(&self, context: &mut Context) -> Option<TypeKind> {
+    pub fn type_kind(&self) -> syn::Result<TypeKind> {
         let type_kind = if is_option(self.ty) {
             let inner_ty = inner_type(self.ty)
                 .ok_or_else(|| {
-                    context.error_spanned_by(self.ty, "Cannot read inner type");
-                })
-                .ok()?;
+                    syn::Error::new_spanned(self.ty, "Cannot read inner type")
+                })?;
 
             if !self.group_names().is_empty() {
                 TypeKind::GroupOption {
@@ -138,7 +130,7 @@ impl<'a> FieldInfo<'a> {
                 unreachable!("Non-optional types are always mandatory")
             }
         };
-        Some(type_kind)
+        Ok(type_kind)
     }
 
     pub fn mandatory_index(&self) -> Option<usize> {

@@ -16,6 +16,8 @@ mod test {
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().build();
     }
 
     #[test]

@@ -1,18 +1,17 @@
 use std::hash::Hash;
 
-use proc_macro2::Ident;
 use quote::format_ident;
 
 #[derive(Debug, Clone)]
-pub struct Group {
+pub struct GroupInfo {
     name: String,
     member_count: usize,
     group_type: GroupType,
 }
 
-impl Group {
+impl GroupInfo {
     pub fn new(name: String, group_type: GroupType) -> Self {
-        Group {
+        GroupInfo {
             name,
             member_count: 0,
             group_type,
@@ -56,15 +55,15 @@ impl Group {
     }
 }
 
-impl Eq for Group {}
+impl Eq for GroupInfo {}
 
-impl PartialEq for Group {
+impl PartialEq for GroupInfo {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
 }
 
-impl Hash for Group {
+impl Hash for GroupInfo {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
     }

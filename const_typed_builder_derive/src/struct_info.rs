@@ -1,16 +1,9 @@
-use std::{
-    borrow::Cow,
-    cell::RefCell,
-    collections::{BTreeSet, HashMap, HashSet},
-    rc::Rc,
-};
-
-use syn::ExprLit;
+use std::collections::HashMap;
 
 use crate::{
     context::Context,
     field_info::{FieldInfo, FieldSettings},
-    group::{self, Group, GroupType},
+    group_info::{GroupInfo, GroupType},
     symbol::GROUP,
 };
 
@@ -127,7 +120,7 @@ impl<'a> StructInfo<'a> {
         self.settings.mandatory_count
     }
 
-    pub fn groups(&self) -> &HashMap<String, Group> {
+    pub fn groups(&self) -> &HashMap<String, GroupInfo> {
         &self.settings.groups
     }
 }
@@ -137,7 +130,7 @@ pub struct StructSettings {
     builder_suffix: String,
     data_suffix: String,
     default_field_settings: FieldSettings,
-    groups: HashMap<String, Group>,
+    groups: HashMap<String, GroupInfo>,
     mandatory_count: usize,
 }
 
@@ -257,7 +250,7 @@ impl StructSettings {
 
             self.groups.insert(
                 group_name.to_string(),
-                Group::new(group_name.to_string(), group_type?),
+                GroupInfo::new(group_name.to_string(), group_type?),
             );
             Ok(())
         })
