@@ -1,4 +1,3 @@
-use core::fmt;
 use quote::ToTokens;
 use std::fmt::{Debug, Display};
 
@@ -19,8 +18,10 @@ impl Context {
     ///
     /// The object is used for spanning in error messages.
     pub fn error_spanned_by<A: ToTokens, T: Display>(&mut self, obj: A, msg: T) {
-        self.errors
-            .push(syn::Error::new_spanned(obj.into_token_stream(), msg));
+        self.errors.push(syn::Error::new_spanned(
+            obj.into_token_stream(),
+            format!("const_typed_builder: {msg}"),
+        ));
     }
 
     /// Add one of Syn's parse errors.
@@ -43,12 +44,5 @@ impl Context {
 
     pub fn has_error(&self) -> bool {
         !self.errors.is_empty()
-    }
-}
-
-impl Display for Context {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "const_builder_derive:\n");
-        self.get_error().fmt(f)
     }
 }

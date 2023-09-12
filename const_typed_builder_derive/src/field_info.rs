@@ -1,11 +1,17 @@
-use std::collections::{HashSet, HashMap};
+use std::{
+    borrow::BorrowMut,
+    cell::{Ref, RefCell},
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use proc_macro2::Span;
 use quote::format_ident;
 use syn::{Attribute, ExprPath, Token};
 
 use crate::{
-    context::{self, Context},
+    context::Context,
+    group::Group,
     struct_info::StructSettings,
     symbol::{BUILDER, GROUP, MANDATORY},
     util::{inner_type, is_option},
@@ -21,7 +27,7 @@ pub struct FieldInfo<'a> {
     ty: &'a syn::Type,
     index: usize,
     mandatory_index: Option<usize>,
-    group_indices: HashMap<String, usize>,
+    group_indices: HashMap<Group, usize>,
     settings: FieldSettings,
 }
 
@@ -36,7 +42,6 @@ impl<'a> FieldInfo<'a> {
     pub fn new(
         context: &mut Context,
         index: usize,
-        mandatory_index: usize,
         field: &'a syn::Field,
         struct_settings: &StructSettings,
     ) -> Option<Self> {
@@ -52,8 +57,8 @@ impl<'a> FieldInfo<'a> {
             let settings = struct_settings
                 .default_field_settings()
                 .clone()
-                .with_attrs(context, attrs)
-                .with_ty(ty);
+                .with_ty(ty)
+                .with_attrs(context, attrs)?;
 
             let info = FieldInfo {
                 field,
@@ -62,7 +67,7 @@ impl<'a> FieldInfo<'a> {
                 ident,
                 ty,
                 index,
-                mandatory_index: Some(mandatory_index).filter(|_| settings.mandatory),
+                mandatory_index: None,
                 group_indices: HashMap::new(), // Set by struct_info
                 settings,
             };
@@ -72,6 +77,22 @@ impl<'a> FieldInfo<'a> {
             context.error_spanned_by(field, "Cannot parse field");
             None
         }
+    }
+
+    pub fn group_names(&self) -> &HashSet<String> {
+        &self.settings.groups
+    }
+
+    pub fn set_mandatory_index(&mut self, mandatory_index: usize) {
+        self.mandatory_index = Some(mandatory_index);
+    }
+
+    pub fn set_group_index(&mut self, group: Group, index: usize) {
+        self.group_indices.insert(group, index);
+    }
+
+    pub fn get_group_index(&self, group: &Group) -> Option<usize> {
+        self.group_indices.get(group).copied()
     }
 
     pub fn name(&self) -> &syn::Ident {
@@ -94,7 +115,12 @@ impl<'a> FieldInfo<'a> {
                 })
                 .ok()?;
 
-            if self.settings.mandatory {
+            if !self.group_names().is_empty() {
+                TypeKind::GroupOption {
+                    ty: self.ty,
+                    inner_ty,
+                }
+            } else if self.settings.mandatory {
                 TypeKind::MandatoryOption {
                     ty: self.ty,
                     inner_ty,
@@ -115,9 +141,8 @@ impl<'a> FieldInfo<'a> {
         Some(type_kind)
     }
 
-    pub fn mandatory_ident(&self) -> Option<syn::Ident> {
+    pub fn mandatory_index(&self) -> Option<usize> {
         self.mandatory_index
-            .map(|idx| format_ident!("{}_{}", MANDATORY_PREFIX, idx))
     }
 }
 
@@ -136,12 +161,21 @@ impl FieldSettings {
         Self::default()
     }
 
-    pub fn with_attrs(mut self, context: &mut Context, attrs: &Vec<syn::Attribute>) -> Self {
-        attrs.iter().for_each(|attr| {
-            self.handle_attribute(attr)
-                .unwrap_or_else(|err| context.syn_error(err))
-        });
-        self
+    pub fn with_attrs(
+        mut self,
+        context: &mut Context,
+        attrs: &Vec<syn::Attribute>,
+    ) -> Option<Self> {
+        if let Err(err) = attrs
+            .iter()
+            .map(|attr| self.handle_attribute(attr))
+            .collect::<Result<Vec<_>, _>>()
+        {
+            context.syn_error(err);
+            None
+        } else {
+            Some(self)
+        }
     }
 
     pub fn with_ty(mut self, ty: &syn::Type) -> Self {
@@ -179,11 +213,20 @@ impl FieldSettings {
                 }
             }
             if meta.path == GROUP {
+                if self.mandatory {
+                    return Err(syn::Error::new_spanned(
+                        &meta.path,
+                        "Only optionals in group",
+                    ));
+                }
                 if meta.input.peek(Token![=]) {
                     let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Path(ExprPath {path, ..}) = &expr {
-                        let group_name = path.get_ident().ok_or(syn::Error::new_spanned(&path, "Can't parse group"))?;
-                        if !self.groups.insert(dbg!(group_name.to_string())) {
+                    if let syn::Expr::Path(ExprPath { path, .. }) = &expr {
+                        let group_name = path
+                            .get_ident()
+                            .ok_or(syn::Error::new_spanned(&path, "Can't parse group"))?;
+
+                        if !self.groups.insert(group_name.to_string()) {
                             return Err(syn::Error::new_spanned(
                                 &expr,
                                 "Multiple adds to the same group",
@@ -219,6 +262,10 @@ pub enum TypeKind<'a> {
         inner_ty: &'a syn::Type,
     },
     Optional {
+        ty: &'a syn::Type,
+        inner_ty: &'a syn::Type,
+    },
+    GroupOption {
         ty: &'a syn::Type,
         inner_ty: &'a syn::Type,
     },

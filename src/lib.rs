@@ -188,10 +188,10 @@ mod test {
         assert_eq!(expected, foo);
     }
 
-    #[cfg(any())]
     #[test]
     fn group() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(baz = single)]
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
@@ -202,5 +202,38 @@ mod test {
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
+    }
+
+    #[test]
+    fn group_multiple_member() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(baz = single)]
+        pub struct Foo {
+            #[builder(group = baz)]
+            bar: Option<String>,
+            #[builder(group = baz)]
+            qux: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+            qux: None,
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        let expected = Foo {
+            bar: None,
+            qux: Some("Hello world!".to_string()),
+        };
+        let foo = Foo::builder().qux("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+        // let expected = Foo {
+        //     bar: Some("Hello world!".to_string()),
+        //     qux: Some("Hello world!".to_string()),
+        // };
+        // let foo = Foo::builder().bar("Hello world!".to_string()).qux("Hello world!".to_string()).build();
+        // assert_eq!(expected, foo);
     }
 }

@@ -1,6 +1,7 @@
 mod context;
 mod field_info;
 mod generator;
+mod group;
 mod struct_info;
 mod symbol;
 mod util;
