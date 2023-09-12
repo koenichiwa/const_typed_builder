@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::{
-    context::Context,
     field_info::{FieldInfo, FieldSettings},
     group_info::{GroupInfo, GroupType},
     symbol::GROUP,
@@ -22,7 +21,7 @@ pub struct StructInfo<'a> {
 }
 
 impl<'a> StructInfo<'a> {
-    pub fn new(context: &mut Context, ast: &'a syn::DeriveInput) -> syn::Result<Self> {
+    pub fn new(ast: &'a syn::DeriveInput) -> syn::Result<Self> {
         if let syn::DeriveInput {
             attrs,
             vis,

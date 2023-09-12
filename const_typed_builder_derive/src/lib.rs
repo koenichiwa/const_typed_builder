@@ -1,4 +1,3 @@
-mod context;
 mod field_info;
 mod generator;
 mod group_info;
@@ -7,7 +6,6 @@ mod symbol;
 mod util;
 mod field_generator;
 mod group_generator;
-use context::Context;
 use generator::Generator;
 use proc_macro2::TokenStream;
 use struct_info::StructInfo;
@@ -27,8 +25,7 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 }
 
 fn impl_my_derive(ast: &syn::DeriveInput) -> StreamResult {
-    let mut context = Context::new();
-    let struct_info = StructInfo::new(&mut context, ast)?;
+    let struct_info = StructInfo::new(ast)?;
     let generator = Generator::new(struct_info);
     generator.generate()
 }
