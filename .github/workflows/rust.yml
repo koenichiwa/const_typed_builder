@@ -22,4 +22,4 @@ jobs:
     - name: Check formatting
       run: cargo fmt --check  --verbose
     - name: Run Clippy
-      run: cargo clippy --verbose
+      run: cargo clippy --verbose -- -D warnings
