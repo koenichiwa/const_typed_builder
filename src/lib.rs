@@ -423,6 +423,43 @@ mod test {
     }
 
     #[test]
+    fn assume_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[builder(assume_mandatory)]
+        pub struct Foo {
+            bar: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+    }
+
+    #[test]
+    fn assume_mandatory_explicit_optional() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[builder(assume_mandatory)]
+        pub struct Foo {
+            bar: Option<String>,
+            baz: Option<String>,
+            #[builder(optional)]
+            quz: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+            baz: Some("Hello world!".to_string()),
+            quz: None,
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+
+    }
+
+    #[test]
     fn group() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
         #[group(baz = single)]
