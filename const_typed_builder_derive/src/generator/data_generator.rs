@@ -1,9 +1,10 @@
-use super::field_generator::FieldGenerator;
+use super::{field_generator::FieldGenerator, generics_generator::GenericsGenerator};
 use crate::StreamResult;
 use quote::quote;
 
 pub(super) struct DataGenerator<'a> {
     field_gen: FieldGenerator<'a>,
+    generics_gen: GenericsGenerator<'a>,
     target_name: &'a syn::Ident,
     data_name: &'a syn::Ident,
 }
@@ -11,11 +12,13 @@ pub(super) struct DataGenerator<'a> {
 impl<'a> DataGenerator<'a> {
     pub(super) fn new(
         field_gen: FieldGenerator<'a>,
+        generics_gen: GenericsGenerator<'a>,
         target_name: &'a syn::Ident,
         data_name: &'a syn::Ident,
     ) -> Self {
         Self {
             field_gen,
+            generics_gen,
             target_name,
             data_name,
         }
@@ -40,7 +43,7 @@ impl<'a> DataGenerator<'a> {
         let def_fields = self.field_gen.data_impl_default_fields();
 
         let (impl_generics, type_generics, where_clause) =
-            self.field_gen.target_generics().split_for_impl();
+            self.generics_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
             impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
@@ -67,7 +70,7 @@ impl<'a> DataGenerator<'a> {
 
         let fields = self.field_gen.data_struct_fields()?;
         let (impl_generics, _type_generics, where_clause) =
-            self.field_gen.target_generics().split_for_impl();
+            self.generics_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
             #[derive(Debug)]
