@@ -8,12 +8,14 @@ edition = "2021"
 keywords = ["builder"]
 categories = ["rust-patterns"]
 license = "MIT"
+readme = "README.md"
 
 [package]
 name = "const_typed_builder"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+readme.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

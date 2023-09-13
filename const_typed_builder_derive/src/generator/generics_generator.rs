@@ -156,7 +156,10 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_for_impl(&mut all)
     }
 
-    fn add_const_generics_for_impl(&self, tokens: &mut dyn Iterator<Item = syn::Ident>) -> syn::Generics {
+    fn add_const_generics_for_impl(
+        &self,
+        tokens: &mut dyn Iterator<Item = syn::Ident>,
+    ) -> syn::Generics {
         let mut res = self.target_generics.clone();
 
         tokens.for_each(|token| {
@@ -182,7 +185,7 @@ impl<'a> GenericsGenerator<'a> {
         &self,
         constants: &mut dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>,
     ) -> TokenStream {
-        let syn::Generics { params, .. } = self.target_generics;
+        let params = &self.target_generics.params;
         let tokens: Vec<TokenStream> = constants
             .map(|constant| {
                 constant
