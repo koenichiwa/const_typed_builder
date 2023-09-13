@@ -2,22 +2,15 @@ name: Rust
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "develop"]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "develop" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    
-  build:
-
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,7 +19,7 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-    - name: fmt
+    - name: Check formatting
       run: cargo fmt --check  --verbose
-    - name: clippy
+    - name: Run Clippy
       run: cargo clippy --verbose
