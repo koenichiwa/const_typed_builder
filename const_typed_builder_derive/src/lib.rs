@@ -1,8 +1,4 @@
-// #![allow(unused, unused_variables, dead_code)]
-// mod field_info;
 mod generator;
-// mod group_info;
-// mod struct_info;
 mod info;
 mod symbol;
 mod util;

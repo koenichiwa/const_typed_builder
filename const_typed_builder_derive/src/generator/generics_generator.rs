@@ -36,7 +36,7 @@ impl<'a> GenericsGenerator<'a> {
                 })) as Box<dyn Iterator<Item = TokenStream>>
             }
         });
-        self.add_const_generics_valued(&mut all)
+        self.add_const_generics_valued_to_type(&mut all)
     }
 
     pub fn builder_const_generic_idents_set_type(
@@ -71,7 +71,7 @@ impl<'a> GenericsGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
             ) as Box<dyn Iterator<Item = TokenStream>>,
         });
-        self.add_const_generics_valued(&mut all)
+        self.add_const_generics_valued_to_type(&mut all)
     }
 
     pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
@@ -112,7 +112,7 @@ impl<'a> GenericsGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
             ) as Box<dyn Iterator<Item = TokenStream>>,
         });
-        self.add_const_generics_valued(&mut all)
+        self.add_const_generics_valued_to_type(&mut all)
     }
 
     pub fn builder_const_generic_group_partial_idents(&self) -> syn::Generics {
@@ -157,19 +157,13 @@ impl<'a> GenericsGenerator<'a> {
         let mut res = self.target_generics.clone();
 
         let syn::Generics { ref mut params, .. } = res;
-        let before = dbg!(params.len());
-        let mut count = 0;
         tokens.for_each(|token| {
-            count += 1;
             params.push(parse_quote!(const #token: bool));
         });
-        let after = dbg!(params.len());
-        dbg!(count);
-        assert_eq!(before + count, after);
         res
     }
 
-    fn add_const_generics_valued(
+    fn add_const_generics_valued_to_impl(
         &self,
         tokens: &mut dyn Iterator<Item = TokenStream>,
     ) -> TokenStream {
@@ -177,7 +171,24 @@ impl<'a> GenericsGenerator<'a> {
         if params.is_empty() {
             quote!(<#(#tokens),*>)
         } else {
-            let type_generics = params.iter();
+            let impl_generics = params.iter();
+            quote!(< #(#impl_generics),*, #(#tokens),* >)
+        }
+    }
+
+    fn add_const_generics_valued_to_type(
+        &self,
+        tokens: &mut dyn Iterator<Item = TokenStream>,
+    ) -> TokenStream {
+        let syn::Generics { params, .. } = self.target_generics;
+        if params.is_empty() {
+            quote!(<#(#tokens),*>)
+        } else {
+            let type_generics = params.iter().map(|param| match param {
+                syn::GenericParam::Lifetime(lt) => &lt.lifetime.ident,
+                syn::GenericParam::Type(ty) => &ty.ident,
+                syn::GenericParam::Const(cnst) => &cnst.ident,
+            });
             quote!(< #(#type_generics),*, #(#tokens),* >)
         }
     }

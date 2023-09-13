@@ -1,7 +1,12 @@
 pub use const_typed_builder_derive::Builder;
+pub trait HasBuilder {
+    type Builder;
+    fn builder() -> Self::Builder;
+}
 
 #[cfg(test)]
 mod test {
+    use super::HasBuilder;
     use const_typed_builder_derive::Builder;
 
     #[test]
@@ -547,27 +552,72 @@ mod test {
         // let foo = Foo::builder().build();
     }
 
-    // #[test]
-    // fn multiple_generic_with_const_multiple_mandatory() {
-    //     #[derive(Debug, Default, PartialEq, Eq, Builder)]
-    //     pub struct Foo<A, B, const C: usize> {
-    //         bar: A,
-    //         baz: B,
-    //     }
+    #[test]
+    fn multiple_generic_with_const_multiple_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Foo<A, B, const C: usize> {
+            bar: A,
+            baz: B,
+        }
 
-    //     let expected = Foo::<String, &str> {
-    //         bar: "Hello world!".to_string(),
-    //         baz: "Hello world!",
-    //     };
-    //     let foo = Foo::<String, &str>::builder()
-    //         .bar("Hello world!".to_string())
-    //         .baz("Hello world!")
-    //         .build();
-    //     assert_eq!(expected, foo);
+        let expected = Foo::<String, &str, 0> {
+            bar: "Hello world!".to_string(),
+            baz: "Hello world!",
+        };
+        let foo = Foo::<String, &str, 0>::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!")
+            .build();
+        assert_eq!(expected, foo);
 
-    //     // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
-    //     // assert_eq!(expected, foo);
+        // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
+        // assert_eq!(expected, foo);
 
-    //     // let foo = Foo::builder().build();
-    // }
+        // let foo = Foo::builder().build();
+    }
+
+    #[test]
+    fn single_propagate() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Foo {
+            #[builder(propagate)]
+            bar: Bar,
+        }
+
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Bar {
+            baz: String,
+        }
+
+        let expected = Foo {
+            bar: Bar {
+                baz: "Hello world!".to_string(),
+            },
+        };
+        let foo = Foo::builder()
+            .bar(|builder| builder.baz("Hello world!".to_string()).build())
+            .build();
+        assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().bar(|builder| builder.build() ).build();
+
+        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        // pub struct Foo {
+        //     #[builder(propagate)]
+        //     bar: Bar,
+        // }
+
+        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        // pub struct Bar {
+        //     baz: String,
+        // }
+
+        // let expected = Foo {
+        //     bar: Bar {
+        //         baz: "Hello world!".to_string(),
+        //     }
+        // };
+        // let foo = Foo::builder().bar(|builder| builder.baz("Hello world!".to_string()).build() ).build();
+        // assert_eq!(expected, foo);
+    }
 }

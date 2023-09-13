@@ -73,33 +73,44 @@ impl<'a> FieldGenerator<'a> {
         )
     }
 
-    pub fn builder_set_impl_input_type(&self, field: &FieldInfo) -> TokenStream {
-        let field_name = field.ident();
+    fn field_effective_type(field: &'a FieldInfo) -> &'a syn::Type {
         match field {
-            FieldInfo::Optional(field) => {
-                let ty = field.ty();
-                quote!(#field_name: #ty)
-            }
-            FieldInfo::Mandatory(field) if field.is_option_type() => {
-                let inner_ty = field.inner_type();
-                quote!(#field_name: #inner_ty)
-            }
-            FieldInfo::Mandatory(field) => {
-                let ty = field.ty();
-                quote!(#field_name: #ty)
-            }
-            FieldInfo::Grouped(field) => {
-                let inner_ty = field.inner_type();
-                quote!(#field_name: #inner_ty)
-            }
+            FieldInfo::Optional(field) => field.ty(),
+            FieldInfo::Mandatory(field) if field.is_option_type() => field
+                .inner_type()
+                .expect("Couldn't read inner type of option, even though it's marked as optional"),
+            FieldInfo::Mandatory(field) => field.ty(),
+            FieldInfo::Grouped(field) => field.inner_type(),
         }
     }
 
-    pub fn builder_set_impl_input_value(&self, field: &FieldInfo) -> TokenStream {
+    pub fn builder_set_impl_input_type(&self, field: &'a FieldInfo) -> TokenStream {
         let field_name = field.ident();
+        let ty = Self::field_effective_type(field);
+
+        let ty = if field.propagate() {
+            quote!(fn(<#ty as HasBuilder>::Builder) -> #ty)
+        } else {
+            quote!(#ty)
+        };
+
+        quote!(#field_name: #ty)
+    }
+
+    pub fn builder_set_impl_input_value(&self, field: &'a FieldInfo) -> TokenStream {
+        let field_name = field.ident();
+
+        let field_ty = Self::field_effective_type(field);
+
+        let field_value = if field.propagate() {
+            quote!(#field_name(<#field_ty as HasBuilder>::builder()))
+        } else {
+            quote!(#field_name)
+        };
+
         match field {
-            FieldInfo::Optional(_) => quote!(#field_name),
-            _ => quote!(Some(#field_name)),
+            FieldInfo::Optional(_) => quote!(#field_value),
+            _ => quote!(Some(#field_value)),
         }
     }
 }

@@ -12,6 +12,7 @@ pub const SINGLE: Symbol = Symbol("single");
 pub const AT_LEAST: Symbol = Symbol("at_least");
 pub const AT_MOST: Symbol = Symbol("at_most");
 pub const EXACT: Symbol = Symbol("exact");
+pub const PROPAGATE: Symbol = Symbol("propagate");
 
 impl<'a> From<&'a String> for Symbol<'a> {
     fn from(value: &'a String) -> Self {

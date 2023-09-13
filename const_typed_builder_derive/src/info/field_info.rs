@@ -5,7 +5,7 @@ use proc_macro2::Span;
 use syn::{ExprPath, Token};
 
 use crate::{
-    symbol::{BUILDER, GROUP, MANDATORY},
+    symbol::{BUILDER, GROUP, MANDATORY, PROPAGATE},
     util::{inner_type, is_option},
 };
 
@@ -37,6 +37,7 @@ impl<'a> FieldInfo<'a> {
                 Self::Mandatory(FieldInfoMandatory::new(
                     field,
                     ident,
+                    settings.propagate,
                     struct_settings.next_mandatory(),
                 )?)
             } else if !settings.groups.is_empty() {
@@ -52,9 +53,14 @@ impl<'a> FieldInfo<'a> {
                             .ok_or(syn::Error::new_spanned(field, "Can't find group"))?,
                     );
                 }
-                Self::Grouped(FieldInfoGrouped::new(field, ident, group_indices)?)
+                Self::Grouped(FieldInfoGrouped::new(
+                    field,
+                    ident,
+                    settings.propagate,
+                    group_indices,
+                )?)
             } else {
-                Self::Optional(FieldInfoOptional::new(field, ident)?)
+                Self::Optional(FieldInfoOptional::new(field, ident, settings.propagate)?)
             };
 
             Ok(info)
@@ -73,6 +79,14 @@ impl<'a> FieldInfo<'a> {
             FieldInfo::Grouped(field) => field.ident(),
         }
     }
+
+    pub fn propagate(&self) -> bool {
+        match self {
+            FieldInfo::Optional(field) => field.propagate(),
+            FieldInfo::Mandatory(field) => field.propagate(),
+            FieldInfo::Grouped(field) => field.propagate(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -80,15 +94,17 @@ pub struct FieldInfoOptional<'a> {
     field: &'a syn::Field,
     ident: &'a syn::Ident,
     inner_ty: &'a syn::Type,
+    propagate: bool,
 }
 
 impl<'a> FieldInfoOptional<'a> {
-    fn new(field: &'a syn::Field, ident: &'a syn::Ident) -> syn::Result<Self> {
+    fn new(field: &'a syn::Field, ident: &'a syn::Ident, propagate: bool) -> syn::Result<Self> {
         Ok(Self {
             field,
             ident,
             inner_ty: inner_type(&field.ty)
                 .ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
+            propagate,
         })
     }
 
@@ -103,6 +119,10 @@ impl<'a> FieldInfoOptional<'a> {
     pub fn ident(&self) -> &syn::Ident {
         self.ident
     }
+
+    pub fn propagate(&self) -> bool {
+        self.propagate
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -110,6 +130,7 @@ pub struct FieldInfoMandatory<'a> {
     field: &'a syn::Field,
     ident: &'a syn::Ident,
     inner_ty: Option<&'a syn::Type>,
+    propagate: bool,
     mandatory_index: usize,
 }
 
@@ -117,12 +138,14 @@ impl<'a> FieldInfoMandatory<'a> {
     fn new(
         field: &'a syn::Field,
         ident: &'a syn::Ident,
+        propagate: bool,
         mandatory_index: usize,
     ) -> syn::Result<Self> {
         Ok(Self {
             field,
             ident,
             inner_ty: inner_type(&field.ty),
+            propagate,
             mandatory_index,
         })
     }
@@ -139,6 +162,10 @@ impl<'a> FieldInfoMandatory<'a> {
         self.ident
     }
 
+    pub fn propagate(&self) -> bool {
+        self.propagate
+    }
+
     pub fn mandatory_index(&self) -> usize {
         self.mandatory_index
     }
@@ -153,6 +180,7 @@ pub struct FieldInfoGrouped<'a> {
     field: &'a syn::Field,
     ident: &'a syn::Ident,
     inner_ty: &'a syn::Type,
+    propagate: bool,
     group_indices: HashMap<GroupInfo, usize>,
 }
 
@@ -160,6 +188,7 @@ impl<'a> FieldInfoGrouped<'a> {
     fn new(
         field: &'a syn::Field,
         ident: &'a syn::Ident,
+        propagate: bool,
         group_indices: HashMap<GroupInfo, usize>,
     ) -> syn::Result<Self> {
         Ok(Self {
@@ -167,6 +196,7 @@ impl<'a> FieldInfoGrouped<'a> {
             ident,
             inner_ty: inner_type(&field.ty)
                 .ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
+            propagate,
             group_indices,
         })
     }
@@ -183,6 +213,10 @@ impl<'a> FieldInfoGrouped<'a> {
         self.ident
     }
 
+    pub fn propagate(&self) -> bool {
+        self.propagate
+    }
+
     pub fn group_indices(&self) -> &HashMap<GroupInfo, usize> {
         &self.group_indices
     }
@@ -191,6 +225,7 @@ impl<'a> FieldInfoGrouped<'a> {
 #[derive(Debug, Clone)]
 pub struct FieldSettings {
     pub mandatory: bool,
+    pub propagate: bool,
     pub input_name: syn::Ident,
     pub groups: HashSet<String>,
 }
@@ -199,6 +234,7 @@ impl Default for FieldSettings {
     fn default() -> FieldSettings {
         FieldSettings {
             mandatory: false,
+            propagate: false,
             input_name: syn::Ident::new("input", Span::call_site()),
             groups: HashSet::new(),
         }
@@ -286,6 +322,9 @@ impl FieldSettings {
                         }
                     }
                 }
+            }
+            if meta.path == PROPAGATE {
+                self.propagate = true;
             }
             Ok(())
         })
