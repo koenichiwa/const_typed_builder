@@ -10,6 +10,7 @@ license.workspace = true
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
+either = "1.9"
 
 [lib]
 proc-macro = true

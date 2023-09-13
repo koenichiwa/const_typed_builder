@@ -1,4 +1,5 @@
 use crate::{info::FieldInfo, MANDATORY_PREFIX};
+use either::Either;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;
@@ -23,20 +24,21 @@ impl<'a> GenericsGenerator<'a> {
 
     pub fn const_generics_valued(&self, value: bool) -> TokenStream {
         let mut all = self.fields.iter().flat_map(|field| match field {
-            FieldInfo::Optional(_) => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
-            }
-            FieldInfo::Mandatory(mandatory) => Box::new(std::iter::once(
-                syn::LitBool::new(value, mandatory.ident().span()).to_token_stream(),
-            ))
-                as Box<dyn Iterator<Item = TokenStream>>,
+            FieldInfo::Optional(_) => Box::new(std::iter::empty())
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
+            FieldInfo::Mandatory(mandatory) => Box::new(std::iter::once(Either::Right(
+                syn::LitBool::new(value, mandatory.ident().span()),
+            )))
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Grouped(grouped) => {
-                Box::new(grouped.group_indices().iter().map(|(_, _)| {
-                    syn::LitBool::new(value, grouped.ident().span()).into_token_stream()
-                })) as Box<dyn Iterator<Item = TokenStream>>
+                Box::new(
+                    grouped.group_indices().iter().map(|(_, _)| {
+                        Either::Right(syn::LitBool::new(value, grouped.ident().span()))
+                    }),
+                ) as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>
             }
         });
-        self.add_const_generics_valued_to_type(&mut all)
+        self.add_const_generics_valued_for_type(&mut all)
     }
 
     pub fn builder_const_generic_idents_set_type(
@@ -45,33 +47,33 @@ impl<'a> GenericsGenerator<'a> {
         value: bool,
     ) -> TokenStream {
         let mut all = self.fields.iter().flat_map(|field| match field {
-            FieldInfo::Optional(_) => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
-            }
+            FieldInfo::Optional(_) => Box::new(std::iter::empty())
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Mandatory(_) if field_info == field => Box::new(std::iter::once(
-                syn::LitBool::new(value, field_info.ident().span()).into_token_stream(),
+                Either::Right(syn::LitBool::new(value, field_info.ident().span())),
             ))
-                as Box<dyn Iterator<Item = TokenStream>>,
-            FieldInfo::Mandatory(mandatory) => Box::new(std::iter::once(
-                format_ident!("{}_{}", MANDATORY_PREFIX, mandatory.mandatory_index())
-                    .into_token_stream(),
-            ))
-                as Box<dyn Iterator<Item = TokenStream>>,
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
+            FieldInfo::Mandatory(mandatory) => Box::new(std::iter::once(Either::Left(
+                format_ident!("{}_{}", MANDATORY_PREFIX, mandatory.mandatory_index()),
+            )))
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Grouped(grouped) if field_info == field => Box::new(
-                std::iter::repeat(
-                    syn::LitBool::new(value, grouped.ident().span()).into_token_stream(),
-                )
+                std::iter::repeat(Either::Right(syn::LitBool::new(
+                    value,
+                    grouped.ident().span(),
+                )))
                 .take(grouped.group_indices().len()),
             )
-                as Box<dyn Iterator<Item = TokenStream>>,
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Grouped(grouped) => Box::new(
                 grouped
                     .group_indices()
                     .iter()
-                    .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
-            ) as Box<dyn Iterator<Item = TokenStream>>,
+                    .map(|(group, index)| Either::Left(group.partial_const_ident(*index))),
+            )
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
         });
-        self.add_const_generics_valued_to_type(&mut all)
+        self.add_const_generics_valued_for_type(&mut all)
     }
 
     pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
@@ -94,25 +96,26 @@ impl<'a> GenericsGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index)),
             ) as Box<dyn Iterator<Item = syn::Ident>>,
         });
-        self.add_const_generics(&mut all)
+        self.add_const_generics_for_impl(&mut all)
     }
 
     pub fn builder_const_generic_idents_build(&self) -> TokenStream {
         let mut all = self.fields.iter().flat_map(|field| match field {
-            FieldInfo::Optional(_) => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
-            }
+            FieldInfo::Optional(_) => Box::new(std::iter::empty())
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Mandatory(_) => Box::new(std::iter::once(
-                syn::LitBool::new(true, proc_macro2::Span::call_site()).into_token_stream(), // FIXME
-            )) as Box<dyn Iterator<Item = TokenStream>>,
+                Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site())), // FIXME
+            ))
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Grouped(grouped) => Box::new(
                 grouped
                     .group_indices()
                     .iter()
-                    .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
-            ) as Box<dyn Iterator<Item = TokenStream>>,
+                    .map(|(group, index)| Either::Left(group.partial_const_ident(*index))),
+            )
+                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
         });
-        self.add_const_generics_valued_to_type(&mut all)
+        self.add_const_generics_valued_for_type(&mut all)
     }
 
     pub fn builder_const_generic_group_partial_idents(&self) -> syn::Generics {
@@ -130,7 +133,7 @@ impl<'a> GenericsGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index)),
             ) as Box<dyn Iterator<Item = syn::Ident>>,
         });
-        self.add_const_generics(&mut all)
+        self.add_const_generics_for_impl(&mut all)
     }
 
     pub fn builder_struct_generics(&self) -> syn::Generics {
@@ -150,15 +153,14 @@ impl<'a> GenericsGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index)),
             ) as Box<dyn Iterator<Item = syn::Ident>>,
         });
-        self.add_const_generics(&mut all)
+        self.add_const_generics_for_impl(&mut all)
     }
 
-    fn add_const_generics(&self, tokens: &mut dyn Iterator<Item = syn::Ident>) -> syn::Generics {
+    fn add_const_generics_for_impl(&self, tokens: &mut dyn Iterator<Item = syn::Ident>) -> syn::Generics {
         let mut res = self.target_generics.clone();
 
-        let syn::Generics { ref mut params, .. } = res;
         tokens.for_each(|token| {
-            params.push(parse_quote!(const #token: bool));
+            res.params.push(parse_quote!(const #token: bool));
         });
         res
     }
@@ -176,11 +178,18 @@ impl<'a> GenericsGenerator<'a> {
         }
     }
 
-    fn add_const_generics_valued_to_type(
+    fn add_const_generics_valued_for_type(
         &self,
-        tokens: &mut dyn Iterator<Item = TokenStream>,
+        constants: &mut dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>,
     ) -> TokenStream {
         let syn::Generics { params, .. } = self.target_generics;
+        let tokens: Vec<TokenStream> = constants
+            .map(|constant| {
+                constant
+                    .map_either(|iden| iden.to_token_stream(), |lit| lit.to_token_stream())
+                    .into_inner()
+            })
+            .collect();
         if params.is_empty() {
             quote!(<#(#tokens),*>)
         } else {

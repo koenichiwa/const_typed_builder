@@ -17,16 +17,21 @@ impl<'a> GroupGenerator<'a> {
             return TokenStream::new();
         }
 
-        let (exact, at_least, at_most) =
-            self.groups
-                .iter()
-                .fold((false, false, false), |acc, group| {
-                    match group.group_type() {
-                        GroupType::Exact(_) => (true, acc.1, acc.2),
-                        GroupType::AtLeast(_) => (acc.0, true, acc.2),
-                        GroupType::AtMost(_) => (acc.0, acc.1, true),
-                    }
-                });
+        let mut exact = false;
+        let mut at_least = false;
+        let mut at_most = false;
+
+        for group in &self.groups {
+            match group.group_type() {
+                GroupType::Exact(_) => exact = true,
+                GroupType::AtLeast(_) => at_least = true,
+                GroupType::AtMost(_) => at_most = true,
+            }
+
+            if exact && at_least && at_most {
+                break;
+            }
+        }
 
         let exact = exact.then(|| {
             quote!(

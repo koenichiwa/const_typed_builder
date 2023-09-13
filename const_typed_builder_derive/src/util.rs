@@ -26,7 +26,7 @@ pub fn inner_type(ty: &syn::Type) -> Option<&syn::Type> {
     let syn::PathArguments::AngleBracketed(generic_params) = &segment.arguments else {
         return None;
     };
-    
+
     if let syn::GenericArgument::Type(inner) = generic_params.args.first()? {
         Some(inner)
     } else {
