@@ -1,5 +1,5 @@
 use super::{field_generator::FieldGenerator, group_generator::GroupGenerator, generics_generator::GenericsGenerator};
-use crate::StreamResult;
+use crate::{StreamResult, VecStreamResult};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -125,9 +125,32 @@ impl<'a> BuilderGenerator<'a> {
     }
 
     fn generate_setters_impl(&self) -> StreamResult {
+        let builder_name = self.builder_name;
         let setters = self
             .field_gen
-            .builder_impl_setters(self.builder_name)?;
+            .fields().iter().map(|field| {
+                let const_idents_generic = self.generics_gen.builder_const_generic_idents_set_before(field);
+                let const_idents_input = self.generics_gen.builder_const_generic_idents_set_after(field, false);
+                let const_idents_output = self.generics_gen.builder_const_generic_idents_set_after(field, true);
+
+                let field_name = field.ident();
+                let input_type = self.field_gen.builder_set_impl_input_type(field);
+                let input_value = self.field_gen.builder_set_impl_input_value(field);
+                let where_clause = &self.generics_gen.target_generics().where_clause;
+
+                let tokens = quote!(
+                    impl #const_idents_generic #builder_name #const_idents_input #where_clause {
+                        pub fn #field_name (self, #input_type) -> #builder_name #const_idents_output {
+                            let mut data = self.data;
+                            data.#field_name = #input_value;
+                            #builder_name {
+                                data,
+                            }
+                        }
+                    }
+                );
+                Ok(tokens)
+            }).collect::<VecStreamResult>()?;
 
         let tokens = quote!(
             #(#setters)*

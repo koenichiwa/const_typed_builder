@@ -1,4 +1,4 @@
-use crate::{info::FieldInfo, VecStreamResult, MANDATORY_PREFIX};
+use crate::{info::FieldInfo, MANDATORY_PREFIX};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::parse_quote;

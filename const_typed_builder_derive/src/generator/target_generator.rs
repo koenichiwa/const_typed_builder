@@ -2,10 +2,9 @@ use proc_macro2::TokenStream;
 
 use quote::quote;
 
-use super::{field_generator::FieldGenerator, generics_generator::GenericsGenerator};
+use super::generics_generator::GenericsGenerator;
 
 pub(super) struct TargetGenerator<'a> {
-    field_gen: FieldGenerator<'a>,
     generics_gen: GenericsGenerator<'a>,
     target_name: &'a syn::Ident,
     builder_name: &'a syn::Ident,
@@ -13,13 +12,11 @@ pub(super) struct TargetGenerator<'a> {
 
 impl<'a> TargetGenerator<'a> {
     pub fn new(
-        field_gen: FieldGenerator<'a>,
         generics_gen: GenericsGenerator<'a>,
         target_name: &'a syn::Ident,
         builder_name: &'a syn::Ident,
     ) -> Self {
         Self {
-            field_gen,
             generics_gen,
             target_name,
             builder_name,

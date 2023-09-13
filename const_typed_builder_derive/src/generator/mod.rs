@@ -22,11 +22,11 @@ pub struct Generator<'a> {
 impl<'a> Generator<'a> {
     pub fn new(info: &'a StructInfo<'a>) -> Self {
         let generics_gen = GenericsGenerator::new(&info.field_infos(), info.generics());
-        let field_gen = FieldGenerator::new(&info.field_infos(), generics_gen.clone());
+        let field_gen = FieldGenerator::new(&info.field_infos());
         let group_gen = GroupGenerator::new(info.groups().values().collect());
         Generator {
             data_gen: DataGenerator::new(field_gen.clone(), generics_gen.clone(), info.name(), info.data_name()),
-            target_gen: TargetGenerator::new(field_gen.clone(), generics_gen.clone(), info.name(), info.builder_name()),
+            target_gen: TargetGenerator::new(generics_gen.clone(), info.name(), info.builder_name()),
             builder_gen: BuilderGenerator::new(
                 group_gen,
                 field_gen,
