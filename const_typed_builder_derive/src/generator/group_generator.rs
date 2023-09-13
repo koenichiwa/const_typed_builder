@@ -97,7 +97,8 @@ impl<'a> GroupGenerator<'a> {
             let function_call: syn::Ident = group.function_symbol().into();
             let count = group.expected_count();
             let name = group.name();
-            let err_text = format!("Group {name} not verified");
+            let function_name = group.function_symbol().to_string();
+            let err_text = format!("`.build()` failed because the bounds of group `{name}` where not met ({function_name} {count})");
 
             quote!(
                 if !Self::#function_call(&[#(#partials),*], #count) {
