@@ -76,9 +76,9 @@
 ///     .bar("Hello".to_string())
 ///     .build();
 /// ```
-/// 
+///
 /// Or you can assume everything is mandatory altogether with `assume_mandatory` and `optional`.
-/// 
+///
 /// ```
 /// # use const_typed_builder::Builder;
 /// #[derive(Debug, Builder)]
@@ -450,7 +450,6 @@ mod test {
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
-
     }
 
     #[test]
@@ -469,9 +468,11 @@ mod test {
             baz: Some("Hello world!".to_string()),
             quz: None,
         };
-        let foo = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+        let foo = Foo::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
         assert_eq!(expected, foo);
-
     }
 
     #[test]
