@@ -1,12 +1,12 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
-/// The `Builder` derive macro provides a convenient and ergonomic way to create builder patterns for struct types in Rust. 
-/// It allows you to generate builder methods for constructing instances of a struct with various features and constraints, all checked at compile time. 
+/// The `Builder` derive macro provides a convenient and ergonomic way to create builder patterns for struct types in Rust.
+/// It allows you to generate builder methods for constructing instances of a struct with various features and constraints, all checked at compile time.
 /// Below are the highlighted features and explanations for each, along with examples:
 /// # Features
 /// ## 1. Compile-Time Validity Checking
 ///
-/// The `Builder` derive macro ensures that the constructed struct is valid at compile time. 
-/// This means that it checks that all required fields are provided and that group constraints are satisfied. 
+/// The `Builder` derive macro ensures that the constructed struct is valid at compile time.
+/// This means that it checks that all required fields are provided and that group constraints are satisfied.
 /// If any constraints are violated, the code will not compile.
 ///
 /// ### Examples:
@@ -79,9 +79,9 @@
 ///
 /// ## 3. Grouping Fields
 ///
-/// Fields can be grouped together, and constraints can be applied to these groups. Groups allow you to ensure that a certain combination of fields is provided together. 
+/// Fields can be grouped together, and constraints can be applied to these groups. Groups allow you to ensure that a certain combination of fields is provided together.
 /// There are four types of groups: `single`, `at_least`, `at_most`, and `exact`.
-/// 
+///
 /// **All** fields that are grouped need to be an `Option` type.
 ///
 /// - `single`: Ensures that only one field in the group can be provided. (It's basically a shorthand for `exact(1)`)
