@@ -55,7 +55,7 @@ impl<'a> BuilderGenerator<'a> {
         let vis = self.target_vis;
 
         quote!(
-            #[derive(Debug)]
+            #[derive(Default, Debug)]
             #vis struct #builder_name #impl_generics #where_clause {
                 data: #data_name #type_generics
             }
@@ -87,14 +87,6 @@ impl<'a> BuilderGenerator<'a> {
             impl #impl_generics #builder_name #type_generics #where_clause{
                 pub fn new() -> #builder_name #type_generics {
                     Self::default()
-                }
-            }
-
-            impl #impl_generics Default for #builder_name #type_generics #where_clause{
-                fn default() -> #builder_name #type_generics {
-                    Self {
-                        ..Default::default()
-                    }
                 }
             }
         )

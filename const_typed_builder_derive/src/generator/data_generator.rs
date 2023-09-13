@@ -59,7 +59,7 @@ impl<'a> DataGenerator<'a> {
         let (impl_generics, type_generics, where_clause) = self.field_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
-            #[derive(Debug)]
+            #[derive(Default, Debug)]
             pub struct #data_name #impl_generics #where_clause{
                 #(#fields),*
             }
