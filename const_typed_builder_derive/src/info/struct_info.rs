@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
 use quote::format_ident;
+use syn::Token;
 
-use crate::symbol::{AT_LEAST, AT_MOST, EXACT, GROUP, SINGLE};
+use crate::symbol::{AT_LEAST, AT_MOST, EXACT, GROUP, SINGLE, BUILDER, ASSUME_MANDATORY};
 
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
@@ -153,12 +154,39 @@ impl StructSettings {
         if let Some(ident) = attr.path().get_ident() {
             if ident == GROUP {
                 self.handle_group_attribute(attr)
+            } else if ident == BUILDER {
+                self.handle_builder_attribute(attr)
             } else {
                 Ok(())
             }
         } else {
             Ok(())
         }
+    }
+
+    fn handle_builder_attribute(&mut self, attr: &syn::Attribute)  -> syn::Result<()> {
+        let list = attr.meta.require_list()?;
+        if list.tokens.is_empty() {
+            return Ok(());
+        }
+
+        attr.parse_nested_meta(|meta| {
+            if meta.path == ASSUME_MANDATORY {
+                if meta.input.peek(Token![=]) {
+                    let expr: syn::Expr = meta.value()?.parse()?;
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                        ..
+                    }) = expr
+                    {
+                        self.default_field_settings.mandatory = value;
+                    }
+                } else {
+                    self.default_field_settings.mandatory = true;
+                }
+            }
+            Ok(())
+        })
     }
 
     fn handle_group_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
