@@ -168,19 +168,6 @@ impl<'a> GenericsGenerator<'a> {
         res
     }
 
-    fn add_const_generics_valued_to_impl(
-        &self,
-        tokens: &mut dyn Iterator<Item = TokenStream>,
-    ) -> TokenStream {
-        let syn::Generics { params, .. } = self.target_generics;
-        if params.is_empty() {
-            quote!(<#(#tokens),*>)
-        } else {
-            let impl_generics = params.iter();
-            quote!(< #(#impl_generics),*, #(#tokens),* >)
-        }
-    }
-
     fn add_const_generics_valued_for_type(
         &self,
         constants: &mut dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>,
