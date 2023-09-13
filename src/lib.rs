@@ -76,6 +76,21 @@
 ///     .bar("Hello".to_string())
 ///     .build();
 /// ```
+/// 
+/// Or you can assume everything is mandatory altogether with `assume_mandatory` and `optional`.
+/// 
+/// ```
+/// # use const_typed_builder::Builder;
+/// #[derive(Debug, Builder)]
+/// #[builder(assume_mandatory)]
+/// pub struct Foo {
+///     bar: Option<String>,
+///     baz: Option<String>,
+///     #[builder(optional)]
+///     quz: Option<String>,
+/// }
+/// let foo = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+/// ```
 ///
 /// ## 3. Grouping Fields
 ///
