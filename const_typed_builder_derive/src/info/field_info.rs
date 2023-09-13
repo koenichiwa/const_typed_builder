@@ -5,7 +5,7 @@ use proc_macro2::Span;
 use syn::{ExprPath, Token};
 
 use crate::{
-    symbol::{BUILDER, GROUP, MANDATORY, PROPAGATE},
+    symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE},
     util::{inner_type, is_option},
 };
 
@@ -283,10 +283,9 @@ impl FieldSettings {
                 return Ok(());
             }
         }
-        if let syn::Meta::List(list) = &attr.meta {
-            if list.tokens.is_empty() {
-                return Ok(());
-            }
+        let list = attr.meta.require_list()?;
+        if list.tokens.is_empty() {
+            return Ok(());
         }
 
         attr.parse_nested_meta(|meta| {
@@ -302,6 +301,20 @@ impl FieldSettings {
                     }
                 } else {
                     self.mandatory = true;
+                }
+            }
+            if meta.path == OPTIONAL {
+                if meta.input.peek(Token![=]) {
+                    let expr: syn::Expr = meta.value()?.parse()?;
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                        ..
+                    }) = expr
+                    {
+                        self.mandatory = !value;
+                    }
+                } else {
+                    self.mandatory = false;
                 }
             }
             if meta.path == GROUP {
