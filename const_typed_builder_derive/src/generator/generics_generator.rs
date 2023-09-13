@@ -44,11 +44,14 @@ impl<'a> GenericsGenerator<'a> {
                 })) as Box<dyn Iterator<Item = TokenStream>>
             }
         });
-        // quote!(#(#all),*)
         self.add_const_generics_valued(&mut all)
     }
 
-    pub fn builder_const_generic_idents_set_after(&self, field_info: &FieldInfo, value: bool) -> TokenStream {
+    pub fn builder_const_generic_idents_set_after(
+        &self,
+        field_info: &FieldInfo,
+        value: bool,
+    ) -> TokenStream {
         let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
                 Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
@@ -77,7 +80,6 @@ impl<'a> GenericsGenerator<'a> {
             ) as Box<dyn Iterator<Item = TokenStream>>,
         });
         self.add_const_generics_valued(&mut all)
-        // quote!(<#(#all),*>)
     }
 
     pub fn builder_const_generic_idents_set_before(&self, field_info: &FieldInfo) -> syn::Generics {
@@ -101,7 +103,6 @@ impl<'a> GenericsGenerator<'a> {
             ) as Box<dyn Iterator<Item = syn::Ident>>,
         });
         self.add_const_generics(&mut all)
-        // Self::combine_generics(quote!(#(const #all: bool),*), target_generics)
     }
 
     pub fn builder_const_generic_idents_build(&self) -> TokenStream {
@@ -180,10 +181,7 @@ impl<'a> GenericsGenerator<'a> {
         &self,
         tokens: &mut dyn Iterator<Item = TokenStream>,
     ) -> TokenStream {
-        let syn::Generics {
-            params,
-            ..
-        } = self.target_generics;
+        let syn::Generics { params, .. } = self.target_generics;
         if params.is_empty() {
             quote!(<#(#tokens),*>)
         } else {

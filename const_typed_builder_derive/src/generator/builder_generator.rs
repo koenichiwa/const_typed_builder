@@ -1,4 +1,7 @@
-use super::{field_generator::FieldGenerator, group_generator::GroupGenerator, generics_generator::GenericsGenerator};
+use super::{
+    field_generator::FieldGenerator, generics_generator::GenericsGenerator,
+    group_generator::GroupGenerator,
+};
 use crate::{StreamResult, VecStreamResult};
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -104,7 +107,9 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_build_impl(&self) -> TokenStream {
         let target_name = self.target_name;
         let builder_name = self.builder_name;
-        let group_partials = self.generics_gen.builder_const_generic_group_partial_idents();
+        let group_partials = self
+            .generics_gen
+            .builder_const_generic_group_partial_idents();
         let generic_consts = self.generics_gen.builder_const_generic_idents_build();
         let correctness_verifier = self.group_gen.builder_build_impl_correctness_verifier();
         let correctness_check = self.group_gen.builder_build_impl_correctness_check();

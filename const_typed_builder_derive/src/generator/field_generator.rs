@@ -1,6 +1,6 @@
 use crate::{info::FieldInfo, VecStreamResult};
 use proc_macro2::TokenStream;
-use quote::{ quote, ToTokens};
+use quote::{quote, ToTokens};
 
 #[derive(Debug, Clone)]
 pub(super) struct FieldGenerator<'a> {
@@ -9,9 +9,7 @@ pub(super) struct FieldGenerator<'a> {
 
 impl<'a> FieldGenerator<'a> {
     pub fn new(fields: &'a [FieldInfo]) -> Self {
-        Self {
-            fields,
-        }
+        Self { fields }
     }
 
     pub fn fields(&self) -> &[FieldInfo] {
@@ -74,7 +72,7 @@ impl<'a> FieldGenerator<'a> {
             #(#fields_none),*
         )
     }
-    
+
     pub fn builder_set_impl_input_type(&self, field: &FieldInfo) -> TokenStream {
         let field_name = field.ident();
         match field {
