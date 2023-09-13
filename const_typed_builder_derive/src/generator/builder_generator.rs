@@ -1,7 +1,7 @@
-use proc_macro2::{TokenStream, Ident};
-use quote::{quote, ToTokens};
-use crate::StreamResult;
 use super::{field_generator::FieldGenerator, group_generator::GroupGenerator};
+use crate::StreamResult;
+use proc_macro2::{Ident, TokenStream};
+use quote::{quote, ToTokens};
 
 pub(super) struct BuilderGenerator<'a> {
     group_gen: GroupGenerator<'a>,
@@ -55,7 +55,7 @@ impl<'a> BuilderGenerator<'a> {
         let vis = self.target_vis;
 
         quote!(
-            #[derive(Default, Debug)]
+            #[derive(Debug)]
             #vis struct #builder_name #impl_generics #where_clause {
                 data: #data_name #type_generics
             }
@@ -77,6 +77,7 @@ impl<'a> BuilderGenerator<'a> {
 
     fn generate_new_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
+        let data_name = self.data_name;
         // let const_generics = self.field_gen.builder_const_generics_valued(false);
         // let generics = self.field_gen.builder_struct_generics();
 
@@ -87,6 +88,14 @@ impl<'a> BuilderGenerator<'a> {
             impl #impl_generics #builder_name #type_generics #where_clause{
                 pub fn new() -> #builder_name #type_generics {
                     Self::default()
+                }
+            }
+
+            impl #impl_generics Default for #builder_name #type_generics #where_clause {
+                fn default() -> Self {
+                    #builder_name {
+                        data: #data_name::default(),
+                    }
                 }
             }
         )
@@ -116,7 +125,9 @@ impl<'a> BuilderGenerator<'a> {
     }
 
     fn generate_setters_impl(&self) -> StreamResult {
-        let setters = self.field_gen.builder_impl_setters(self.builder_name, self.target_generics)?;
+        let setters = self
+            .field_gen
+            .builder_impl_setters(self.builder_name, self.target_generics)?;
 
         let tokens = quote!(
             #(#setters)*

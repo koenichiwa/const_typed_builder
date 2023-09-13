@@ -1,5 +1,5 @@
-use proc_macro2::TokenStream;
 use crate::info::{GroupInfo, GroupType};
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 #[derive(Debug)]

@@ -36,15 +36,25 @@ impl<'a> DataGenerator<'a> {
     fn generate_impl(&self) -> StreamResult {
         let data_name = self.data_name;
         let struct_name = self.target_name;
-        let fields = self.field_gen.data_impl_fields()?;
-        
-        let (impl_generics, type_generics, where_clause) = self.field_gen.target_generics().split_for_impl();
+        let from_fields = self.field_gen.data_impl_from_fields()?;
+        let def_fields = self.field_gen.data_impl_default_fields();
+
+        let (impl_generics, type_generics, where_clause) =
+            self.field_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
             impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
                 fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
                     #struct_name {
-                        #(#fields),*
+                        #(#from_fields),*
+                    }
+                }
+            }
+
+            impl #impl_generics Default for #data_name #type_generics #where_clause {
+                fn default() -> Self {
+                    #data_name {
+                        #def_fields
                     }
                 }
             }
@@ -56,10 +66,11 @@ impl<'a> DataGenerator<'a> {
         let data_name = self.data_name;
 
         let fields = self.field_gen.data_struct_fields()?;
-        let (impl_generics, type_generics, where_clause) = self.field_gen.target_generics().split_for_impl();
+        let (impl_generics, type_generics, where_clause) =
+            self.field_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
-            #[derive(Default, Debug)]
+            #[derive(Debug)]
             pub struct #data_name #impl_generics #where_clause{
                 #(#fields),*
             }

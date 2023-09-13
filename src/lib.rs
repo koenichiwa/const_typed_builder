@@ -447,14 +447,19 @@ mod test {
     #[test]
     fn single_generic_added_default() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        pub struct Foo<A> where A: Default {
+        pub struct Foo<A>
+        where
+            A: Default,
+        {
             bar: A,
         }
 
         let expected = Foo::<String> {
             bar: "Hello world!".to_string(),
         };
-        let foo = Foo::<String>::builder().bar("Hello world!".to_string()).build();
+        let foo = Foo::<String>::builder()
+            .bar("Hello world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         let foo: Foo<String> = Foo::builder().bar("Hello world!".to_string()).build();
@@ -464,7 +469,10 @@ mod test {
     #[test]
     fn single_generic_multiple_mandatory_added_default() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        pub struct Foo<A> where A: Default {
+        pub struct Foo<A>
+        where
+            A: Default,
+        {
             bar: A,
             baz: A,
         }
@@ -473,54 +481,69 @@ mod test {
             bar: "Hello world!".to_string(),
             baz: "Hello world!".to_string(),
         };
-        let foo = Foo::<String>::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+        let foo = Foo::<String>::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
-        let foo: Foo<String> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+        let foo: Foo<String> = Foo::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
         assert_eq!(expected, foo);
 
         // let foo = Foo::builder().build();
     }
 
-    // #[test]
-    // fn single_generic_multiple_mandatory() {
-    //     #[derive(Debug, Default, PartialEq, Eq, Builder)]
-    //     pub struct Foo<A> {
-    //         bar: A,
-    //         baz: A,
-    //     }
+    #[test]
+    fn single_generic_multiple_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Foo<A> {
+            bar: A,
+            baz: A,
+        }
 
-    //     let expected = Foo::<String> {
-    //         bar: "Hello world!".to_string(),
-    //         baz: "Hello world!".to_string(),
-    //     };
-    //     let foo = Foo::<String>::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
-    //     assert_eq!(expected, foo);
+        let expected = Foo::<String> {
+            bar: "Hello world!".to_string(),
+            baz: "Hello world!".to_string(),
+        };
+        let foo = Foo::<String>::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
+        assert_eq!(expected, foo);
 
-    //     let foo: Foo<String> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
-    //     assert_eq!(expected, foo);
+        let foo: Foo<String> = Foo::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
+        assert_eq!(expected, foo);
 
-    //     // let foo = Foo::builder().build();
-    // }
+        // let foo = Foo::builder().build();
+    }
 
-    // #[test]
-    // fn multiple_generic_multiple_mandatory() {
-    //     #[derive(Debug, Default, PartialEq, Eq, Builder)]
-    //     pub struct Foo<A, B> {
-    //         bar: A,
-    //         baz: B,
-    //     }
+    #[test]
+    fn multiple_generic_multiple_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Foo<A, B> {
+            bar: A,
+            baz: B,
+        }
 
-    //     let expected = Foo::<String, &str> {
-    //         bar: "Hello world!".to_string(),
-    //         baz: "Hello world!",
-    //     };
-    //     let foo = Foo::<String, &str>::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
-    //     assert_eq!(expected, foo);
+        let expected = Foo::<String, &str> {
+            bar: "Hello world!".to_string(),
+            baz: "Hello world!",
+        };
+        let foo = Foo::<String, &str>::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!")
+            .build();
+        assert_eq!(expected, foo);
 
-    //     // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
-    //     // assert_eq!(expected, foo);
+        // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
+        // assert_eq!(expected, foo);
 
-    //     // let foo = Foo::builder().build();
-    // }
+        // let foo = Foo::builder().build();
+    }
 }

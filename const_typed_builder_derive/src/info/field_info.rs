@@ -24,7 +24,7 @@ impl<'a> FieldInfo<'a> {
             ty,
             vis: _,
             mutability: _,
-            colon_token: _
+            colon_token: _,
         } = field
         {
             let settings = struct_settings

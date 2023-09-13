@@ -1,5 +1,5 @@
-use std::fmt::{self, Display};
 use proc_macro2::Span;
+use std::fmt::{self, Display};
 use syn::{Ident, Path};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -13,13 +13,13 @@ pub const AT_LEAST: Symbol = Symbol("at_least");
 pub const AT_MOST: Symbol = Symbol("at_most");
 pub const EXACT: Symbol = Symbol("exact");
 
-impl <'a> From<&'a String> for Symbol<'a> {
+impl<'a> From<&'a String> for Symbol<'a> {
     fn from(value: &'a String) -> Self {
         Symbol(value)
     }
 }
 
-impl <'a> From<Symbol<'a>> for syn::Ident {
+impl<'a> From<Symbol<'a>> for syn::Ident {
     fn from(value: Symbol) -> Self {
         syn::Ident::new(value.0, Span::call_site())
     }
@@ -31,31 +31,31 @@ impl <'a> From<Symbol<'a>> for syn::Ident {
 //     }
 // }
 
-impl <'a> PartialEq<Symbol<'a>> for String {
+impl<'a> PartialEq<Symbol<'a>> for String {
     fn eq(&self, word: &Symbol) -> bool {
         self == word.0
     }
 }
 
-impl <'a> PartialEq<Symbol<'a>> for str {
+impl<'a> PartialEq<Symbol<'a>> for str {
     fn eq(&self, word: &Symbol) -> bool {
         self == word.0
     }
 }
 
-impl <'a> PartialEq<Symbol<'a>> for Ident {
+impl<'a> PartialEq<Symbol<'a>> for Ident {
     fn eq(&self, word: &Symbol) -> bool {
         self == word.0
     }
 }
 
-impl <'a> PartialEq<Symbol<'a>> for &'a Ident {
+impl<'a> PartialEq<Symbol<'a>> for &'a Ident {
     fn eq(&self, word: &Symbol) -> bool {
         *self == word.0
     }
 }
 
-impl <'a> PartialEq<Symbol<'a>> for Path {
+impl<'a> PartialEq<Symbol<'a>> for Path {
     fn eq(&self, word: &Symbol) -> bool {
         self.is_ident(word.0)
     }
@@ -67,7 +67,7 @@ impl<'a> PartialEq<Symbol<'a>> for &'a Path {
     }
 }
 
-impl <'a> Display for Symbol<'a> {
+impl<'a> Display for Symbol<'a> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str(self.0)
     }

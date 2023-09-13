@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use quote::format_ident;
 
-use crate::symbol::{EXACT, AT_LEAST, AT_MOST, Symbol};
+use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 
 #[derive(Debug, Clone)]
 pub struct GroupInfo {

@@ -4,13 +4,13 @@ mod field_generator;
 mod group_generator;
 mod target_generator;
 
-use quote::quote;
-use crate::{info::StructInfo, StreamResult};
 use self::{
     builder_generator::BuilderGenerator, data_generator::DataGenerator,
     field_generator::FieldGenerator, group_generator::GroupGenerator,
     target_generator::TargetGenerator,
 };
+use crate::{info::StructInfo, StreamResult};
+use quote::quote;
 
 pub struct Generator<'a> {
     data_gen: DataGenerator<'a>,
