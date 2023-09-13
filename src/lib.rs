@@ -77,6 +77,21 @@
 ///     .build();
 /// ```
 ///
+/// Or you can assume everything is mandatory altogether with `assume_mandatory` and `optional`.
+///
+/// ```
+/// # use const_typed_builder::Builder;
+/// #[derive(Debug, Builder)]
+/// #[builder(assume_mandatory)]
+/// pub struct Foo {
+///     bar: Option<String>,
+///     baz: Option<String>,
+///     #[builder(optional)]
+///     quz: Option<String>,
+/// }
+/// let foo = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+/// ```
+///
 /// ## 3. Grouping Fields
 ///
 /// Fields can be grouped together, and constraints can be applied to these groups. Groups allow you to ensure that a certain combination of fields is provided together.
@@ -419,6 +434,44 @@ mod test {
             bar: Some("Hello world!".to_string()),
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+    }
+
+    #[test]
+    fn assume_mandatory() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[builder(assume_mandatory)]
+        pub struct Foo {
+            bar: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+    }
+
+    #[test]
+    fn assume_mandatory_explicit_optional() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[builder(assume_mandatory)]
+        pub struct Foo {
+            bar: Option<String>,
+            baz: Option<String>,
+            #[builder(optional)]
+            quz: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+            baz: Some("Hello world!".to_string()),
+            quz: None,
+        };
+        let foo = Foo::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
         assert_eq!(expected, foo);
     }
 
