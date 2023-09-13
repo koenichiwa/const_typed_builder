@@ -262,7 +262,7 @@ impl FieldSettings {
         Self::default()
     }
 
-    pub fn with_attrs(mut self, attrs: &Vec<syn::Attribute>) -> syn::Result<Self> {
+    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
         attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))
@@ -316,7 +316,7 @@ impl FieldSettings {
                     if let syn::Expr::Path(ExprPath { path, .. }) = &expr {
                         let group_name = path
                             .get_ident()
-                            .ok_or(syn::Error::new_spanned(&path, "Can't parse group"))?;
+                            .ok_or(syn::Error::new_spanned(path, "Can't parse group"))?;
 
                         if !self.groups.insert(group_name.to_string()) {
                             return Err(syn::Error::new_spanned(

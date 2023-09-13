@@ -21,8 +21,8 @@ pub struct Generator<'a> {
 
 impl<'a> Generator<'a> {
     pub fn new(info: &'a StructInfo<'a>) -> Self {
-        let generics_gen = GenericsGenerator::new(&info.field_infos(), info.generics());
-        let field_gen = FieldGenerator::new(&info.field_infos());
+        let generics_gen = GenericsGenerator::new(info.field_infos(), info.generics());
+        let field_gen = FieldGenerator::new(info.field_infos());
         let group_gen = GroupGenerator::new(info.groups().values().collect());
         Generator {
             data_gen: DataGenerator::new(

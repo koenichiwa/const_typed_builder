@@ -62,7 +62,7 @@ impl Eq for GroupInfo {}
 
 impl PartialEq for GroupInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.name.to_string() == other.name.to_string()
+        self.name == other.name
     }
 }
 

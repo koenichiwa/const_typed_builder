@@ -18,7 +18,7 @@ impl<'a> GenericsGenerator<'a> {
     }
 
     pub fn target_generics(&self) -> &syn::Generics {
-        &self.target_generics
+        self.target_generics
     }
 
     pub fn const_generics_valued(&self, value: bool) -> TokenStream {

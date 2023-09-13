@@ -141,7 +141,7 @@ impl StructSettings {
         &self.default_field_settings
     }
 
-    pub fn with_attrs(mut self, attrs: &Vec<syn::Attribute>) -> syn::Result<Self> {
+    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
         attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))
@@ -182,9 +182,9 @@ impl StructSettings {
                         func.as_ref()
                     {
                         path.get_ident()
-                            .ok_or_else(|| syn::Error::new_spanned(&func, "Can't parse group type"))
+                            .ok_or_else(|| syn::Error::new_spanned(func, "Can't parse group type"))
                     } else {
-                        Err(syn::Error::new_spanned(&func, "Can't find group type"))
+                        Err(syn::Error::new_spanned(func, "Can't find group type"))
                     }?;
 
                     let group_args = if let Some(syn::Expr::Lit(syn::ExprLit {
@@ -194,7 +194,7 @@ impl StructSettings {
                     {
                         val.base10_parse::<usize>()
                     } else {
-                        Err(syn::Error::new_spanned(&func, "Can't parse group args"))
+                        Err(syn::Error::new_spanned(func, "Can't parse group args"))
                     }?;
                     match (&group_type.to_string()).into() {
                         EXACT => Ok(GroupType::Exact(group_args)),
@@ -210,7 +210,7 @@ impl StructSettings {
                 syn::Expr::Path(syn::ExprPath { path, .. }) => {
                     let group_type = path
                         .get_ident()
-                        .ok_or_else(|| syn::Error::new_spanned(&path, "Can't parse group type"))?;
+                        .ok_or_else(|| syn::Error::new_spanned(path, "Can't parse group type"))?;
                     match (&group_type.to_string()).into() {
                         EXACT | AT_LEAST | AT_MOST => Err(syn::Error::new_spanned(
                             &attr.meta,
