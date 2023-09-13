@@ -1,5 +1,5 @@
 use proc_macro2::Span;
-use std::fmt::{self, Display};
+use std::fmt::Display;
 use syn::{Ident, Path};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -69,7 +69,7 @@ impl<'a> PartialEq<Symbol<'a>> for &'a Path {
 }
 
 impl<'a> Display for Symbol<'a> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str(self.0)
     }
 }

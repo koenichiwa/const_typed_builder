@@ -23,12 +23,10 @@ pub fn inner_type(ty: &syn::Type) -> Option<&syn::Type> {
         return None;
     };
     let segment = path.segments.last()?;
-    let generic_params =
-        if let syn::PathArguments::AngleBracketed(generic_params) = &segment.arguments {
-            generic_params
-        } else {
-            return None;
-        };
+    let syn::PathArguments::AngleBracketed(generic_params) = &segment.arguments else {
+        return None;
+    };
+    
     if let syn::GenericArgument::Type(inner) = generic_params.args.first()? {
         Some(inner)
     } else {
