@@ -5,7 +5,7 @@ use super::group_info::{GroupInfo, GroupType};
 use quote::format_ident;
 use syn::Token;
 
-use crate::symbol::{AT_LEAST, AT_MOST, EXACT, GROUP, SINGLE, BUILDER, ASSUME_MANDATORY};
+use crate::symbol::{ASSUME_MANDATORY, AT_LEAST, AT_MOST, BUILDER, EXACT, GROUP, SINGLE};
 
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
@@ -164,7 +164,7 @@ impl StructSettings {
         }
     }
 
-    fn handle_builder_attribute(&mut self, attr: &syn::Attribute)  -> syn::Result<()> {
+    fn handle_builder_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         let list = attr.meta.require_list()?;
         if list.tokens.is_empty() {
             return Ok(());

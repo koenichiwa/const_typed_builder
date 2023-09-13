@@ -5,7 +5,7 @@ use proc_macro2::Span;
 use syn::{ExprPath, Token};
 
 use crate::{
-    symbol::{BUILDER, GROUP, MANDATORY, PROPAGATE, OPTIONAL},
+    symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE},
     util::{inner_type, is_option},
 };
 
