@@ -66,7 +66,7 @@ impl<'a> DataGenerator<'a> {
         let data_name = self.data_name;
 
         let fields = self.field_gen.data_struct_fields()?;
-        let (impl_generics, type_generics, where_clause) =
+        let (impl_generics, _type_generics, where_clause) =
             self.field_gen.target_generics().split_for_impl();
 
         let tokens = quote!(

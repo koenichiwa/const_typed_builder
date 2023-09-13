@@ -1,7 +1,7 @@
 use crate::{info::FieldInfo, VecStreamResult, MANDATORY_PREFIX};
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_quote, Token, TypePath};
+use syn::parse_quote;
 
 #[derive(Debug, Clone)]
 pub(super) struct FieldGenerator<'a> {
@@ -85,7 +85,6 @@ impl<'a> FieldGenerator<'a> {
     pub fn builder_impl_setters(
         &self,
         builder_name: &syn::Ident,
-        target_generics: &syn::Generics,
     ) -> VecStreamResult {
         self.fields
             .iter()
@@ -261,29 +260,6 @@ impl<'a> FieldGenerator<'a> {
         // Self::combine_generics(quote!(#(const #all: bool),*), target_generics)
     }
 
-    fn const_idents(&self) -> Vec<syn::Ident> {
-        self.fields
-            .iter()
-            .flat_map(|field| match field {
-                FieldInfo::Optional(_) => {
-                    Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
-                }
-                FieldInfo::Mandatory(mandatory) => Box::new(std::iter::once(format_ident!(
-                    "M_{}",
-                    mandatory.mandatory_index()
-                )))
-                    as Box<dyn Iterator<Item = syn::Ident>>,
-                FieldInfo::Grouped(grouped) => Box::new(
-                    grouped
-                        .group_indices()
-                        .iter()
-                        .map(|(group, index)| group.partial_const_ident(*index)),
-                )
-                    as Box<dyn Iterator<Item = syn::Ident>>,
-            })
-            .collect()
-    }
-
     pub fn builder_struct_generics(&self) -> syn::Generics {
         let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
@@ -324,12 +300,9 @@ impl<'a> FieldGenerator<'a> {
         &self,
         tokens: &mut dyn Iterator<Item = TokenStream>,
     ) -> TokenStream {
-        let (impl_generics, type_generics, where_clause) = self.target_generics.split_for_impl();
         let syn::Generics {
-            lt_token,
             params,
-            gt_token,
-            where_clause,
+            ..
         } = self.target_generics;
         if params.is_empty() {
             quote!(<#(#tokens),*>)

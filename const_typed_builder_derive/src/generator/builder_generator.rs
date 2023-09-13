@@ -1,7 +1,7 @@
 use super::{field_generator::FieldGenerator, group_generator::GroupGenerator};
 use crate::StreamResult;
-use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens};
+use proc_macro2::TokenStream;
+use quote::quote;
 
 pub(super) struct BuilderGenerator<'a> {
     group_gen: GroupGenerator<'a>,
@@ -127,7 +127,7 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_setters_impl(&self) -> StreamResult {
         let setters = self
             .field_gen
-            .builder_impl_setters(self.builder_name, self.target_generics)?;
+            .builder_impl_setters(self.builder_name)?;
 
         let tokens = quote!(
             #(#setters)*

@@ -546,4 +546,28 @@ mod test {
 
         // let foo = Foo::builder().build();
     }
+
+    // #[test]
+    // fn multiple_generic_with_const_multiple_mandatory() {
+    //     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+    //     pub struct Foo<A, B, const C: usize> {
+    //         bar: A,
+    //         baz: B,
+    //     }
+
+    //     let expected = Foo::<String, &str> {
+    //         bar: "Hello world!".to_string(),
+    //         baz: "Hello world!",
+    //     };
+    //     let foo = Foo::<String, &str>::builder()
+    //         .bar("Hello world!".to_string())
+    //         .baz("Hello world!")
+    //         .build();
+    //     assert_eq!(expected, foo);
+
+    //     // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
+    //     // assert_eq!(expected, foo);
+
+    //     // let foo = Foo::builder().build();
+    // }
 }
