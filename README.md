@@ -17,3 +17,5 @@ Also, make sure you have the following import statements in your code:
 ```rust
 use const_typed_builder::Builder;
 ```
+## Inspirations
+Builder macros have been done before, but not exactly what I needed for my use case. Also look into [derive_builder](https://crates.io/crates/derive_builder), [safe-builder-derive](https://crates.io/crates/safe-builder-derive) and [typed-builder](https://crates.io/crates/typed-builder). Those projects are currently way more mature, but anyone willing to test this crate is currently a godsend.

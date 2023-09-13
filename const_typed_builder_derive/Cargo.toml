@@ -1,7 +1,12 @@
 [package]
 name = "const_typed_builder_derive"
+description.workspace = true
 version.workspace = true
+repository.workspace = true
+authors.workspace = true
 edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
 license.workspace = true
 readme.workspace = true
 
