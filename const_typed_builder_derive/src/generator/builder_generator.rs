@@ -50,6 +50,7 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_struct(&self) -> TokenStream {
         let data_name = self.data_name;
         let builder_name = self.builder_name;
+
         let generics = self.generics_gen.builder_struct_generics();
         let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -81,10 +82,8 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_new_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
         let data_name = self.data_name;
-        // let const_generics = self.field_gen.builder_const_generics_valued(false);
-        // let generics = self.field_gen.builder_struct_generics();
 
-        let type_generics = self.generics_gen.builder_impl_new_generics();
+        let type_generics = self.generics_gen.const_generics_valued(false);
         let (impl_generics, _, where_clause) = self.generics_gen.target_generics().split_for_impl();
 
         quote!(
@@ -105,23 +104,26 @@ impl<'a> BuilderGenerator<'a> {
     }
 
     fn generate_build_impl(&self) -> TokenStream {
-        let target_name = self.target_name;
         let builder_name = self.builder_name;
-        let group_partials = self
+        let impl_generics = self
             .generics_gen
             .builder_const_generic_group_partial_idents();
-        let generic_consts = self.generics_gen.builder_const_generic_idents_build();
+        let type_generics = self.generics_gen.builder_const_generic_idents_build();
+
         let correctness_verifier = self.group_gen.builder_build_impl_correctness_verifier();
         let correctness_check = self.group_gen.builder_build_impl_correctness_check();
         let correctness_helper_fns = self.group_gen.builder_build_impl_correctness_helper_fns();
-        let (_, type_generics, where_clause) = self.generics_gen.target_generics().split_for_impl();
+
+        let target_name = self.target_name;
+        let (_, target_type_generics, where_clause) =
+            self.generics_gen.target_generics().split_for_impl();
 
         quote!(
-            impl #group_partials #builder_name #generic_consts #where_clause{
+            impl #impl_generics #builder_name #type_generics #where_clause{
                 #correctness_verifier
                 #correctness_helper_fns
 
-                pub fn build(self) -> #target_name #type_generics {
+                pub fn build(self) -> #target_name #target_type_generics {
                     #correctness_check
                     self.data.into()
                 }
@@ -134,18 +136,18 @@ impl<'a> BuilderGenerator<'a> {
         let setters = self
             .field_gen
             .fields().iter().map(|field| {
-                let const_idents_generic = self.generics_gen.builder_const_generic_idents_set_before(field);
-                let const_idents_input = self.generics_gen.builder_const_generic_idents_set_after(field, false);
-                let const_idents_output = self.generics_gen.builder_const_generic_idents_set_after(field, true);
+                let const_idents_impl = self.generics_gen.builder_const_generic_idents_set_impl(field);
+                let const_idents_type_input = self.generics_gen.builder_const_generic_idents_set_type(field, false);
+                let const_idents_type_output = self.generics_gen.builder_const_generic_idents_set_type(field, true);
+                let where_clause = &self.generics_gen.target_generics().where_clause;
 
                 let field_name = field.ident();
                 let input_type = self.field_gen.builder_set_impl_input_type(field);
                 let input_value = self.field_gen.builder_set_impl_input_value(field);
-                let where_clause = &self.generics_gen.target_generics().where_clause;
 
                 let tokens = quote!(
-                    impl #const_idents_generic #builder_name #const_idents_input #where_clause {
-                        pub fn #field_name (self, #input_type) -> #builder_name #const_idents_output {
+                    impl #const_idents_impl #builder_name #const_idents_type_input #where_clause {
+                        pub fn #field_name (self, #input_type) -> #builder_name #const_idents_type_output {
                             let mut data = self.data;
                             data.#field_name = #input_value;
                             #builder_name {

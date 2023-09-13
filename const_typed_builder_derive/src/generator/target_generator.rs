@@ -30,7 +30,7 @@ impl<'a> TargetGenerator<'a> {
     fn generate_impl(&self) -> TokenStream {
         let target_name = self.target_name;
         let builder_name = self.builder_name;
-        let const_generics = self.generics_gen.target_impl_const_generics();
+        let const_generics = self.generics_gen.const_generics_valued(false);
         let (impl_generics, type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 

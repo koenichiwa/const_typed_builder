@@ -21,15 +21,7 @@ impl<'a> GenericsGenerator<'a> {
         &self.target_generics
     }
 
-    pub fn target_impl_const_generics(&self) -> TokenStream {
-        self.builder_const_generics_valued(false)
-    }
-
-    pub fn builder_impl_new_generics(&self) -> TokenStream {
-        self.builder_const_generics_valued(false)
-    }
-
-    pub fn builder_const_generics_valued(&self, value: bool) -> TokenStream {
+    pub fn const_generics_valued(&self, value: bool) -> TokenStream {
         let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
                 Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
@@ -47,7 +39,7 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_valued(&mut all)
     }
 
-    pub fn builder_const_generic_idents_set_after(
+    pub fn builder_const_generic_idents_set_type(
         &self,
         field_info: &FieldInfo,
         value: bool,
@@ -82,7 +74,7 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_valued(&mut all)
     }
 
-    pub fn builder_const_generic_idents_set_before(&self, field_info: &FieldInfo) -> syn::Generics {
+    pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
         let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
                 Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
