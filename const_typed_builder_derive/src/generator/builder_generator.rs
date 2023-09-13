@@ -1,15 +1,14 @@
-use proc_macro2::TokenStream;
-
-use quote::quote;
-
+use proc_macro2::{TokenStream, Ident};
+use quote::{quote, ToTokens};
 use crate::StreamResult;
-
 use super::{field_generator::FieldGenerator, group_generator::GroupGenerator};
 
-pub struct BuilderGenerator<'a> {
+pub(super) struct BuilderGenerator<'a> {
     group_gen: GroupGenerator<'a>,
     field_gen: FieldGenerator<'a>,
     target_name: &'a syn::Ident,
+    target_vis: &'a syn::Visibility,
+    target_generics: &'a syn::Generics,
     builder_name: &'a syn::Ident,
     data_name: &'a syn::Ident,
 }
@@ -19,6 +18,8 @@ impl<'a> BuilderGenerator<'a> {
         group_gen: GroupGenerator<'a>,
         field_gen: FieldGenerator<'a>,
         target_name: &'a syn::Ident,
+        target_vis: &'a syn::Visibility,
+        target_generics: &'a syn::Generics,
         builder_name: &'a syn::Ident,
         data_name: &'a syn::Ident,
     ) -> Self {
@@ -26,6 +27,8 @@ impl<'a> BuilderGenerator<'a> {
             group_gen,
             field_gen,
             target_name,
+            target_vis,
+            target_generics,
             builder_name,
             data_name,
         }
@@ -44,12 +47,17 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_struct(&self) -> TokenStream {
         let data_name = self.data_name;
         let builder_name = self.builder_name;
-        let const_idents = self.field_gen.builder_const_generic_idents();
+        let generics = self.field_gen.builder_struct_generics();
+        let (impl_generics, _, where_clause) = generics.split_for_impl();
+
+        let (_, type_generics, _) = self.field_gen.target_generics().split_for_impl();
+
+        let vis = self.target_vis;
 
         quote!(
-            #[derive(Default, Debug)]
-            pub struct #builder_name #const_idents {
-                data: #data_name
+            #[derive(Debug)]
+            #vis struct #builder_name #impl_generics #where_clause {
+                data: #data_name #type_generics
             }
         )
     }
@@ -69,12 +77,24 @@ impl<'a> BuilderGenerator<'a> {
 
     fn generate_new_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
-        let const_generics = self.field_gen.builder_const_generics_valued(false);
+        // let const_generics = self.field_gen.builder_const_generics_valued(false);
+        // let generics = self.field_gen.builder_struct_generics();
+
+        let type_generics = self.field_gen.builder_impl_new_generics();
+        let (impl_generics, _, where_clause) = self.target_generics.split_for_impl();
 
         quote!(
-            impl #builder_name #const_generics {
-                pub fn new() -> #builder_name #const_generics {
+            impl #impl_generics #builder_name #type_generics #where_clause{
+                pub fn new() -> #builder_name #type_generics {
                     Self::default()
+                }
+            }
+
+            impl #impl_generics Default for #builder_name #type_generics #where_clause{
+                fn default() -> #builder_name #type_generics {
+                    Self {
+                        ..Default::default()
+                    }
                 }
             }
         )
@@ -88,13 +108,14 @@ impl<'a> BuilderGenerator<'a> {
         let correctness_verifier = self.group_gen.builder_build_impl_correctness_verifier();
         let correctness_check = self.group_gen.builder_build_impl_correctness_check();
         let correctness_helper_fns = self.group_gen.builder_build_impl_correctness_helper_fns();
+        let (_, type_generics, where_clause) = self.target_generics.split_for_impl();
 
         quote!(
-            impl #group_partials #builder_name #generic_consts {
+            impl #group_partials #builder_name #generic_consts #where_clause{
                 #correctness_verifier
                 #correctness_helper_fns
 
-                pub fn build(self) -> #target_name {
+                pub fn build(self) -> #target_name #type_generics {
                     #correctness_check
                     self.data.into()
                 }
@@ -103,7 +124,7 @@ impl<'a> BuilderGenerator<'a> {
     }
 
     fn generate_setters_impl(&self) -> StreamResult {
-        let setters = self.field_gen.builder_impl_setters(self.builder_name)?;
+        let setters = self.field_gen.builder_impl_setters(self.builder_name, self.target_generics)?;
 
         let tokens = quote!(
             #(#setters)*

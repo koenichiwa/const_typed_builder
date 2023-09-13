@@ -3,10 +3,9 @@ mod data_generator;
 mod field_generator;
 mod group_generator;
 mod target_generator;
+
 use quote::quote;
-
 use crate::{info::StructInfo, StreamResult};
-
 use self::{
     builder_generator::BuilderGenerator, data_generator::DataGenerator,
     field_generator::FieldGenerator, group_generator::GroupGenerator,
@@ -21,7 +20,7 @@ pub struct Generator<'a> {
 
 impl<'a> Generator<'a> {
     pub fn new(info: &'a StructInfo<'a>) -> Self {
-        let field_gen = FieldGenerator::new(&info.field_infos());
+        let field_gen = FieldGenerator::new(&info.field_infos(), info.generics());
         let group_gen = GroupGenerator::new(info.groups().values().collect());
         Generator {
             data_gen: DataGenerator::new(field_gen.clone(), info.name(), info.data_name()),
@@ -30,6 +29,8 @@ impl<'a> Generator<'a> {
                 group_gen,
                 field_gen,
                 info.name(),
+                info.vis(),
+                info.generics(),
                 info.builder_name(),
                 info.data_name(),
             ),

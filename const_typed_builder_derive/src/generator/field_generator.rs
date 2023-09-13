@@ -1,16 +1,20 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use quote::{format_ident, quote, ToTokens};
-
+use syn::{Token, TypePath, parse_quote};
 use crate::{info::FieldInfo, VecStreamResult, MANDATORY_PREFIX};
 
 #[derive(Debug, Clone)]
-pub struct FieldGenerator<'a> {
+pub(super) struct FieldGenerator<'a> {
     pub fields: &'a [FieldInfo<'a>],
+    target_generics: &'a syn::Generics
 }
 
 impl<'a> FieldGenerator<'a> {
-    pub fn new(fields: &'a [FieldInfo]) -> Self {
-        Self { fields }
+    pub fn new(fields: &'a [FieldInfo], target_generics: &'a syn::Generics) -> Self {
+        Self { 
+            fields, 
+            target_generics
+        }
     }
 
     pub fn data_struct_fields(&self) -> VecStreamResult {
@@ -64,7 +68,11 @@ impl<'a> FieldGenerator<'a> {
         self.builder_const_generics_valued(false)
     }
 
-    pub fn builder_impl_setters(&self, builder_name: &syn::Ident) -> VecStreamResult {
+    pub fn builder_impl_new_generics(&self) -> TokenStream {
+        self.builder_const_generics_valued(false)
+    }
+
+    pub fn builder_impl_setters(&self, builder_name: &syn::Ident, target_generics: &syn::Generics) -> VecStreamResult {
         self.fields
             .iter()
             .map(|field| {
@@ -76,8 +84,10 @@ impl<'a> FieldGenerator<'a> {
                 let input_type = self.builder_set_impl_input_type(field);
                 let input_value = self.builder_set_impl_input_value(field);
 
+                let where_clause = &self.target_generics.where_clause;
+
                 let tokens = quote!(
-                    impl #const_idents_generic #builder_name #const_idents_input {
+                    impl #const_idents_generic #builder_name #const_idents_input #where_clause {
                         pub fn #field_name (self, #input_type) -> #builder_name #const_idents_output {
                             let mut data = self.data;
                             data.#field_name = #input_value;
@@ -122,28 +132,8 @@ impl<'a> FieldGenerator<'a> {
         }
     }
 
-    pub fn builder_const_generic_idents(&self) -> TokenStream {
-        let all = self.fields.iter().flat_map(|field| match field {
-            FieldInfo::Optional(_) => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
-            }
-            FieldInfo::Mandatory(mandatory) => Box::new(std::iter::once(
-                format_ident!("{}_{}", MANDATORY_PREFIX, mandatory.mandatory_index())
-                    .to_token_stream(),
-            ))
-                as Box<dyn Iterator<Item = TokenStream>>,
-            FieldInfo::Grouped(grouped) => Box::new(
-                grouped
-                    .group_indices()
-                    .iter()
-                    .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
-            ) as Box<dyn Iterator<Item = TokenStream>>,
-        });
-        quote!(<#(const #all: bool),*>)
-    }
-
     pub fn builder_const_generics_valued(&self, value: bool) -> TokenStream {
-        let all = self.fields.iter().flat_map(|field| match field {
+        let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
                 Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
             }
@@ -157,11 +147,12 @@ impl<'a> FieldGenerator<'a> {
                 })) as Box<dyn Iterator<Item = TokenStream>>
             }
         });
-        quote!(<#(#all),*>)
+        // quote!(#(#all),*)
+        self.add_const_generics_valued(&mut all)
     }
 
     fn builder_const_generic_idents_set(&self, field_info: &FieldInfo, value: bool) -> TokenStream {
-        let all = self.fields.iter().flat_map(|field| match field {
+        let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
                 Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
             }
@@ -188,37 +179,38 @@ impl<'a> FieldGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
             ) as Box<dyn Iterator<Item = TokenStream>>,
         });
-        quote!(<#(#all),*>)
+        self.add_const_generics_valued(&mut all)
+        // quote!(<#(#all),*>)
     }
 
-    fn builder_const_generic_idents_set_before(&self, field_info: &FieldInfo) -> TokenStream {
-        let all =
+    fn builder_const_generic_idents_set_before(&self, field_info: &FieldInfo) -> syn::Generics {
+        let mut all =
             self.fields.iter().flat_map(|field| match field {
-                FieldInfo::Optional(_) => Box::new(std::iter::empty::<TokenStream>())
-                    as Box<dyn Iterator<Item = TokenStream>>,
-                _ if field == field_info => Box::new(std::iter::empty::<TokenStream>())
-                    as Box<dyn Iterator<Item = TokenStream>>,
+                FieldInfo::Optional(_) => Box::new(std::iter::empty())
+                    as Box<dyn Iterator<Item = syn::Ident>>,
+                _ if field == field_info => Box::new(std::iter::empty())
+                    as Box<dyn Iterator<Item = syn::Ident>>,
                 FieldInfo::Mandatory(field) => Box::new(std::iter::once(
-                    format_ident!("{}_{}", MANDATORY_PREFIX, field.mandatory_index())
-                        .into_token_stream(),
+                    format_ident!("{}_{}", MANDATORY_PREFIX, field.mandatory_index()),
                 ))
-                    as Box<dyn Iterator<Item = TokenStream>>,
+                    as Box<dyn Iterator<Item = syn::Ident>>,
                 FieldInfo::Grouped(field) => {
                     Box::new(field.group_indices().iter().map(|(group, index)| {
-                        group.partial_const_ident(*index).into_token_stream()
-                    })) as Box<dyn Iterator<Item = TokenStream>>
+                        group.partial_const_ident(*index)
+                    })) as Box<dyn Iterator<Item = syn::Ident>>
                 }
             });
-        quote!(<#(const #all: bool),*>)
+        self.add_const_generics(&mut all)
+        // Self::combine_generics(quote!(#(const #all: bool),*), target_generics)
     }
 
     pub fn builder_const_generic_idents_final(&self) -> TokenStream {
-        let all = self.fields.iter().flat_map(|field| match field {
+        let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
                 Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
             }
             FieldInfo::Mandatory(_) => Box::new(std::iter::once(
-                syn::LitBool::new(true, proc_macro2::Span::call_site()).into_token_stream(),
+                syn::LitBool::new(true, proc_macro2::Span::call_site()).into_token_stream(), // FIXME
             )) as Box<dyn Iterator<Item = TokenStream>>,
             FieldInfo::Grouped(grouped) => Box::new(
                 grouped
@@ -227,24 +219,103 @@ impl<'a> FieldGenerator<'a> {
                     .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
             ) as Box<dyn Iterator<Item = TokenStream>>,
         });
-        quote!(<#(#all),*>)
+        self.add_const_generics_valued(&mut all)
+        // Self::combine_generics(quote!(#(#all),*), target_generics)
+        // Self::add_const_generics(&all, target_generics)
     }
 
-    pub fn builder_const_generic_group_partial_idents(&self) -> TokenStream {
-        let all = self.fields.iter().flat_map(|field| match field {
+    pub fn builder_const_generic_group_partial_idents(&self) -> syn::Generics {
+        let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
+                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
             }
             FieldInfo::Mandatory(_) => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = TokenStream>>
+                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
             }
             FieldInfo::Grouped(grouped) => Box::new(
                 grouped
                     .group_indices()
                     .iter()
-                    .map(|(group, index)| group.partial_const_ident(*index).into_token_stream()),
-            ) as Box<dyn Iterator<Item = TokenStream>>,
+                    .map(|(group, index)| group.partial_const_ident(*index)),
+            ) as Box<dyn Iterator<Item = syn::Ident>>,
         });
-        quote!(<#(const #all: bool),*>)
+        self.add_const_generics(&mut all)
+        // self.target_generics.clone()
+        // Self::combine_generics(quote!(#(const #all: bool),*), target_generics)
     }
+
+    fn const_idents(&self) -> Vec<syn::Ident> {
+        self.fields.iter().flat_map(|field| {
+            match field {
+                FieldInfo::Optional(_) => Box::new(std::iter::empty())  as Box<dyn Iterator<Item = syn::Ident>>,
+                FieldInfo::Mandatory(mandatory) => 
+                    Box::new(std::iter::once(format_ident!("M_{}",mandatory.mandatory_index()))) as Box<dyn Iterator<Item = syn::Ident>>,
+                FieldInfo::Grouped(grouped) => 
+                    Box::new(grouped.group_indices().iter().map(|(group, index)| {
+                        group.partial_const_ident(*index)
+                    }))  as Box<dyn Iterator<Item = syn::Ident>>
+                ,
+            }
+        }).collect()
+    }
+
+    pub fn builder_struct_generics(&self) -> syn::Generics {
+        let mut all = self.fields.iter().flat_map(|field| {
+            match field {
+                FieldInfo::Optional(_) => Box::new(std::iter::empty())  as Box<dyn Iterator<Item = syn::Ident>>,
+                FieldInfo::Mandatory(mandatory) => 
+                    Box::new(std::iter::once(format_ident!("M_{}",mandatory.mandatory_index()))) as Box<dyn Iterator<Item = syn::Ident>>,
+                FieldInfo::Grouped(grouped) => 
+                    Box::new(grouped.group_indices().iter().map(|(group, index)| {
+                        group.partial_const_ident(*index)
+                    }))  as Box<dyn Iterator<Item = syn::Ident>>
+                ,
+            }
+        });
+        self.add_const_generics(&mut all)
+    }
+
+    fn add_const_generics(&self, tokens: &mut dyn Iterator<Item = syn::Ident>) -> syn::Generics {
+        let mut res = self.target_generics.clone();
+        
+        let syn::Generics {
+            ref mut params,
+            ..
+        } = res;
+        let before = dbg!(params.len());
+        let mut count = 0;
+        tokens.for_each(|token| {
+            count +=1;
+            params.push(parse_quote!(const #token: bool));
+        });
+        let after = dbg!(params.len());
+        dbg!(count);
+        assert_eq!(before + count, after);
+        res
+    }
+
+    pub fn add_const_generics_valued(&self, tokens: &mut dyn Iterator<Item = TokenStream>) -> TokenStream {
+        let (impl_generics, type_generics, where_clause) = self.target_generics.split_for_impl();
+        let syn::Generics {
+            lt_token,
+            params,
+            gt_token,
+            where_clause,
+        } = self.target_generics;
+        if params.is_empty() {
+            quote!(<#(#tokens),*>)
+        } else {
+            let type_generics = params.iter();
+            quote!(< #(#type_generics),*, #(#tokens),* >)
+        }
+        
+        // quote!(< #type_generics, #(#tokens),* >)
+        // quote!(<#type_generics>)
+        
+    }
+
+    pub fn target_generics(&self) -> &syn::Generics {
+        &self.target_generics
+    }
+    
 }

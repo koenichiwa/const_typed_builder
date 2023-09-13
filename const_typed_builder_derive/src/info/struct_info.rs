@@ -4,14 +4,15 @@ use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
 use quote::format_ident;
 
-use crate::symbol::GROUP;
+use crate::symbol::{GROUP, EXACT, AT_LEAST, AT_MOST, SINGLE};
 
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
 #[derive(Debug)]
 pub struct StructInfo<'a> {
-    input: &'a syn::DeriveInput,
     ident: &'a syn::Ident,
+    vis: &'a syn::Visibility,
+    generics: &'a syn::Generics,
     builder_ident: syn::Ident,
     data_ident: syn::Ident,
     groups: HashMap<String, GroupInfo>,
@@ -36,8 +37,9 @@ impl<'a> StructInfo<'a> {
             let field_infos = Self::parse_fields(&mut settings, fields)?;
 
             let info = StructInfo {
-                input: ast,
                 ident,
+                vis,
+                generics,
                 builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
                 data_ident: format_ident!("{}{}", ident, settings.data_suffix),
                 groups: settings.groups,
@@ -68,6 +70,14 @@ impl<'a> StructInfo<'a> {
 
     pub fn name(&self) -> &syn::Ident {
         self.ident
+    }
+
+    pub fn vis(&self) -> &syn::Visibility {
+        self.vis
+    }
+
+    pub fn generics(&self) -> &syn::Generics {
+        self.generics
     }
 
     pub fn builder_name(&self) -> &syn::Ident {
@@ -178,7 +188,7 @@ impl StructSettings {
                     }?;
 
                     let group_args = if let Some(syn::Expr::Lit(syn::ExprLit {
-                        attrs,
+                        attrs: _,
                         lit: syn::Lit::Int(val),
                     })) = args.first()
                     {
@@ -186,12 +196,11 @@ impl StructSettings {
                     } else {
                         Err(syn::Error::new_spanned(&func, "Can't parse group args"))
                     }?;
-
-                    match group_type.to_string().as_str() {
-                        "exact" => Ok(GroupType::Exact(group_args)),
-                        "at_least" => Ok(GroupType::AtLeast(group_args)),
-                        "at_most" => Ok(GroupType::AtMost(group_args)),
-                        "single" => Err(syn::Error::new_spanned(
+                    match (&group_type.to_string()).into() {
+                        EXACT => Ok(GroupType::Exact(group_args)),
+                        AT_LEAST => Ok(GroupType::AtLeast(group_args)),
+                        AT_MOST => Ok(GroupType::AtMost(group_args)),
+                        SINGLE => Err(syn::Error::new_spanned(
                             args,
                             "`single` doesn't take any arguments",
                         )),
@@ -202,12 +211,12 @@ impl StructSettings {
                     let group_type = path
                         .get_ident()
                         .ok_or_else(|| syn::Error::new_spanned(&path, "Can't parse group type"))?;
-                    match group_type.to_string().as_str() {
-                        "exact" | "at_least" | "at_most" => Err(syn::Error::new_spanned(
+                    match (&group_type.to_string()).into() {
+                        EXACT | AT_LEAST | AT_MOST => Err(syn::Error::new_spanned(
                             &attr.meta,
                             "Missing arguments for group type",
                         )),
-                        "single" => Ok(GroupType::Exact(1)),
+                        SINGLE => Ok(GroupType::Exact(1)),
                         _ => Err(syn::Error::new_spanned(&attr.meta, "Can't parse group")),
                     }
                 }

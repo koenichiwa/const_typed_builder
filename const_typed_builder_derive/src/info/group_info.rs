@@ -2,6 +2,8 @@ use std::hash::Hash;
 
 use quote::format_ident;
 
+use crate::symbol::{EXACT, AT_LEAST, AT_MOST, Symbol};
+
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
     name: syn::Ident,
@@ -43,11 +45,11 @@ impl GroupInfo {
         format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
     }
 
-    pub fn function_ident(&self) -> syn::Ident {
+    pub fn function_symbol(&self) -> Symbol {
         match self.group_type {
-            GroupType::Exact(_) => format_ident!("{}", "exact"),
-            GroupType::AtLeast(_) => format_ident!("{}", "at_least"),
-            GroupType::AtMost(_) => format_ident!("{}", "at_most"),
+            GroupType::Exact(_) => EXACT,
+            GroupType::AtLeast(_) => AT_LEAST,
+            GroupType::AtMost(_) => AT_MOST,
         }
     }
 

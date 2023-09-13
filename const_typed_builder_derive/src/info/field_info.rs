@@ -20,11 +20,11 @@ impl<'a> FieldInfo<'a> {
     pub fn new(field: &'a syn::Field, struct_settings: &mut StructSettings) -> syn::Result<Self> {
         if let syn::Field {
             attrs,
-            vis,
-            mutability,
             ident: Some(ident),
             ty,
-            ..
+            vis: _,
+            mutability: _,
+            colon_token: _
         } = field
         {
             let settings = struct_settings

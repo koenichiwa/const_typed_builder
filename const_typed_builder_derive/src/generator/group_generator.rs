@@ -1,10 +1,9 @@
 use proc_macro2::TokenStream;
-
 use crate::info::{GroupInfo, GroupType};
 use quote::{quote, ToTokens};
 
 #[derive(Debug)]
-pub struct GroupGenerator<'a> {
+pub(super) struct GroupGenerator<'a> {
     groups: Vec<&'a GroupInfo>,
 }
 
@@ -95,7 +94,7 @@ impl<'a> GroupGenerator<'a> {
         let all = self.groups.iter().flat_map(|group| {
             let partials = (0..group.member_count())
                 .map(|index| group.partial_const_ident(index).into_token_stream());
-            let function_call = group.function_ident();
+            let function_call: syn::Ident = group.function_symbol().into();
             let count = group.expected_count();
             let name = group.name();
             let err_text = format!("Group {name} not verified");
