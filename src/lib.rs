@@ -1,13 +1,12 @@
 pub use const_typed_builder_derive::Builder;
-pub trait HasBuilder {
-    type Builder;
-    fn builder() -> Self::Builder;
+pub trait Builder {
+    type BuilderImpl;
+    fn builder() -> Self::BuilderImpl;
 }
 
 #[cfg(test)]
 mod test {
-    use super::HasBuilder;
-    use const_typed_builder_derive::Builder;
+    use super::Builder;
 
     #[test]
     fn single_mandatory() {
@@ -596,6 +595,51 @@ mod test {
         };
         let foo = Foo::builder()
             .bar(|builder| builder.baz("Hello world!".to_string()).build())
+            .build();
+        assert_eq!(expected, foo);
+
+        // let foo = Foo::builder().bar(|builder| builder.build() ).build();
+
+        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        // pub struct Foo {
+        //     #[builder(propagate)]
+        //     bar: Bar,
+        // }
+
+        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        // pub struct Bar {
+        //     baz: String,
+        // }
+
+        // let expected = Foo {
+        //     bar: Bar {
+        //         baz: "Hello world!".to_string(),
+        //     }
+        // };
+        // let foo = Foo::builder().bar(|builder| builder.baz("Hello world!".to_string()).build() ).build();
+        // assert_eq!(expected, foo);
+    }
+
+    #[test]
+    fn optional_propagate() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Foo {
+            #[builder(propagate)]
+            bar: Option<Bar>,
+        }
+
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        pub struct Bar {
+            baz: String,
+        }
+
+        let expected = Foo {
+            bar: Some(Bar {
+                baz: "Hello world!".to_string(),
+            }),
+        };
+        let foo = Foo::builder()
+            .bar(|builder| Some(builder.baz("Hello world!".to_string()).build()))
             .build();
         assert_eq!(expected, foo);
 

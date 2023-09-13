@@ -87,6 +87,22 @@ impl<'a> FieldInfo<'a> {
             FieldInfo::Grouped(field) => field.propagate(),
         }
     }
+
+    pub fn is_option_type(&self) -> bool {
+        match self {
+            FieldInfo::Optional(_) => true,
+            FieldInfo::Mandatory(field) => field.is_option_type(),
+            FieldInfo::Grouped(_) => true,
+        }
+    }
+
+    pub fn inner_type(&self) -> Option<&syn::Type> {
+        match self {
+            FieldInfo::Optional(field) => Some(field.inner_type()),
+            FieldInfo::Mandatory(field) => field.inner_type(),
+            FieldInfo::Grouped(field) => Some(field.inner_type()),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

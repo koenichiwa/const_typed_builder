@@ -36,11 +36,11 @@ impl<'a> TargetGenerator<'a> {
             self.generics_gen.target_generics().split_for_impl();
 
         quote! {
-            impl #impl_generics HasBuilder for #target_name #type_generics #where_clause {
-                type Builder = #builder_name #const_generics;
+            impl #impl_generics Builder for #target_name #type_generics #where_clause {
+                type BuilderImpl = #builder_name #const_generics;
 
-                fn builder() -> Self::Builder  {
-                    Self::Builder::new()
+                fn builder() -> Self:: BuilderImpl  {
+                    Self:: BuilderImpl::new()
                 }
             }
         }

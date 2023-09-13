@@ -86,24 +86,34 @@ impl<'a> FieldGenerator<'a> {
 
     pub fn builder_set_impl_input_type(&self, field: &'a FieldInfo) -> TokenStream {
         let field_name = field.ident();
-        let ty = Self::field_effective_type(field);
-
-        let ty = if field.propagate() {
-            quote!(fn(<#ty as HasBuilder>::Builder) -> #ty)
+        let field_ty = Self::field_effective_type(field);
+        let bottom_ty = if field.is_option_type() {
+            field.inner_type().unwrap()
         } else {
-            quote!(#ty)
+            field_ty
         };
 
-        quote!(#field_name: #ty)
+        let field_ty = if field.propagate() {
+            quote!(fn(<#bottom_ty as Builder>:: BuilderImpl) -> #field_ty)
+        } else {
+            quote!(#field_ty)
+        };
+
+        quote!(#field_name: #field_ty)
     }
 
     pub fn builder_set_impl_input_value(&self, field: &'a FieldInfo) -> TokenStream {
         let field_name = field.ident();
 
         let field_ty = Self::field_effective_type(field);
+        let bottom_ty = if field.is_option_type() {
+            field.inner_type().unwrap()
+        } else {
+            field_ty
+        };
 
         let field_value = if field.propagate() {
-            quote!(#field_name(<#field_ty as HasBuilder>::builder()))
+            quote!(#field_name(<#bottom_ty as Builder>::builder()))
         } else {
             quote!(#field_name)
         };
