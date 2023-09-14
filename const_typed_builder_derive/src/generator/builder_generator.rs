@@ -6,6 +6,8 @@ use crate::{StreamResult, VecStreamResult};
 use proc_macro2::TokenStream;
 use quote::quote;
 
+// The `BuilderGenerator` struct is responsible for generating code related to the builder struct,
+/// including its definition, implementation of setter methods, `new` method, and `build` method.
 pub(super) struct BuilderGenerator<'a> {
     group_gen: GroupGenerator<'a>,
     field_gen: FieldGenerator<'a>,
@@ -17,6 +19,21 @@ pub(super) struct BuilderGenerator<'a> {
 }
 
 impl<'a> BuilderGenerator<'a> {
+    /// Creates a new `BuilderGenerator` instance for code generation.
+    ///
+    /// # Arguments
+    ///
+    /// - `group_gen`: The `GroupGenerator` responsible for generating group-related code.
+    /// - `field_gen`: The `FieldGenerator` responsible for generating field-related code.
+    /// - `generics_gen`: The `GenericsGenerator` responsible for generating generics information.
+    /// - `target_name`: A reference to the identifier representing the target struct's name.
+    /// - `target_vis`: A reference to the visibility of the target struct.
+    /// - `builder_name`: A reference to the identifier representing the builder struct's name.
+    /// - `data_name`: A reference to the identifier representing the data struct's name.
+    ///
+    /// # Returns
+    ///
+    /// A `BuilderGenerator` instance initialized with the provided information.
     pub fn new(
         group_gen: GroupGenerator<'a>,
         field_gen: FieldGenerator<'a>,
@@ -37,6 +54,11 @@ impl<'a> BuilderGenerator<'a> {
         }
     }
 
+    // Generates the code for the builder struct and its methods and returns a token stream.
+    ///
+    /// # Returns
+    ///
+    /// A `StreamResult` representing the generated code for the builder struct and methods.
     pub fn generate(&self) -> StreamResult {
         let builder_struct = self.generate_struct();
         let builder_impl = self.generate_impl()?;
@@ -47,6 +69,7 @@ impl<'a> BuilderGenerator<'a> {
         Ok(tokens)
     }
 
+    /// Generates the code for the builder struct definition.
     fn generate_struct(&self) -> TokenStream {
         let data_name = self.data_name;
         let builder_name = self.builder_name;
@@ -66,6 +89,7 @@ impl<'a> BuilderGenerator<'a> {
         )
     }
 
+    /// Generates the implementation code for the builder struct's `new`, `build` and setter methods.
     fn generate_impl(&self) -> StreamResult {
         let builder_setters = self.generate_setters_impl()?;
         let builder_new = self.generate_new_impl();
@@ -79,6 +103,7 @@ impl<'a> BuilderGenerator<'a> {
         Ok(tokens)
     }
 
+    /// Generates the code for the `new` method implementation.
     fn generate_new_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
         let data_name = self.data_name;
@@ -103,6 +128,7 @@ impl<'a> BuilderGenerator<'a> {
         )
     }
 
+    /// Generates the code for the `build` method implementation.
     fn generate_build_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
         let impl_generics = self
@@ -131,6 +157,7 @@ impl<'a> BuilderGenerator<'a> {
         )
     }
 
+    /// Generates the code for the setter methods of the builder.
     fn generate_setters_impl(&self) -> StreamResult {
         let builder_name = self.builder_name;
         let setters = self

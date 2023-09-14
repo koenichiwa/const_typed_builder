@@ -167,17 +167,13 @@
 /// #[group(least = at_least(2))]
 /// #[group(most = at_most(3))]
 /// pub struct Foo {
-///     #[builder(group = least)]
-///     #[builder(group = most)]
+///     #[builder(group = least, group = most)]
 ///     bar: Option<String>,
-///     #[builder(group = least)]
-///     #[builder(group = most)]
+///     #[builder(group = least, group = most)]
 ///     baz: Option<String>,
-///     #[builder(group = least)]
-///     #[builder(group = most)]
+///     #[builder(group = least, group = most)]
 ///     qux: Option<String>,
-///     #[builder(group = least)]
-///     #[builder(group = most)]
+///     #[builder(group = least, group = most)]
 ///     quz: Option<String>,
 ///     #[builder(group = most)]
 ///     fred: Option<String>,
@@ -229,13 +225,13 @@
 /// #[derive(Debug, Builder)]
 /// pub struct Foo<A>
 /// where
-///     A: Default,
+///     A: Into<u64>,
 /// {
 ///     bar: A,
 /// }
 ///
-/// let foo = Foo::<String>::builder()
-///     .bar("Hello world!".to_string())
+/// let foo = Foo::<u8>::builder()
+///     .bar(42)
 ///     .build();
 /// ```
 ///
