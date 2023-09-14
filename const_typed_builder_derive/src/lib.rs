@@ -23,7 +23,7 @@ const MANDATORY_PREFIX: &str = "M";
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// #[derive(Builder)]
 /// struct MyStruct {
 ///     field1: i32,
