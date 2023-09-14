@@ -12,7 +12,6 @@ mod test {
                 test_cases.compile_fail(entry.path())
             }
         })
-
     }
 
     #[test]
