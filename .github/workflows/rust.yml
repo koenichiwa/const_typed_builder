@@ -9,17 +9,29 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+
+
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
     - name: Check formatting
       run: cargo fmt --check  --verbose
     - name: Run Clippy
       run: cargo clippy --verbose -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Move to test package
+      run: cd const_typed_builder_test
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
