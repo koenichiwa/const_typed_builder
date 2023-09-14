@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "./const_typed_builder_derive"]
+members = [".", "./const_typed_builder_derive", "./const_typed_builder_test"]
 
 [workspace.package]
 description = "Compile-time type-checked builder derive using const generics"
@@ -28,3 +28,6 @@ readme.workspace = true
 
 [dependencies]
 const_typed_builder_derive = { path = "const_typed_builder_derive", version = "=0.1.1" }
+
+[dev-dependencies]
+trybuild = "1.0.84"
