@@ -55,14 +55,14 @@ impl<'a> StructInfo<'a> {
             if fields.named.is_empty() {
                 return Err(syn::Error::new_spanned(fields, "No fields found"));
             }
-            
+
             let mut settings = StructSettings::new().with_attrs(attrs)?;
 
-            let field_infos =  fields
-                    .named
-                    .iter()
-                    .map(|field| FieldInfo::new(field, &mut settings))
-                    .collect::<syn::Result<Vec<_>>>()?;
+            let field_infos = fields
+                .named
+                .iter()
+                .map(|field| FieldInfo::new(field, &mut settings))
+                .collect::<syn::Result<Vec<_>>>()?;
 
             let info = StructInfo {
                 ident,

@@ -108,4 +108,3 @@ pub enum GroupType {
     /// Represents a group with at most a certain number of members.
     AtMost(usize),
 }
-

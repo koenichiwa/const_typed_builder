@@ -12,15 +12,15 @@ pub(super) struct GenericsGenerator<'a> {
 }
 
 /// Creates a new `GenericsGenerator` instance.
-    ///
-    /// # Arguments
-    ///
-    /// - `fields`: A reference to a slice of `FieldInfo` representing the fields of the struct.
-    /// - `target_generics`: A reference to the generics of the target struct.
-    ///
-    /// # Returns
-    ///
-    /// A `GenericsGenerator` instance initialized with the provided fields and target generics.
+///
+/// # Arguments
+///
+/// - `fields`: A reference to a slice of `FieldInfo` representing the fields of the struct.
+/// - `target_generics`: A reference to the generics of the target struct.
+///
+/// # Returns
+///
+/// A `GenericsGenerator` instance initialized with the provided fields and target generics.
 impl<'a> GenericsGenerator<'a> {
     pub fn new(fields: &'a [FieldInfo], target_generics: &'a syn::Generics) -> Self {
         Self {
@@ -148,9 +148,10 @@ impl<'a> GenericsGenerator<'a> {
         let mut all = self.fields.iter().flat_map(|field| match field {
             FieldInfo::Optional(_) => Box::new(std::iter::empty())
                 as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            FieldInfo::Mandatory(_) => Box::new(std::iter::once(
-                Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site())),
-            ))
+            FieldInfo::Mandatory(_) => Box::new(std::iter::once(Either::Right(syn::LitBool::new(
+                true,
+                proc_macro2::Span::call_site(),
+            ))))
                 as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Grouped(grouped) => Box::new(
                 grouped

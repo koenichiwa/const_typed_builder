@@ -1,6 +1,6 @@
+use super::generics_generator::GenericsGenerator;
 use proc_macro2::TokenStream;
 use quote::quote;
-use super::generics_generator::GenericsGenerator;
 
 /// The `TargetGenerator` struct is responsible for generating code for the target struct implementation
 /// of the builder pattern based on the provided `GenericsGenerator`, target name, and builder name.
