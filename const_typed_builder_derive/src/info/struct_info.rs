@@ -7,20 +7,38 @@ use syn::Token;
 
 use crate::symbol::{ASSUME_MANDATORY, AT_LEAST, AT_MOST, BUILDER, EXACT, GROUP, SINGLE};
 
+/// A type alias for a collection of `FieldInfo` instances.
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
+/// Represents the information about a struct used for code generation.
 #[derive(Debug)]
 pub struct StructInfo<'a> {
+    /// The identifier of the struct.
     ident: &'a syn::Ident,
+    /// The visibility of the struct.
     vis: &'a syn::Visibility,
+    /// The generics of the struct.
     generics: &'a syn::Generics,
+    /// The identifier of the generated builder struct.
     builder_ident: syn::Ident,
+    /// The identifier of the generated data struct.
     data_ident: syn::Ident,
+    /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
+    /// A collection of `FieldInfo` instances representing struct fields.
     field_infos: FieldInfos<'a>,
 }
 
 impl<'a> StructInfo<'a> {
+    /// Creates a new `StructInfo` instance from a `syn::DeriveInput`.
+    ///
+    /// # Arguments
+    ///
+    /// - `ast`: A `syn::DeriveInput` representing the input struct.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Result` containing the `StructInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> syn::Result<Self> {
         if let syn::DeriveInput {
             attrs,
@@ -34,8 +52,17 @@ impl<'a> StructInfo<'a> {
                 }),
         } = &ast
         {
+            if fields.named.is_empty() {
+                return Err(syn::Error::new_spanned(fields, "No fields found"));
+            }
+            
             let mut settings = StructSettings::new().with_attrs(attrs)?;
-            let field_infos = Self::parse_fields(&mut settings, fields)?;
+
+            let field_infos =  fields
+                    .named
+                    .iter()
+                    .map(|field| FieldInfo::new(field, &mut settings))
+                    .collect::<syn::Result<Vec<_>>>()?;
 
             let info = StructInfo {
                 ident,
@@ -55,55 +82,54 @@ impl<'a> StructInfo<'a> {
         }
     }
 
-    fn parse_fields(
-        settings: &mut StructSettings,
-        fields: &'a syn::FieldsNamed,
-    ) -> syn::Result<FieldInfos<'a>> {
-        if fields.named.is_empty() {
-            return Err(syn::Error::new_spanned(fields, "No fields found"));
-        }
-        fields
-            .named
-            .iter()
-            .map(|field| FieldInfo::new(field, settings))
-            .collect::<syn::Result<Vec<_>>>()
-    }
-
+    /// Retrieves the identifier of the struct.
     pub fn name(&self) -> &syn::Ident {
         self.ident
     }
 
+    /// Retrieves the visibility of the struct.
     pub fn vis(&self) -> &syn::Visibility {
         self.vis
     }
 
+    /// Retrieves the generics of the struct.
     pub fn generics(&self) -> &syn::Generics {
         self.generics
     }
 
+    /// Retrieves the identifier of the generated builder struct.
     pub fn builder_name(&self) -> &syn::Ident {
         &self.builder_ident
     }
 
+    /// Retrieves the identifier of the generated data struct.
     pub fn data_name(&self) -> &syn::Ident {
         &self.data_ident
     }
 
+    /// Retrieves a reference to the collection of `FieldInfo` instances representing struct fields.
     pub fn field_infos(&self) -> &FieldInfos {
         &self.field_infos
     }
 
+    /// Retrieves a reference to the map of group names to their respective `GroupInfo`.
     pub fn groups(&self) -> &HashMap<String, GroupInfo> {
         &self.groups
     }
 }
 
+/// Represents settings for struct generation.
 #[derive(Debug)]
 pub struct StructSettings {
+    /// The suffix to be added to the generated builder struct name.
     builder_suffix: String,
+    /// The suffix to be added to the generated data struct name.
     data_suffix: String,
+    /// Default field settings.
     default_field_settings: FieldSettings,
+    /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
+    /// The count of mandatory fields encountered.
     mandatory_count: usize,
 }
 
@@ -120,28 +146,42 @@ impl Default for StructSettings {
 }
 
 impl StructSettings {
+    /// Creates a new `StructSettings` instance with default values.
     fn new() -> Self {
         Default::default()
     }
 
+    /// Retrieves the next available mandatory field index.
     pub fn next_mandatory(&mut self) -> usize {
         self.mandatory_count += 1;
         self.mandatory_count - 1
     }
 
+    /// Retrieves the next available group index for a given group name.
     pub fn next_group_index(&mut self, group_name: &String) -> Option<usize> {
         let res = self.groups.get_mut(group_name)?.next_index();
         Some(res)
     }
 
+    /// Retrieves a reference to a `GroupInfo` instance by group name.
     pub fn group_by_name(&self, group_name: &String) -> Option<&GroupInfo> {
         self.groups.get(group_name)
     }
 
+    /// Retrieves the default field settings.
     pub fn default_field_settings(&self) -> &FieldSettings {
         &self.default_field_settings
     }
 
+    /// Updates struct settings based on provided attributes.
+    ///
+    /// # Arguments
+    ///
+    /// - `attrs`: A slice of `syn::Attribute` representing the attributes applied to the struct.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Result` indicating success or failure of attribute handling.
     pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
         attrs
             .iter()

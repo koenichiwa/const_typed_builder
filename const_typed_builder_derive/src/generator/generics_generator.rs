@@ -104,7 +104,7 @@ impl<'a> GenericsGenerator<'a> {
             FieldInfo::Optional(_) => Box::new(std::iter::empty())
                 as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Mandatory(_) => Box::new(std::iter::once(
-                Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site())), // FIXME
+                Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site())),
             ))
                 as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
             FieldInfo::Grouped(grouped) => Box::new(
