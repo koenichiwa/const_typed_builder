@@ -17,5 +17,72 @@ Also, make sure you have the following import statements in your code:
 ```rust
 use const_typed_builder::Builder;
 ```
+## Effects 
+This derive:
+```rust
+use const_typed_builder::Builder;
+#[derive(Debug, Builder)]
+pub struct Foo {
+    bar: String,
+}
+```
+Expands to this code:
+```rust
+use const_typed_builder::Builder;
+#[derive(Debug)]
+pub struct Foo {
+    bar: String,
+}
+impl Builder for Foo {
+    type BuilderImpl = FooBuilder<false>;
+    fn builder() -> Self::BuilderImpl {
+        Self::BuilderImpl::new()
+    }
+}
+#[derive(Debug)]
+pub struct FooBuilder<const M_0: bool> {
+    data: FooData,
+}
+impl FooBuilder<false> {
+    pub fn new() -> FooBuilder<false> {
+        Self::default()
+    }
+}
+impl Default for FooBuilder<false> {
+    fn default() -> Self {
+        FooBuilder {
+            data: FooData::default(),
+        }
+    }
+}
+impl FooBuilder<false> {
+    pub fn bar(self, bar: String) -> FooBuilder<true> {
+        let mut data = self.data;
+        data.bar = Some(bar);
+        FooBuilder { data }
+    }
+}
+impl FooBuilder<true> {
+    pub fn build(self) -> Foo {
+        self.data.into()
+    }
+}
+#[derive(Debug)]
+pub struct FooData {
+    pub bar: Option<String>,
+}
+impl From<FooData> for Foo {
+    fn from(data: FooData) -> Foo {
+        Foo {
+            bar: data.bar.unwrap(),
+        }
+    }
+}
+impl Default for FooData {
+    fn default() -> Self {
+        FooData { bar: None }
+    }
+}
+```
 ## Inspirations
 Builder macros have been done before, but not exactly what I needed for my use case. Also look into [derive_builder](https://crates.io/crates/derive_builder) and [typed-builder](https://crates.io/crates/typed-builder). Those projects are currently way more mature, but anyone willing to test this crate is currently a godsend.
