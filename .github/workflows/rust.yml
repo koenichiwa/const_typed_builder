@@ -27,9 +27,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Move to test package
-      run: cd const_typed_builder_test
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Run all tests in workspace
+      run: cargo test --workspace --verbose
