@@ -1,3 +1,4 @@
+extern crate const_typed_builder;
 use const_typed_builder::Builder;
 
 fn main() {
@@ -12,6 +13,6 @@ fn main() {
     let foo = Foo::builder()
         .bar("Hello world!".to_string())
         .baz("Hello world!".to_string())
-        .quz("Hello world!".to_string())
+        .quz("Hello world!".to_string()) //~ ERROR E0308
         .build();
 }

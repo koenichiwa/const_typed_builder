@@ -1,3 +1,4 @@
+extern crate const_typed_builder;
 use const_typed_builder::Builder;
 
 fn main() {
@@ -6,6 +7,5 @@ fn main() {
         bar: String,
     }
     
-    let foo = Foo::builder()
-        .build();
+    let foo = Foo::builder().build(); //~ ERROR E0599
 }

@@ -4,14 +4,15 @@ mod test {
 
     #[test]
     fn compile_fail_tests() {
-        let test_cases = trybuild::TestCases::new();
-        let test_dir = std::fs::read_dir("./compile_fail").expect("Can't find test directory");
-        test_dir.for_each(|entry| {
-            let entry = entry.expect("Can't find test entry");
-            if entry.path().extension() == Some(std::ffi::OsStr::new("rs")) {
-                test_cases.compile_fail(entry.path())
-            }
-        })
+        let mut config = compiletest_rs::Config::default();
+
+        config.mode = compiletest_rs::common::Mode::CompileFail;
+        config.src_base = std::path::PathBuf::from("compile_fail");
+        config.target_rustcflags = Some("-L dependency=../target/debug/deps --extern const_typed_builder=../target/debug/libconst_typed_builder.rlib ".to_string());
+        config.link_deps(); // Populate config.target_rustcflags with dependencies on the path
+        config.clean_rmeta(); // If your tests import the parent crate, this helps with E0464
+
+        compiletest_rs::run_tests(&config);
     }
 
     #[test]
