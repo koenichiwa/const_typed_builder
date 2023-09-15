@@ -1,5 +1,5 @@
 error[E0308]: mismatched types
- --> ./compile_fail/option_explicit.rs:9:34
+ --> ./compile_fail/option_explicit_1.rs:9:34
   |
 9 |     let foo = Foo::builder().bar("Hello world!".to_string());
   |                              --- ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<String>`, found `String`
@@ -9,7 +9,7 @@ error[E0308]: mismatched types
   = note: expected enum `Option<String>`
            found struct `String`
 note: method defined here
- --> ./compile_fail/option_explicit.rs:6:9
+ --> ./compile_fail/option_explicit_1.rs:6:9
   |
 6 |         bar: std::option::Option<String>,
   |         ^^^-----------------------------
