@@ -5,6 +5,7 @@ mod test {
     #[test]
     fn compile_fail_tests() {
         let test_cases = trybuild::TestCases::new();
+        test_cases.pass("./pass/empty_pass.rs");
         let test_dir = std::fs::read_dir("./compile_fail").expect("Can't find test directory");
         test_dir.for_each(|entry| {
             let entry = entry.expect("Can't find test entry");
