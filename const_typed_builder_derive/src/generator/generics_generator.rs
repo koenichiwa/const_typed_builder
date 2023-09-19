@@ -110,30 +110,15 @@ impl<'a> GenericsGenerator<'a> {
                 true,
                 proc_macro2::Span::call_site(),
             ))),
-            FieldKind::Grouped if except_indices.contains(&field.index()) => Some(Either::Right(syn::LitBool::new(
-                true,
-                proc_macro2::Span::call_site(),
-            ))),
+            FieldKind::Grouped if except_indices.contains(&field.index()) => Some(Either::Right(
+                syn::LitBool::new(true, proc_macro2::Span::call_site()),
+            )),
             FieldKind::Grouped => Some(Either::Right(syn::LitBool::new(
                 false,
                 proc_macro2::Span::call_site(),
             ))),
         });
         self.add_const_generics_valued_for_type(&mut all)
-    }
-
-    /// Generates const generics for builder group partial identifiers and returns a `syn::Generics` instance.
-    ///
-    /// # Returns
-    ///
-    /// A `syn::Generics` instance representing the generated const generics for builder group partial identifiers.
-    pub fn builder_const_generic_group_partial_idents(&self, except_indices: &[usize]) -> syn::Generics {
-        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional | FieldKind::Mandatory => None,
-            FieldKind::Grouped if except_indices.contains(&field.index()) => None,
-            FieldKind::Grouped => Some(field.const_ident()),
-        });
-        self.add_const_generics_for_impl(&mut all)
     }
 
     /// Generates const generics for the builder struct and returns a `syn::Generics` instance.

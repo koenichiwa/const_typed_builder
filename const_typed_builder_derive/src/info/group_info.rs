@@ -1,7 +1,5 @@
 use std::{collections::BTreeSet, hash::Hash};
 
-use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
-
 /// Represents information about a group, including its name, member count, and group type.
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
@@ -29,20 +27,6 @@ impl GroupInfo {
         }
     }
 
-    /// Retrieves the name of the group.
-    pub fn name(&self) -> &syn::Ident {
-        &self.name
-    }
-
-    /// Retrieves the expected member count based on the group type.
-    pub fn expected_count(&self) -> usize {
-        match self.group_type {
-            GroupType::Exact(expected) => expected,
-            GroupType::AtLeast(expected) => expected,
-            GroupType::AtMost(expected) => expected,
-        }
-    }
-
     pub fn associate(&mut self, index: usize) -> bool {
         self.associated_indices.insert(index)
     }
@@ -51,24 +35,10 @@ impl GroupInfo {
         &self.associated_indices
     }
 
-    /// Retrieves the function symbol associated with the group type.
-    pub fn function_symbol(&self) -> Symbol {
-        match self.group_type {
-            GroupType::Exact(_) => EXACT,
-            GroupType::AtLeast(_) => AT_LEAST,
-            GroupType::AtMost(_) => AT_MOST,
-        }
-    }
-
-    /// Retrieves the group type.
-    pub fn group_type(&self) -> &GroupType {
-        &self.group_type
-    }
-
     pub fn is_valid_with(&self, indices: &[usize]) -> bool {
         let applicable_indices_count = self
             .associated_indices
-            .intersection(&BTreeSet::from_iter(indices.iter().map(|idx| idx.clone())))
+            .intersection(&BTreeSet::from_iter(indices.iter().map(|idx| *idx)))
             .count();
         match self.group_type {
             GroupType::Exact(count) => applicable_indices_count == count,
