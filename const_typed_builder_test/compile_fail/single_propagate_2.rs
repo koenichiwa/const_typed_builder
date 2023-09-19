@@ -1,0 +1,16 @@
+use const_typed_builder::Builder;
+
+fn main() {
+    #[derive(Debug, Default, PartialEq, Eq, Builder)]
+    pub struct Foo {
+        #[builder(propagate)]
+        bar: Bar,
+    }
+
+    #[derive(Debug, Default, PartialEq, Eq)]
+    pub struct Bar {
+        baz: String,
+    }
+    
+    let foo = Foo::builder().bar(|builder| builder.baz("Hello world!".to_string()).build() ).build();
+}

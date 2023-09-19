@@ -1,0 +1,11 @@
+error[E0599]: no method named `build` found for struct `FooBuilder<_, false>` in the current scope
+  --> ./compile_fail/single_generic_added_default_1.rs:12:51
+   |
+4  |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+   |                                             ------- method `build` not found for this struct
+...
+12 |     let foo: Foo<Option<String>> = Foo::builder().build();
+   |                                                   ^^^^^ method not found in `FooBuilder<_, false>`
+   |
+   = note: the method was found for
+           - `FooBuilder<A, true>`

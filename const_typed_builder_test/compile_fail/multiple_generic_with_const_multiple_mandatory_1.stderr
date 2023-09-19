@@ -1,0 +1,17 @@
+error[E0107]: struct takes 3 generic arguments but 2 generic arguments were supplied
+  --> ./compile_fail/multiple_generic_with_const_multiple_mandatory_1.rs:10:14
+   |
+10 |     let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
+   |              ^^^ ------  ---- supplied 2 generic arguments
+   |              |
+   |              expected 3 generic arguments
+   |
+note: struct defined here, with 3 generic parameters: `A`, `B`, `C`
+  --> ./compile_fail/multiple_generic_with_const_multiple_mandatory_1.rs:5:16
+   |
+5  |     pub struct Foo<A, B, const C: usize> {
+   |                ^^^ -  -  --------------
+help: add missing generic argument
+   |
+10 |     let foo: Foo<String, &str, C> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
+   |                              +++

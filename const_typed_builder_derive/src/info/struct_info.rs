@@ -237,7 +237,6 @@ impl StructSettings {
             if meta.path == SOLVER {
                 if meta.input.peek(Token![=]) {
                     let expr: syn::Expr = meta.value()?.parse()?;
-                    dbg!(&expr);
                     if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
                         let solve_type = path
                             .get_ident()

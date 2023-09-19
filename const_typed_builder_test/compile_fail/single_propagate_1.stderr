@@ -1,0 +1,11 @@
+error[E0599]: no method named `build` found for struct `BarBuilder<false>` in the current scope
+  --> ./compile_fail/single_propagate_1.rs:15:52
+   |
+10 |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+   |                                             ------- method `build` not found for this struct
+...
+15 |     let foo = Foo::builder().bar(|builder| builder.build() ).build();
+   |                                                    ^^^^^ method not found in `BarBuilder<false>`
+   |
+   = note: the method was found for
+           - `BarBuilder<true>`

@@ -1,0 +1,12 @@
+error[E0308]: mismatched types
+  --> ./compile_fail/optional_propagate_2.rs:14:44
+   |
+14 |     let foo = Foo::builder().bar(|builder| builder.baz("Hello world!".to_string()).build()).build();
+   |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<Bar>`, found `Bar`
+   |
+   = note: expected enum `Option<Bar>`
+            found struct `Bar`
+help: try wrapping the expression in `Some`
+   |
+14 |     let foo = Foo::builder().bar(|builder| Some(builder.baz("Hello world!".to_string()).build())).build();
+   |                                            +++++                                               +
