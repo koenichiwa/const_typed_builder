@@ -1,0 +1,10 @@
+error[E0308]: mismatched types
+  --> ./compile_fail/multiple_generic_multiple_mandatory_1.rs:10:36
+   |
+10 |      let foo: Foo<String, usize> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
+   |               ------------------   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Foo<String, usize>`, found `Foo<String, String>`
+   |               |
+   |               expected due to this
+   |
+   = note: expected struct `Foo<_, usize>`
+              found struct `Foo<_, String>`

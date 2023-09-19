@@ -1,0 +1,15 @@
+error[E0599]: no method named `build` found for struct `FooBuilder<true, true, true>` in the current scope
+  --> ./compile_fail/group_at_most_1.rs:15:102
+   |
+4  |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+   |                                             ------- method `build` not found for this struct
+...
+15 |      let foo = Foo::builder().qux("!".to_string()).baz("world".to_string()).bar("Hello".to_string()).build();
+   |                                                                                                      ^^^^^ method not found in `FooBuilder<true, true, true>`
+   |
+   = note: the method was found for
+           - `FooBuilder<false, false, false>`
+           - `FooBuilder<true, false, false>`
+           - `FooBuilder<false, true, false>`
+           - `FooBuilder<false, false, true>`
+           and 3 more types

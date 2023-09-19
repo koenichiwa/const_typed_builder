@@ -27,8 +27,6 @@ mod test {
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().build();
     }
 
     #[test]
@@ -372,9 +370,7 @@ mod test {
             .build();
         assert_eq!(expected, foo);
 
-        // let foo = Foo::builder().baz("Hello".to_string()).build();
-        // let foo = Foo::builder().bar("Hello".to_string()).baz("Hello".to_string()).qux("world!".to_string()).build();
-
+        // FIXME: Should fail or warn
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
         #[group(quz = single)]
         pub struct Nope {
@@ -437,9 +433,6 @@ mod test {
             .bar("Hello".to_string())
             .build();
         assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().baz("Hello".to_string()).build();
-        // let foo = Foo::builder().bar("Hello".to_string()).bar("Hello".to_string()).qux("world!".to_string()).build();
     }
 
     #[test]
@@ -486,17 +479,6 @@ mod test {
         };
         let foo = Foo::builder().baz("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
-
-        // let expected = Foo {
-        //     bar: Some("Hello".to_string()),
-        //     baz: Some("world".to_string()),
-        //     qux: Some("!".to_string()),
-        // };
-
-        // let foo = Foo::builder().qux("!".to_string()).baz("world".to_string()).bar("Hello".to_string()).build();
-        // assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().bar("Hello".to_string()).bar("Hello".to_string()).qux("world!".to_string()).build();
     }
 
     #[test]
@@ -547,8 +529,6 @@ mod test {
             .baz("Hello world!".to_string())
             .build();
         assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().build();
     }
 
     #[test]
@@ -573,9 +553,15 @@ mod test {
             .bar("Hello world!".to_string())
             .baz("Hello world!".to_string())
             .build();
+
         assert_eq!(expected, foo);
 
-        // let foo = Foo::builder().build();
+        let foo = Foo::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!".to_string())
+            .build();
+
+        assert_eq!(expected, foo);
     }
 
     #[test]
@@ -596,10 +582,11 @@ mod test {
             .build();
         assert_eq!(expected, foo);
 
-        // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
-        // assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().build();
+        let foo: Foo<String, &str> = Foo::builder()
+            .bar("Hello world!".to_string())
+            .baz("Hello world!")
+            .build();
+        assert_eq!(expected, foo);
     }
 
     #[test]
@@ -619,11 +606,6 @@ mod test {
             .baz("Hello world!")
             .build();
         assert_eq!(expected, foo);
-
-        // let foo: Foo<String, &str> = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!").build();
-        // assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().build();
     }
 
     #[test]
@@ -648,27 +630,6 @@ mod test {
             .bar(|builder| builder.baz("Hello world!".to_string()).build())
             .build();
         assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().bar(|builder| builder.build() ).build();
-
-        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        // pub struct Foo {
-        //     #[builder(propagate)]
-        //     bar: Bar,
-        // }
-
-        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        // pub struct Bar {
-        //     baz: String,
-        // }
-
-        // let expected = Foo {
-        //     bar: Bar {
-        //         baz: "Hello world!".to_string(),
-        //     }
-        // };
-        // let foo = Foo::builder().bar(|builder| builder.baz("Hello world!".to_string()).build() ).build();
-        // assert_eq!(expected, foo);
     }
 
     #[test]
@@ -693,26 +654,5 @@ mod test {
             .bar(|builder| Some(builder.baz("Hello world!".to_string()).build()))
             .build();
         assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().bar(|builder| builder.build() ).build();
-
-        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        // pub struct Foo {
-        //     #[builder(propagate)]
-        //     bar: Bar,
-        // }
-
-        // #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        // pub struct Bar {
-        //     baz: String,
-        // }
-
-        // let expected = Foo {
-        //     bar: Bar {
-        //         baz: "Hello world!".to_string(),
-        //     }
-        // };
-        // let foo = Foo::builder().bar(|builder| builder.baz("Hello world!".to_string()).build() ).build();
-        // assert_eq!(expected, foo);
     }
 }
