@@ -35,6 +35,7 @@ impl<'a> BuilderGenerator<'a> {
     /// # Returns
     ///
     /// A `BuilderGenerator` instance initialized with the provided information.
+    #[allow(clippy::too_many_arguments)] // TODO: remove?
     pub fn new(
         group_gen: GroupGenerator<'a>,
         field_gen: FieldGenerator<'a>,

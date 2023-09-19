@@ -5,7 +5,10 @@ use super::group_info::{GroupInfo, GroupType};
 use quote::format_ident;
 use syn::Token;
 
-use crate::symbol::{ASSUME_MANDATORY, AT_LEAST, AT_MOST, BUILDER, EXACT, GROUP, SINGLE, SOLVER, BRUTE_FORCE, COMPILER};
+use crate::symbol::{
+    ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
+    SOLVER,
+};
 
 /// A type alias for a collection of `FieldInfo` instances.
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
@@ -144,7 +147,7 @@ pub struct StructSettings {
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     mandatory_indices: BTreeSet<usize>,
-    solver_type: SolveType
+    solver_type: SolveType,
 }
 
 impl Default for StructSettings {
@@ -235,12 +238,14 @@ impl StructSettings {
                 if meta.input.peek(Token![=]) {
                     let expr: syn::Expr = meta.value()?.parse()?;
                     if let syn::Expr::Call(syn::ExprCall { func, .. }) = expr {
-                        let solve_type = if let syn::Expr::Path(syn::ExprPath { path, .. }) = func.as_ref()
-                        {
-                            path.get_ident().ok_or_else(|| syn::Error::new_spanned(&func, "Can't parse group type"))
-                        } else {
-                            Err(syn::Error::new_spanned(func, "Can't find group type"))
-                        }?;
+                        let solve_type =
+                            if let syn::Expr::Path(syn::ExprPath { path, .. }) = func.as_ref() {
+                                path.get_ident().ok_or_else(|| {
+                                    syn::Error::new_spanned(&func, "Can't parse group type")
+                                })
+                            } else {
+                                Err(syn::Error::new_spanned(func, "Can't find group type"))
+                            }?;
                         match (&solve_type.to_string()).into() {
                             BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
                             COMPILER => self.solver_type = SolveType::Compiler,
