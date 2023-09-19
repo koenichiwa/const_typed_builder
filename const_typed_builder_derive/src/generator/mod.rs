@@ -54,6 +54,7 @@ impl<'a> Generator<'a> {
                 info.vis(),
                 info.builder_name(),
                 info.data_name(),
+                info.solve_type(),
             ),
         }
     }

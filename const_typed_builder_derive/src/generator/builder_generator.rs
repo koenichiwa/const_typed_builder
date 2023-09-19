@@ -2,7 +2,7 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::{StreamResult, VecStreamResult};
+use crate::{info::SolveType, StreamResult, VecStreamResult};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -16,6 +16,7 @@ pub(super) struct BuilderGenerator<'a> {
     target_vis: &'a syn::Visibility,
     builder_name: &'a syn::Ident,
     data_name: &'a syn::Ident,
+    solve_type: SolveType,
 }
 
 impl<'a> BuilderGenerator<'a> {
@@ -34,6 +35,7 @@ impl<'a> BuilderGenerator<'a> {
     /// # Returns
     ///
     /// A `BuilderGenerator` instance initialized with the provided information.
+    #[allow(clippy::too_many_arguments)] // TODO: remove?
     pub fn new(
         group_gen: GroupGenerator<'a>,
         field_gen: FieldGenerator<'a>,
@@ -42,6 +44,7 @@ impl<'a> BuilderGenerator<'a> {
         target_vis: &'a syn::Visibility,
         builder_name: &'a syn::Ident,
         data_name: &'a syn::Ident,
+        solve_type: SolveType,
     ) -> Self {
         Self {
             group_gen,
@@ -51,6 +54,7 @@ impl<'a> BuilderGenerator<'a> {
             target_vis,
             builder_name,
             data_name,
+            solve_type,
         }
     }
 
@@ -131,30 +135,65 @@ impl<'a> BuilderGenerator<'a> {
     /// Generates the code for the `build` method implementation.
     fn generate_build_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
-        let impl_generics = self
-            .generics_gen
-            .builder_const_generic_group_partial_idents();
-        let type_generics = self.generics_gen.builder_const_generic_idents_build();
-
-        let correctness_verifier = self.group_gen.builder_build_impl_correctness_verifier();
-        let correctness_check = self.group_gen.builder_build_impl_correctness_check();
-        let correctness_helper_fns = self.group_gen.builder_build_impl_correctness_helper_fns();
-
         let target_name = self.target_name;
-        let (_, target_type_generics, where_clause) =
+        let (impl_generics, target_type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
-        quote!(
-            impl #impl_generics #builder_name #type_generics #where_clause{
-                #correctness_verifier
-                #correctness_helper_fns
+        match self.solve_type {
+            SolveType::BruteForce => {
+                let build_impls =
+                    self.group_gen
+                        .valid_groupident_combinations()
+                        .map(|group_indices| {
+                            let type_generics = self
+                                .generics_gen
+                                .builder_const_generic_idents_build(&group_indices);
 
-                pub fn build(self) -> #target_name #target_type_generics {
-                    #correctness_check
-                    self.data.into()
-                }
+                            quote!(
+                                impl #impl_generics #builder_name #type_generics #where_clause{
+
+                                    pub fn build(self) -> #target_name #target_type_generics {
+                                        self.data.into()
+                                    }
+                                }
+                            )
+                        });
+
+                quote!(
+                    #(#build_impls)*
+                )
             }
-        )
+            SolveType::Compiler => {
+                let builder_name = self.builder_name;
+                let impl_generics = self
+                    .generics_gen
+                    .builder_const_generic_group_partial_idents();
+                let type_generics = self
+                    .generics_gen
+                    .builder_const_generic_idents_build_unset_group();
+
+                let correctness_verifier = self.group_gen.builder_build_impl_correctness_verifier();
+                let correctness_check = self.group_gen.builder_build_impl_correctness_check();
+                let correctness_helper_fns =
+                    self.group_gen.builder_build_impl_correctness_helper_fns();
+
+                let target_name = self.target_name;
+                let (_, target_type_generics, where_clause) =
+                    self.generics_gen.target_generics().split_for_impl();
+
+                quote!(
+                    impl #impl_generics #builder_name #type_generics #where_clause{
+                        #correctness_verifier
+                        #correctness_helper_fns
+
+                        pub fn build(self) -> #target_name #target_type_generics {
+                            #correctness_check
+                            self.data.into()
+                        }
+                    }
+                )
+            }
+        }
     }
 
     /// Generates the code for the setter methods of the builder.
