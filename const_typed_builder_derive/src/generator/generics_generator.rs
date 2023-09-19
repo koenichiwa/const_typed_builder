@@ -44,7 +44,7 @@ impl<'a> GenericsGenerator<'a> {
                 value,
                 field_info.ident().span(),
             ))),
-            FieldKind::Mandatory | FieldKind::Grouped => Some(Either::Left(field.const_ident()))
+            FieldKind::Mandatory | FieldKind::Grouped => Some(Either::Left(field.const_ident())),
         });
         self.add_const_generics_valued_for_type(&mut all)
     }
@@ -53,7 +53,7 @@ impl<'a> GenericsGenerator<'a> {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional => None,
             _ if field == field_info => None,
-            FieldKind::Mandatory | FieldKind::Grouped => Some(field.const_ident())
+            FieldKind::Mandatory | FieldKind::Grouped => Some(field.const_ident()),
         });
         self.add_const_generics_for_impl(&mut all)
     }
@@ -61,7 +61,10 @@ impl<'a> GenericsGenerator<'a> {
     pub fn builder_const_generic_idents_build(&self) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional => None,
-            FieldKind::Mandatory => Some(Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site()))),
+            FieldKind::Mandatory => Some(Either::Right(syn::LitBool::new(
+                true,
+                proc_macro2::Span::call_site(),
+            ))),
             FieldKind::Grouped => Some(Either::Left(field.const_ident())),
         });
         self.add_const_generics_valued_for_type(&mut all)

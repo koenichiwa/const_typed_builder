@@ -38,19 +38,6 @@ impl GroupInfo {
         &self.associated_indices
     }
 
-    // pub fn member_count(&self) -> usize {
-    //     self.member_count
-    // }
-
-    // pub fn next_index(&mut self) -> usize {
-    //     self.member_count += 1;
-    //     self.member_count - 1
-    // }
-
-    // pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
-    //     format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
-    // }
-
     pub fn function_symbol(&self) -> Symbol {
         match self.group_type {
             GroupType::Exact(_) => EXACT,
