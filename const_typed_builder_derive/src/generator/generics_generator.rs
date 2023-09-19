@@ -98,7 +98,7 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_for_impl(&mut all)
     }
 
-    // Generates const generics for the builder `build` method and returns a token stream.
+    /// Generates const generics for the builder `build` method and returns a token stream.
     ///
     /// # Returns
     ///
@@ -110,10 +110,9 @@ impl<'a> GenericsGenerator<'a> {
                 true,
                 proc_macro2::Span::call_site(),
             ))),
-            FieldKind::Grouped if true_indices.contains(&field.index()) => Some(Either::Right(syn::LitBool::new(
-                true,
-                proc_macro2::Span::call_site(),
-            ))),
+            FieldKind::Grouped if true_indices.contains(&field.index()) => Some(Either::Right(
+                syn::LitBool::new(true, proc_macro2::Span::call_site()),
+            )),
             FieldKind::Grouped => Some(Either::Right(syn::LitBool::new(
                 false,
                 proc_macro2::Span::call_site(),
@@ -122,7 +121,7 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_valued_for_type(&mut all)
     }
 
-        // Generates const generics for the builder `build` method and returns a token stream.
+    // Generates const generics for the builder `build` method and returns a token stream.
     ///
     /// # Returns
     ///

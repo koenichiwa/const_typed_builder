@@ -4,4 +4,4 @@ mod struct_info;
 
 pub use field_info::{FieldInfo, FieldKind};
 pub use group_info::{GroupInfo, GroupType};
-pub use struct_info::{StructInfo, SolveType};
+pub use struct_info::{SolveType, StructInfo};
