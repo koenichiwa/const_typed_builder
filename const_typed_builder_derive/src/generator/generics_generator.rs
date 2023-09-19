@@ -4,12 +4,23 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::parse_quote;
 
+/// The `GenericsGenerator` struct is responsible for generating code related to generics in the target struct, builder, and data types.
 #[derive(Debug, Clone)]
 pub(super) struct GenericsGenerator<'a> {
     pub fields: &'a [FieldInfo<'a>],
     target_generics: &'a syn::Generics,
 }
 
+/// Creates a new `GenericsGenerator` instance.
+///
+/// # Arguments
+///
+/// - `fields`: A reference to a slice of `FieldInfo` representing the fields of the struct.
+/// - `target_generics`: A reference to the generics of the target struct.
+///
+/// # Returns
+///
+/// A `GenericsGenerator` instance initialized with the provided fields and target generics.
 impl<'a> GenericsGenerator<'a> {
     pub fn new(fields: &'a [FieldInfo], target_generics: &'a syn::Generics) -> Self {
         Self {
@@ -18,10 +29,20 @@ impl<'a> GenericsGenerator<'a> {
         }
     }
 
+    /// Returns a reference to the target generics of the struct.
     pub fn target_generics(&self) -> &syn::Generics {
         self.target_generics
     }
 
+    /// Generates const generics with boolean values and returns a token stream.
+    ///
+    /// # Arguments
+    ///
+    /// - `value`: A boolean value to set for the const generics.
+    ///
+    /// # Returns
+    ///
+    /// A `TokenStream` representing the generated const generics.
     pub fn const_generics_valued(&self, value: bool) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional => None,
@@ -33,6 +54,16 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_valued_for_type(&mut all)
     }
 
+    /// Generates type const generics for the input type of a builder setter method and returns a token stream.
+    ///
+    /// # Arguments
+    ///
+    /// - `field_info`: A reference to the `FieldInfo` for which the const generics are generated.
+    /// - `value`: A boolean value to set for the const generics.
+    ///
+    /// # Returns
+    ///
+    /// A `TokenStream` representing the generated const generics for the setter method input type.
     pub fn builder_const_generic_idents_set_type(
         &self,
         field_info: &FieldInfo,
@@ -49,6 +80,15 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_valued_for_type(&mut all)
     }
 
+    /// Generates impl const generics for the input type of a builder setter method and returns a token stream.
+    ///
+    /// # Arguments
+    ///
+    /// - `field_info`: A reference to the `FieldInfo` for which the const generics are generated.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Generics` instance representing the generated const generics for the setter method input type.
     pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional => None,
@@ -58,6 +98,11 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_for_impl(&mut all)
     }
 
+    // Generates const generics for the builder `build` method and returns a token stream.
+    ///
+    /// # Returns
+    ///
+    /// A `TokenStream` representing the generated const generics for the builder `build` method.
     pub fn builder_const_generic_idents_build(&self) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional => None,
@@ -70,6 +115,11 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_valued_for_type(&mut all)
     }
 
+    /// Generates const generics for builder group partial identifiers and returns a `syn::Generics` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Generics` instance representing the generated const generics for builder group partial identifiers.
     pub fn builder_const_generic_group_partial_idents(&self) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional | FieldKind::Mandatory => None,
@@ -78,6 +128,11 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_for_impl(&mut all)
     }
 
+    /// Generates const generics for the builder struct and returns a `syn::Generics` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Generics` instance representing the generated const generics for the builder struct.
     pub fn builder_struct_generics(&self) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Optional => None,

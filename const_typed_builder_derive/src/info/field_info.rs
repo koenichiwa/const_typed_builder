@@ -11,7 +11,7 @@ use crate::{
     CONST_IDENT_PREFIX,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+/// Represents the information about a struct field used for code generation.
 pub struct FieldInfo<'a> {
     field: &'a syn::Field,
     ident: &'a syn::Ident,
@@ -91,10 +91,12 @@ impl<'a> FieldInfo<'a> {
         }
     }
 
+    /// Retrieves the identifier of the field.
     pub fn ident(&self) -> &syn::Ident {
         self.ident
     }
 
+    /// Checks if the field's attributes indicate propagation.
     pub fn propagate(&self) -> bool {
         self.propagate
     }
@@ -103,10 +105,11 @@ impl<'a> FieldInfo<'a> {
         is_option(&self.field.ty)
     }
 
+    /// Retrieves the type of the field.
     pub fn ty(&self) -> &syn::Type {
         &self.field.ty
     }
-
+  
     pub fn inner_type(&self) -> Option<&syn::Type> {
         inner_type(&self.field.ty)
     }
@@ -120,10 +123,14 @@ impl<'a> FieldInfo<'a> {
     }
 }
 
+/// Represents settings for struct field generation.
 #[derive(Debug, Clone)]
 pub struct FieldSettings {
+    /// Indicates if the field is mandatory.
     pub mandatory: bool,
+    /// Indicates if the field should propagate values.
     pub propagate: bool,
+    /// The input name for the builder's setter method.
     pub input_name: syn::Ident,
     pub groups: HashSet<syn::Ident>,
 }
@@ -140,10 +147,20 @@ impl Default for FieldSettings {
 }
 
 impl FieldSettings {
+    /// Creates a new `FieldSettings` instance with default values.
     pub fn new() -> FieldSettings {
         Self::default()
     }
 
+    /// Updates field settings based on provided attributes.
+    ///
+    /// # Arguments
+    ///
+    /// - `attrs`: A slice of `syn::Attribute` representing the attributes applied to the field.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Result` indicating success or failure of attribute handling.
     pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
         attrs
             .iter()
@@ -152,6 +169,15 @@ impl FieldSettings {
         Ok(self)
     }
 
+    /// Updates field settings based on the field's type.
+    ///
+    /// # Arguments
+    ///
+    /// - `ty`: A reference to the `syn::Type` representing the field's type.
+    ///
+    /// # Returns
+    ///
+    /// The updated `FieldSettings` instance.
     pub fn with_ty(mut self, ty: &syn::Type) -> Self {
         if !self.mandatory && !is_option(ty) {
             self.mandatory = true;

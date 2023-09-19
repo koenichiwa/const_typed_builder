@@ -2,6 +2,7 @@ use std::{collections::HashSet, hash::Hash};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 
+/// Represents information about a group, including its name, member count, and group type.
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
     name: syn::Ident,
@@ -10,6 +11,16 @@ pub struct GroupInfo {
 }
 
 impl GroupInfo {
+    /// Creates a new `GroupInfo` instance.
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: The identifier representing the group's name.
+    /// - `group_type`: The type of the group.
+    ///
+    /// # Returns
+    ///
+    /// A `GroupInfo` instance with the provided name and group type.
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
@@ -18,10 +29,12 @@ impl GroupInfo {
         }
     }
 
+    /// Retrieves the name of the group.
     pub fn name(&self) -> &syn::Ident {
         &self.name
     }
 
+    /// Retrieves the expected member count based on the group type.
     pub fn expected_count(&self) -> usize {
         match self.group_type {
             GroupType::Exact(expected) => expected,
@@ -38,6 +51,7 @@ impl GroupInfo {
         &self.associated_indices
     }
 
+    /// Retrieves the function symbol associated with the group type.
     pub fn function_symbol(&self) -> Symbol {
         match self.group_type {
             GroupType::Exact(_) => EXACT,
@@ -46,6 +60,7 @@ impl GroupInfo {
         }
     }
 
+    /// Retrieves the group type.
     pub fn group_type(&self) -> &GroupType {
         &self.group_type
     }
@@ -65,9 +80,13 @@ impl Hash for GroupInfo {
     }
 }
 
+/// Represents the type of a group, which can be one of three variants: Exact, AtLeast, or AtMost.
 #[derive(Debug, Clone)]
 pub enum GroupType {
+    /// Represents a group with an exact member count.
     Exact(usize),
+    /// Represents a group with at least a certain number of members.
     AtLeast(usize),
+    /// Represents a group with at most a certain number of members.
     AtMost(usize),
 }

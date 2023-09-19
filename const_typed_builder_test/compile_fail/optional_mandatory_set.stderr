@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> ./compile_fail/optional_mandatory_set.rs:10:34
+   |
+10 |     let foo = Foo::builder().bar(Some("Hello world!".to_string())).build();
+   |                              --- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `String`, found `Option<String>`
+   |                              |
+   |                              arguments to this method are incorrect
+   |
+   = note: expected struct `String`
+                found enum `Option<String>`
+note: method defined here
+  --> ./compile_fail/optional_mandatory_set.rs:7:9
+   |
+7  |         bar: Option<String>,
+   |         ^^^---------------

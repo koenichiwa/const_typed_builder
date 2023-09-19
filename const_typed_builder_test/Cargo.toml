@@ -1,0 +1,18 @@
+[package]
+name = "const_typed_builder_test"
+description.workspace = true
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+readme.workspace = true
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dev-dependencies]
+const_typed_builder = { path = "../../const_typed_builder", version = "=0.1.1" }
+trybuild = "1.0.84"
