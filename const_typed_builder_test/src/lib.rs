@@ -296,14 +296,6 @@ mod test {
         };
         let foo = Foo::builder().qux("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
-
-        // // EXPECT: DOESNT RUN
-        // let expected = Foo {
-        //     bar: Some("Hello world!".to_string()),
-        //     qux: Some("Hello world!".to_string()),
-        // };
-        // let foo = Foo::builder().bar("Hello world!".to_string()).qux("Hello world!".to_string()).build();
-        // assert_eq!(expected, foo);
     }
 
     #[test]
@@ -341,9 +333,6 @@ mod test {
             .baz("Hello".to_string())
             .build();
         assert_eq!(expected, foo);
-
-        // let foo = Foo::builder().baz("Hello".to_string()).build();
-        // let foo = Foo::builder().bar("Hello".to_string()).baz("Hello".to_string()).qux("world!".to_string()).build();
     }
 
     #[test]
