@@ -21,7 +21,7 @@ pub struct FieldInfo<'a> {
     kind: FieldKind,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FieldKind {
     Optional,
     Mandatory,

@@ -10,6 +10,11 @@ use crate::symbol::{ASSUME_MANDATORY, AT_LEAST, AT_MOST, BUILDER, EXACT, GROUP, 
 /// A type alias for a collection of `FieldInfo` instances.
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
+#[derive(Debug, Clone, Copy)]
+pub enum SolveType {
+    BruteForce,
+    Compiler,
+}
 /// Represents the information about a struct used for code generation.
 #[derive(Debug)]
 pub struct StructInfo<'a> {
@@ -28,6 +33,7 @@ pub struct StructInfo<'a> {
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
     field_infos: FieldInfos<'a>,
+    solve_type: SolveType,
 }
 
 impl<'a> StructInfo<'a> {
@@ -75,6 +81,7 @@ impl<'a> StructInfo<'a> {
                 _mandatory_indices: settings.mandatory_indices,
                 groups: settings.groups,
                 field_infos,
+                solve_type: SolveType::BruteForce,
             };
             Ok(info)
         } else {
@@ -118,6 +125,10 @@ impl<'a> StructInfo<'a> {
     /// Retrieves a reference to the map of group names to their respective `GroupInfo`.
     pub fn groups(&self) -> &HashMap<String, GroupInfo> {
         &self.groups
+    }
+
+    pub fn solve_type(&self) -> SolveType {
+        self.solve_type
     }
 }
 
