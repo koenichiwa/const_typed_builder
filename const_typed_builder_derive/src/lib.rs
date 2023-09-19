@@ -13,9 +13,7 @@ type StreamResult = syn::Result<TokenStream>;
 /// A type alias for the result of a vector of token streams.
 type VecStreamResult = syn::Result<Vec<TokenStream>>;
 
-/// A constant representing the mandatory prefix.
-/// Used for making constants in the form <const M_0: bool>
-const MANDATORY_PREFIX: &str = "M";
+const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST";
 
 /// The `derive_builder` macro is used to automatically generate builder
 /// code for a struct. It takes a struct as input and generates a builder

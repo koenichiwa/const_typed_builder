@@ -1,6 +1,9 @@
-use crate::info::{GroupInfo, GroupType};
+use crate::{
+    info::{GroupInfo, GroupType},
+    CONST_IDENT_PREFIX,
+};
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote};
 
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
@@ -120,9 +123,8 @@ impl<'a> GroupGenerator<'a> {
             return None;
         }
 
-        let all = self.groups.iter().flat_map(|group| {
-            let partials = (0..group.member_count())
-                .map(|index| group.partial_const_ident(index).into_token_stream());
+        let all = self.groups.iter().map(|group| {
+            let partials = group.indices().iter().map(|index| format_ident!("{}{}", CONST_IDENT_PREFIX, index));
             let function_call: syn::Ident = group.function_symbol().into();
             let count = group.expected_count();
             let name = group.name();
