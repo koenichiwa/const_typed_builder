@@ -99,7 +99,7 @@ impl<'a> GroupGenerator<'a> {
             return None;
         }
 
-        let all = self.groups.iter().flat_map(|group| {
+        let all = self.groups.iter().map(|group| {
             let partials = group.indices().iter().map(|index| format_ident!("{}{}", CONST_IDENT_PREFIX, index));
             let function_call: syn::Ident = group.function_symbol().into();
             let count = group.expected_count();

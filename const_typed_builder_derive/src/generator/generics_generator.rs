@@ -23,19 +23,12 @@ impl<'a> GenericsGenerator<'a> {
     }
 
     pub fn const_generics_valued(&self, value: bool) -> TokenStream {
-        let mut all = self.fields.iter().flat_map(|field| match field.kind() {
-            FieldKind::Optional => Box::new(std::iter::empty())
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            FieldKind::Mandatory => Box::new(std::iter::once(Either::Right(syn::LitBool::new(
+        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
+            FieldKind::Optional => None,
+            FieldKind::Mandatory | FieldKind::Grouped => Some(Either::Right(syn::LitBool::new(
                 value,
                 field.ident().span(),
-            ))))
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            FieldKind::Grouped => Box::new(std::iter::once(Either::Right(syn::LitBool::new(
-                value,
-                field.ident().span(),
-            ))))
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
+            ))),
         });
         self.add_const_generics_valued_for_type(&mut all)
     }
@@ -45,77 +38,47 @@ impl<'a> GenericsGenerator<'a> {
         field_info: &FieldInfo,
         value: bool,
     ) -> TokenStream {
-        let mut all = self.fields.iter().flat_map(|field| match field.kind() {
-            FieldKind::Optional => Box::new(std::iter::empty())
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            _ if field == field_info => Box::new(std::iter::once(Either::Right(syn::LitBool::new(
+        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
+            FieldKind::Optional => None,
+            _ if field == field_info => Some(Either::Right(syn::LitBool::new(
                 value,
                 field_info.ident().span(),
-            ))))
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            FieldKind::Mandatory | FieldKind::Grouped => {
-                Box::new(std::iter::once(Either::Left(field.const_ident())))
-                    as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>
-            }
+            ))),
+            FieldKind::Mandatory | FieldKind::Grouped => Some(Either::Left(field.const_ident()))
         });
         self.add_const_generics_valued_for_type(&mut all)
     }
 
     pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
-        let mut all = self.fields.iter().flat_map(|field| match field.kind() {
-            FieldKind::Optional => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
-            }
-            _ if field == field_info => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
-            }
-            FieldKind::Mandatory | FieldKind::Grouped => {
-                Box::new(std::iter::once(field.const_ident()))
-                    as Box<dyn Iterator<Item = syn::Ident>>
-            }
+        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
+            FieldKind::Optional => None,
+            _ if field == field_info => None,
+            FieldKind::Mandatory | FieldKind::Grouped => Some(field.const_ident())
         });
         self.add_const_generics_for_impl(&mut all)
     }
 
     pub fn builder_const_generic_idents_build(&self) -> TokenStream {
-        let mut all = self.fields.iter().flat_map(|field| match field.kind() {
-            FieldKind::Optional => Box::new(std::iter::empty())
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            FieldKind::Mandatory => Box::new(std::iter::once(
-                Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site())), // FIXME
-            ))
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
-            FieldKind::Grouped => Box::new(std::iter::once(
-                Either::Left(field.const_ident()), // FIXME
-            ))
-                as Box<dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>>,
+        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
+            FieldKind::Optional => None,
+            FieldKind::Mandatory => Some(Either::Right(syn::LitBool::new(true, proc_macro2::Span::call_site()))),
+            FieldKind::Grouped => Some(Either::Left(field.const_ident())),
         });
         self.add_const_generics_valued_for_type(&mut all)
     }
 
     pub fn builder_const_generic_group_partial_idents(&self) -> syn::Generics {
-        let mut all = self.fields.iter().flat_map(|field| match field.kind() {
-            FieldKind::Optional => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
-            }
-            FieldKind::Mandatory => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
-            }
-            FieldKind::Grouped => Box::new(std::iter::once(field.const_ident()))
-                as Box<dyn Iterator<Item = syn::Ident>>,
+        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
+            FieldKind::Optional | FieldKind::Mandatory => None,
+            FieldKind::Grouped => Some(field.const_ident()),
         });
         self.add_const_generics_for_impl(&mut all)
     }
 
     pub fn builder_struct_generics(&self) -> syn::Generics {
-        let mut all = self.fields.iter().flat_map(|field| match field.kind() {
-            FieldKind::Optional => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = syn::Ident>>
-            }
-            FieldKind::Mandatory | FieldKind::Grouped => {
-                Box::new(std::iter::once(field.const_ident()))
-                    as Box<dyn Iterator<Item = syn::Ident>>
-            }
+        let mut all = self.fields.iter().filter_map(|field| match field.kind() {
+            FieldKind::Optional => None,
+            FieldKind::Mandatory | FieldKind::Grouped => Some(field.const_ident()),
         });
         self.add_const_generics_for_impl(&mut all)
     }
