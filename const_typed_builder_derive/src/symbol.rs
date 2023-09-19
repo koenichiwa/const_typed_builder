@@ -26,6 +26,11 @@ pub const PROPAGATE: Symbol = Symbol("propagate");
 pub const ASSUME_MANDATORY: Symbol = Symbol("assume_mandatory");
 /// Constant representing the "optional" symbol.
 pub const OPTIONAL: Symbol = Symbol("optional");
+/// Constant representing the "solver" symbol.
+pub const SOLVER: Symbol = Symbol("solver");
+
+pub const BRUTE_FORCE: Symbol = Symbol("brute_force");
+pub const COMPILER: Symbol = Symbol("compiler");
 
 impl<'a> From<&'a String> for Symbol<'a> {
     fn from(value: &'a String) -> Self {
