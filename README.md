@@ -86,5 +86,5 @@ impl Default for FooData {
 ## Inspirations
 Builder macros have been done before, but not exactly what I needed for my use case. Also look into [derive_builder](https://crates.io/crates/derive_builder) and [typed-builder](https://crates.io/crates/typed-builder). Those projects are currently way more mature, but anyone willing to test this crate is currently a godsend.
 
-> [!WARNING]
-> Although I haven't been able to recreate the issue yet, it seems that const values [aren't guaranteed to be evaluated at compile time](https://doc.rust-lang.org/reference/const_eval.html). This creates the issue that the group verification is not guaranteed to fail in its current implementation. I tried a workaround to force the compiler to evaluate the constant, but ran into this issue rust-lang/rust#60551.
+> [!NOTE]
+> Although I haven't been able to recreate the issue yet, it seems that const values [aren't guaranteed to be evaluated at compile time](https://doc.rust-lang.org/reference/const_eval.html). This creates the issue that the group verification is not guaranteed to fail in its current implementation when the solver type is set to `compiler`. That's why the current default implementation is `brute_force`. The problem is directly related to [SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem), and the `brute_force` implementation currently has a $O(2^g)$ where $g$ is the amount of grouped variables. Future editions might improve on this. Users can opt in to the `compiler` solver, which might solve it quicker, although this is not guaranteed.
