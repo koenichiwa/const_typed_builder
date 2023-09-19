@@ -1,6 +1,4 @@
-use std::hash::Hash;
-
-use quote::format_ident;
+use std::{collections::HashSet, hash::Hash};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 
@@ -8,7 +6,7 @@ use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
     name: syn::Ident,
-    member_count: usize,
+    associated_indices: HashSet<usize>,
     group_type: GroupType,
 }
 
@@ -26,7 +24,7 @@ impl GroupInfo {
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
-            member_count: 0,
+            associated_indices: HashSet::new(),
             group_type,
         }
     }
@@ -45,28 +43,12 @@ impl GroupInfo {
         }
     }
 
-    /// Retrieves the current member count of the group.
-    pub fn member_count(&self) -> usize {
-        self.member_count
+    pub fn associate(&mut self, index: usize) -> bool {
+        self.associated_indices.insert(index)
     }
 
-    /// Increments the member count and returns the next available index.
-    pub fn next_index(&mut self) -> usize {
-        self.member_count += 1;
-        self.member_count - 1
-    }
-
-    /// Generates a partial constant identifier for the group at the given index.
-    ///
-    /// # Arguments
-    ///
-    /// - `index`: The index for which to generate the partial constant identifier.
-    ///
-    /// # Returns
-    ///
-    /// A `syn::Ident` representing the partial constant identifier.
-    pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
-        format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
+    pub fn indices(&self) -> &HashSet<usize> {
+        &self.associated_indices
     }
 
     /// Retrieves the function symbol associated with the group type.

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
@@ -23,6 +23,7 @@ pub struct StructInfo<'a> {
     builder_ident: syn::Ident,
     /// The identifier of the generated data struct.
     data_ident: syn::Ident,
+    _mandatory_indices: HashSet<usize>,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
@@ -61,7 +62,8 @@ impl<'a> StructInfo<'a> {
             let field_infos = fields
                 .named
                 .iter()
-                .map(|field| FieldInfo::new(field, &mut settings))
+                .enumerate()
+                .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
                 .collect::<syn::Result<Vec<_>>>()?;
 
             let info = StructInfo {
@@ -70,6 +72,7 @@ impl<'a> StructInfo<'a> {
                 generics,
                 builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
                 data_ident: format_ident!("{}{}", ident, settings.data_suffix),
+                _mandatory_indices: settings.mandatory_indices,
                 groups: settings.groups,
                 field_infos,
             };
@@ -129,8 +132,7 @@ pub struct StructSettings {
     default_field_settings: FieldSettings,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
-    /// The count of mandatory fields encountered.
-    mandatory_count: usize,
+    mandatory_indices: HashSet<usize>,
 }
 
 impl Default for StructSettings {
@@ -140,7 +142,7 @@ impl Default for StructSettings {
             data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
             groups: HashMap::new(),
-            mandatory_count: 0,
+            mandatory_indices: HashSet::new(),
         }
     }
 }
@@ -151,21 +153,12 @@ impl StructSettings {
         Default::default()
     }
 
-    /// Retrieves the next available mandatory field index.
-    pub fn next_mandatory(&mut self) -> usize {
-        self.mandatory_count += 1;
-        self.mandatory_count - 1
+    pub fn add_mandatory_index(&mut self, index: usize) -> bool {
+        self.mandatory_indices.insert(index)
     }
 
-    /// Retrieves the next available group index for a given group name.
-    pub fn next_group_index(&mut self, group_name: &String) -> Option<usize> {
-        let res = self.groups.get_mut(group_name)?.next_index();
-        Some(res)
-    }
-
-    /// Retrieves a reference to a `GroupInfo` instance by group name.
-    pub fn group_by_name(&self, group_name: &String) -> Option<&GroupInfo> {
-        self.groups.get(group_name)
+    pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut GroupInfo> {
+        self.groups.get_mut(group_name)
     }
 
     /// Retrieves the default field settings.
