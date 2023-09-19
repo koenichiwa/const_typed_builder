@@ -2,9 +2,9 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::{StreamResult, VecStreamResult};
+use crate::{StreamResult, VecStreamResult, CONST_IDENT_PREFIX};
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 
 // The `BuilderGenerator` struct is responsible for generating code related to the builder struct,
 /// including its definition, implementation of setter methods, `new` method, and `build` method.
@@ -136,10 +136,10 @@ impl<'a> BuilderGenerator<'a> {
         let (impl_generics, target_type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
-        let build_impls = self
-            .group_gen
+        let build_impls = self.group_gen
             .valid_groupident_combinations()
             .map(|group_indices| {
+
                 let type_generics = self
                     .generics_gen
                     .builder_const_generic_idents_build(&group_indices);
