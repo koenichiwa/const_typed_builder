@@ -1,4 +1,7 @@
-use crate::{info::FieldInfo, VecStreamResult};
+use crate::{
+    info::{FieldInfo, FieldKind},
+    VecStreamResult,
+};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
@@ -22,16 +25,14 @@ impl<'a> FieldGenerator<'a> {
             .map(|field| {
                 let field_name = field.ident();
 
-                let data_field_type = match field {
-                    FieldInfo::Optional(field) => field.ty().to_token_stream(),
-                    FieldInfo::Mandatory(field) if field.is_option_type() => {
-                        field.ty().to_token_stream()
-                    }
-                    FieldInfo::Mandatory(field) => {
+                let data_field_type = match field.kind() {
+                    FieldKind::Optional => field.ty().to_token_stream(),
+                    FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
+                    FieldKind::Mandatory => {
                         let ty = field.ty();
                         quote!(Option<#ty>)
                     }
-                    FieldInfo::Grouped(field) => field.ty().to_token_stream(),
+                    FieldKind::Grouped => field.ty().to_token_stream(),
                 };
 
                 let tokens = quote!(
@@ -47,14 +48,14 @@ impl<'a> FieldGenerator<'a> {
             .iter()
             .map(|field| {
                 let field_name = field.ident();
-                let tokens = match field {
-                    FieldInfo::Mandatory(field) if field.is_option_type() => {
+                let tokens = match field.kind() {
+                    FieldKind::Mandatory if field.is_option_type() => {
                         quote!(#field_name: data.#field_name)
                     }
-                    FieldInfo::Optional(_) | FieldInfo::Grouped(_) => {
+                    FieldKind::Optional | FieldKind::Grouped => {
                         quote!(#field_name: data.#field_name)
                     }
-                    FieldInfo::Mandatory(_) => {
+                    FieldKind::Mandatory => {
                         quote!(#field_name: data.#field_name.unwrap())
                     }
                 };
@@ -74,13 +75,15 @@ impl<'a> FieldGenerator<'a> {
     }
 
     fn field_effective_type(field: &'a FieldInfo) -> &'a syn::Type {
-        match field {
-            FieldInfo::Optional(field) => field.ty(),
-            FieldInfo::Mandatory(field) if field.is_option_type() => field
+        match field.kind() {
+            FieldKind::Optional => field.ty(),
+            FieldKind::Mandatory if field.is_option_type() => field.inner_type().expect(
+                "Couldn't read inner type of option, even though it's seen as an Option type",
+            ),
+            FieldKind::Mandatory => field.ty(),
+            FieldKind::Grouped => field
                 .inner_type()
-                .expect("Couldn't read inner type of option, even though it's marked as optional"),
-            FieldInfo::Mandatory(field) => field.ty(),
-            FieldInfo::Grouped(field) => field.inner_type(),
+                .expect("Couldn't read inner type of option, even though it's marked as grouped"),
         }
     }
 
@@ -118,8 +121,8 @@ impl<'a> FieldGenerator<'a> {
             quote!(#field_name)
         };
 
-        match field {
-            FieldInfo::Optional(_) => quote!(#field_value),
+        match field.kind() {
+            FieldKind::Optional => quote!(#field_value),
             _ => quote!(Some(#field_value)),
         }
     }

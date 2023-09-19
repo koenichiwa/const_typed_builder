@@ -1,13 +1,11 @@
-use std::hash::Hash;
-
-use quote::format_ident;
+use std::{collections::HashSet, hash::Hash};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
     name: syn::Ident,
-    member_count: usize,
+    associated_indices: HashSet<usize>,
     group_type: GroupType,
 }
 
@@ -15,7 +13,7 @@ impl GroupInfo {
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
-            member_count: 0,
+            associated_indices: HashSet::new(),
             group_type,
         }
     }
@@ -32,18 +30,26 @@ impl GroupInfo {
         }
     }
 
-    pub fn member_count(&self) -> usize {
-        self.member_count
+    pub fn associate(&mut self, index: usize) -> bool {
+        self.associated_indices.insert(index)
     }
 
-    pub fn next_index(&mut self) -> usize {
-        self.member_count += 1;
-        self.member_count - 1
+    pub fn indices(&self) -> &HashSet<usize> {
+        &self.associated_indices
     }
 
-    pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
-        format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
-    }
+    // pub fn member_count(&self) -> usize {
+    //     self.member_count
+    // }
+
+    // pub fn next_index(&mut self) -> usize {
+    //     self.member_count += 1;
+    //     self.member_count - 1
+    // }
+
+    // pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
+    //     format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
+    // }
 
     pub fn function_symbol(&self) -> Symbol {
         match self.group_type {
