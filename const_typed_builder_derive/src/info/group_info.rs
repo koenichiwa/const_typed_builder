@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash};
+use std::{collections::BTreeSet, hash::Hash};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 
@@ -6,7 +6,7 @@ use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
     name: syn::Ident,
-    associated_indices: HashSet<usize>,
+    associated_indices: BTreeSet<usize>,
     group_type: GroupType,
 }
 
@@ -24,7 +24,7 @@ impl GroupInfo {
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
-            associated_indices: HashSet::new(),
+            associated_indices: BTreeSet::new(),
             group_type,
         }
     }
@@ -47,7 +47,7 @@ impl GroupInfo {
         self.associated_indices.insert(index)
     }
 
-    pub fn indices(&self) -> &HashSet<usize> {
+    pub fn indices(&self) -> &BTreeSet<usize> {
         &self.associated_indices
     }
 
@@ -63,6 +63,18 @@ impl GroupInfo {
     /// Retrieves the group type.
     pub fn group_type(&self) -> &GroupType {
         &self.group_type
+    }
+
+    pub fn is_valid_with(&self, indices: &[usize]) -> bool {
+        let applicable_indices_count = self
+            .associated_indices
+            .intersection(&BTreeSet::from_iter(indices.iter().map(|idx| idx.clone())))
+            .count();
+        match self.group_type {
+            GroupType::Exact(count) => applicable_indices_count == count,
+            GroupType::AtLeast(count) => applicable_indices_count >= count,
+            GroupType::AtMost(count) => applicable_indices_count <= count,
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
@@ -23,7 +23,7 @@ pub struct StructInfo<'a> {
     builder_ident: syn::Ident,
     /// The identifier of the generated data struct.
     data_ident: syn::Ident,
-    _mandatory_indices: HashSet<usize>,
+    _mandatory_indices: BTreeSet<usize>,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
@@ -132,7 +132,7 @@ pub struct StructSettings {
     default_field_settings: FieldSettings,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
-    mandatory_indices: HashSet<usize>,
+    mandatory_indices: BTreeSet<usize>,
 }
 
 impl Default for StructSettings {
@@ -142,7 +142,7 @@ impl Default for StructSettings {
             data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
             groups: HashMap::new(),
-            mandatory_indices: HashSet::new(),
+            mandatory_indices: BTreeSet::new(),
         }
     }
 }

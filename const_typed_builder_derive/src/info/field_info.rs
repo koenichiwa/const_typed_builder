@@ -119,6 +119,10 @@ impl<'a> FieldInfo<'a> {
         &self.kind
     }
 
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     pub fn const_ident(&self) -> syn::Ident {
         format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
     }
@@ -135,6 +139,18 @@ impl<'a> FieldInfo<'a> {
                 .inner_type()
                 .expect("Couldn't read inner type of option, even though it's marked as grouped"),
         }
+    }
+}
+
+impl<'a> PartialOrd for FieldInfo<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.index.partial_cmp(&other.index)
+    }
+}
+
+impl<'a> Ord for FieldInfo<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
     }
 }
 
