@@ -239,9 +239,9 @@ impl StructSettings {
                     let expr: syn::Expr = meta.value()?.parse()?;
                     dbg!(&expr);
                     if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
-                        let solve_type = path.get_ident().ok_or_else(|| {
-                                    syn::Error::new_spanned(&path, "Can't parse group type")
-                                })?;
+                        let solve_type = path
+                            .get_ident()
+                            .ok_or_else(|| syn::Error::new_spanned(&path, "Can't parse solver"))?;
                         match (&solve_type.to_string()).into() {
                             BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
                             COMPILER => self.solver_type = SolveType::Compiler,
