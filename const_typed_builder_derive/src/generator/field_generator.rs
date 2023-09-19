@@ -100,19 +100,6 @@ impl<'a> FieldGenerator<'a> {
         )
     }
 
-    fn field_effective_type(field: &'a FieldInfo) -> &'a syn::Type {
-        match field.kind() {
-            FieldKind::Optional => field.ty(),
-            FieldKind::Mandatory if field.is_option_type() => field.inner_type().expect(
-                "Couldn't read inner type of option, even though it's seen as an Option type",
-            ),
-            FieldKind::Mandatory => field.ty(),
-            FieldKind::Grouped => field
-                .inner_type()
-                .expect("Couldn't read inner type of option, even though it's marked as grouped"),
-        }
-    }
-
     /// Generates code for the input type of a builder setter method and returns a token stream.
     ///
     /// # Arguments

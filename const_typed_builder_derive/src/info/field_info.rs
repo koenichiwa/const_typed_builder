@@ -12,6 +12,7 @@ use crate::{
 };
 
 /// Represents the information about a struct field used for code generation.
+#[derive(Debug, PartialEq, Eq)]
 pub struct FieldInfo<'a> {
     field: &'a syn::Field,
     ident: &'a syn::Ident,
@@ -109,7 +110,7 @@ impl<'a> FieldInfo<'a> {
     pub fn ty(&self) -> &syn::Type {
         &self.field.ty
     }
-  
+
     pub fn inner_type(&self) -> Option<&syn::Type> {
         inner_type(&self.field.ty)
     }
@@ -120,6 +121,20 @@ impl<'a> FieldInfo<'a> {
 
     pub fn const_ident(&self) -> syn::Ident {
         format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
+    }
+
+    /// Retrieves the input type for the builder's setter method.
+    pub fn setter_input_type(&self) -> &syn::Type {
+        match self.kind() {
+            FieldKind::Optional => self.ty(),
+            FieldKind::Mandatory if self.is_option_type() => self.inner_type().expect(
+                "Couldn't read inner type of option, even though it's seen as an Option type",
+            ),
+            FieldKind::Mandatory => self.ty(),
+            FieldKind::Grouped => self
+                .inner_type()
+                .expect("Couldn't read inner type of option, even though it's marked as grouped"),
+        }
     }
 }
 

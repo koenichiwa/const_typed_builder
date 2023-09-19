@@ -62,7 +62,8 @@ impl<'a> StructInfo<'a> {
             let field_infos = fields
                 .named
                 .iter()
-                .map(|field| FieldInfo::new(field, &mut settings))
+                .enumerate()
+                .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
                 .collect::<syn::Result<Vec<_>>>()?;
 
             let info = StructInfo {
@@ -84,21 +85,6 @@ impl<'a> StructInfo<'a> {
         }
     }
 
-    fn parse_fields(
-        settings: &mut StructSettings,
-        fields: &'a syn::FieldsNamed,
-    ) -> syn::Result<FieldInfos<'a>> {
-        if fields.named.is_empty() {
-            return Err(syn::Error::new_spanned(fields, "No fields found"));
-        }
-        fields
-            .named
-            .iter()
-            .enumerate()
-            .map(|(index, field)| FieldInfo::new(field, settings, index))
-            .collect::<syn::Result<Vec<_>>>()
-    }
-  
     /// Retrieves the identifier of the struct.
     pub fn name(&self) -> &syn::Ident {
         self.ident
