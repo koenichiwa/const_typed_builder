@@ -256,6 +256,23 @@ mod test {
     }
 
     #[test]
+    fn group_solver_compiler() {
+        #[derive(Debug, Default, PartialEq, Eq, Builder)]
+        #[group(baz = single)]
+        #[builder(solver = compiler)]
+        pub struct Foo {
+            #[builder(group = baz)]
+            bar: Option<String>,
+        }
+
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(expected, foo);
+    }
+
+    #[test]
     fn group_multiple_member() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
         #[group(baz = single)]
