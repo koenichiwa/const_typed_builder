@@ -68,7 +68,7 @@ impl GroupInfo {
     pub fn is_valid_with(&self, indices: &[usize]) -> bool {
         let applicable_indices_count = self
             .associated_indices
-            .intersection(&BTreeSet::from_iter(indices.iter().map(|idx| idx.clone())))
+            .intersection(&BTreeSet::from_iter(indices.iter().copied()))
             .count();
         match self.group_type {
             GroupType::Exact(count) => applicable_indices_count == count,
