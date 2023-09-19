@@ -11,7 +11,7 @@ use syn::DeriveInput;
 type StreamResult = syn::Result<TokenStream>;
 type VecStreamResult = Result<Vec<TokenStream>, syn::Error>;
 
-const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST";
+const MANDATORY_PREFIX: &str = "M";
 
 #[proc_macro_derive(Builder, attributes(builder, group))]
 pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

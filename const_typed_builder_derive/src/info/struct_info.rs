@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
@@ -16,7 +16,6 @@ pub struct StructInfo<'a> {
     generics: &'a syn::Generics,
     builder_ident: syn::Ident,
     data_ident: syn::Ident,
-    _mandatory_indices: HashSet<usize>,
     groups: HashMap<String, GroupInfo>,
     field_infos: FieldInfos<'a>,
 }
@@ -44,7 +43,6 @@ impl<'a> StructInfo<'a> {
                 generics,
                 builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
                 data_ident: format_ident!("{}{}", ident, settings.data_suffix),
-                _mandatory_indices: settings.mandatory_indices,
                 groups: settings.groups,
                 field_infos,
             };
@@ -67,8 +65,7 @@ impl<'a> StructInfo<'a> {
         fields
             .named
             .iter()
-            .enumerate()
-            .map(|(index, field)| FieldInfo::new(field, settings, index))
+            .map(|field| FieldInfo::new(field, settings))
             .collect::<syn::Result<Vec<_>>>()
     }
 
@@ -107,7 +104,7 @@ pub struct StructSettings {
     data_suffix: String,
     default_field_settings: FieldSettings,
     groups: HashMap<String, GroupInfo>,
-    mandatory_indices: HashSet<usize>,
+    mandatory_count: usize,
 }
 
 impl Default for StructSettings {
@@ -117,7 +114,7 @@ impl Default for StructSettings {
             data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
             groups: HashMap::new(),
-            mandatory_indices: HashSet::new(),
+            mandatory_count: 0,
         }
     }
 }
@@ -127,12 +124,18 @@ impl StructSettings {
         Default::default()
     }
 
-    pub fn add_mandatory_index(&mut self, index: usize) -> bool {
-        self.mandatory_indices.insert(index)
+    pub fn next_mandatory(&mut self) -> usize {
+        self.mandatory_count += 1;
+        self.mandatory_count - 1
     }
 
-    pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut GroupInfo> {
-        self.groups.get_mut(group_name)
+    pub fn next_group_index(&mut self, group_name: &String) -> Option<usize> {
+        let res = self.groups.get_mut(group_name)?.next_index();
+        Some(res)
+    }
+
+    pub fn group_by_name(&self, group_name: &String) -> Option<&GroupInfo> {
+        self.groups.get(group_name)
     }
 
     pub fn default_field_settings(&self) -> &FieldSettings {
