@@ -1,15 +1,23 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
 use quote::format_ident;
 use syn::Token;
 
-use crate::symbol::{ASSUME_MANDATORY, AT_LEAST, AT_MOST, BUILDER, EXACT, GROUP, SINGLE};
+use crate::symbol::{
+    ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
+    SOLVER,
+};
 
 /// A type alias for a collection of `FieldInfo` instances.
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
+#[derive(Debug, Clone, Copy)]
+pub enum SolveType {
+    BruteForce,
+    Compiler,
+}
 /// Represents the information about a struct used for code generation.
 #[derive(Debug)]
 pub struct StructInfo<'a> {
@@ -23,11 +31,12 @@ pub struct StructInfo<'a> {
     builder_ident: syn::Ident,
     /// The identifier of the generated data struct.
     data_ident: syn::Ident,
-    _mandatory_indices: HashSet<usize>,
+    _mandatory_indices: BTreeSet<usize>,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
     field_infos: FieldInfos<'a>,
+    solve_type: SolveType,
 }
 
 impl<'a> StructInfo<'a> {
@@ -75,6 +84,7 @@ impl<'a> StructInfo<'a> {
                 _mandatory_indices: settings.mandatory_indices,
                 groups: settings.groups,
                 field_infos,
+                solve_type: settings.solver_type,
             };
             Ok(info)
         } else {
@@ -119,6 +129,10 @@ impl<'a> StructInfo<'a> {
     pub fn groups(&self) -> &HashMap<String, GroupInfo> {
         &self.groups
     }
+
+    pub fn solve_type(&self) -> SolveType {
+        self.solve_type
+    }
 }
 
 /// Represents settings for struct generation.
@@ -132,7 +146,8 @@ pub struct StructSettings {
     default_field_settings: FieldSettings,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
-    mandatory_indices: HashSet<usize>,
+    mandatory_indices: BTreeSet<usize>,
+    solver_type: SolveType,
 }
 
 impl Default for StructSettings {
@@ -142,7 +157,8 @@ impl Default for StructSettings {
             data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
             groups: HashMap::new(),
-            mandatory_indices: HashSet::new(),
+            mandatory_indices: BTreeSet::new(),
+            solver_type: SolveType::BruteForce,
         }
     }
 }
@@ -213,6 +229,28 @@ impl StructSettings {
                     }) = expr
                     {
                         self.default_field_settings.mandatory = value;
+                    }
+                } else {
+                    self.default_field_settings.mandatory = true;
+                }
+            }
+            if meta.path == SOLVER {
+                if meta.input.peek(Token![=]) {
+                    let expr: syn::Expr = meta.value()?.parse()?;
+                    if let syn::Expr::Call(syn::ExprCall { func, .. }) = expr {
+                        let solve_type =
+                            if let syn::Expr::Path(syn::ExprPath { path, .. }) = func.as_ref() {
+                                path.get_ident().ok_or_else(|| {
+                                    syn::Error::new_spanned(&func, "Can't parse group type")
+                                })
+                            } else {
+                                Err(syn::Error::new_spanned(func, "Can't find group type"))
+                            }?;
+                        match (&solve_type.to_string()).into() {
+                            BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
+                            COMPILER => self.solver_type = SolveType::Compiler,
+                            _ => todo!(),
+                        }
                     }
                 } else {
                     self.default_field_settings.mandatory = true;

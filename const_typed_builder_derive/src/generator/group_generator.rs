@@ -1,7 +1,10 @@
+use std::collections::BTreeSet;
+
 use crate::{
     info::{GroupInfo, GroupType},
     CONST_IDENT_PREFIX,
 };
+use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
@@ -23,6 +26,23 @@ impl<'a> GroupGenerator<'a> {
     /// A `GroupGenerator` instance initialized with the provided groups.
     pub fn new(groups: Vec<&'a GroupInfo>) -> Self {
         Self { groups }
+    }
+
+    pub fn valid_groupident_combinations(&self) -> impl Iterator<Item = Vec<usize>> + '_ {
+        let group_indices: BTreeSet<usize> = self
+            .groups
+            .iter()
+            .flat_map(|group| group.indices().clone())
+            .collect();
+        let powerset: Powerset<std::collections::btree_set::IntoIter<usize>> =
+            group_indices.into_iter().powerset();
+        powerset.filter_map(|set| {
+            if self.groups.iter().all(|group| group.is_valid_with(&set)) {
+                Some(set)
+            } else {
+                None
+            }
+        })
     }
 
     /// Generates correctness helper functions for group validation and returns a `TokenStream`.
