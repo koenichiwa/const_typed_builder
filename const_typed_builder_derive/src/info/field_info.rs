@@ -1,23 +1,54 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use super::{group_info::GroupInfo, struct_info::StructSettings};
+use super::struct_info::StructSettings;
 use proc_macro2::Span;
+use quote::format_ident;
 use syn::{ExprPath, Token};
 
 use crate::{
     symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE},
     util::{inner_type, is_option},
+    CONST_IDENT_PREFIX,
 };
 
+/// Represents the information about a struct field used for code generation.
 #[derive(Debug, PartialEq, Eq)]
-pub enum FieldInfo<'a> {
-    Optional(FieldInfoOptional<'a>),
-    Mandatory(FieldInfoMandatory<'a>),
-    Grouped(FieldInfoGrouped<'a>),
+pub struct FieldInfo<'a> {
+    field: &'a syn::Field,
+    ident: &'a syn::Ident,
+    index: usize,
+    propagate: bool,
+    kind: FieldKind,
+}
+
+/// Represents the kind of a field, which can be Optional, Mandatory, or Grouped.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum FieldKind {
+    /// Indicates an optional field.
+    Optional,
+    /// Indicates a mandatory field.
+    Mandatory,
+    /// Indicates a field that is part of one or several groups.
+    Grouped,
 }
 
 impl<'a> FieldInfo<'a> {
-    pub fn new(field: &'a syn::Field, struct_settings: &mut StructSettings) -> syn::Result<Self> {
+    /// Creates a new `FieldInfo` instance for a struct field.
+    ///
+    /// # Arguments
+    ///
+    /// - `field`: A reference to the `syn::Field` representing the field.
+    /// - `struct_settings`: A mutable reference to `StructSettings` for the struct containing this field.
+    /// - `index`: The index of the field within the struct.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the `FieldInfo` instance or an error if the field is unnamed.
+    pub fn new(
+        field: &'a syn::Field,
+        struct_settings: &mut StructSettings,
+        index: usize,
+    ) -> syn::Result<Self> {
         if let syn::Field {
             attrs,
             ident: Some(ident),
@@ -34,33 +65,37 @@ impl<'a> FieldInfo<'a> {
                 .with_attrs(attrs)?;
 
             let info = if settings.mandatory {
-                Self::Mandatory(FieldInfoMandatory::new(
+                struct_settings.add_mandatory_index(index); // TODO: Check bool
+                Self {
                     field,
                     ident,
-                    settings.propagate,
-                    struct_settings.next_mandatory(),
-                )?)
-            } else if !settings.groups.is_empty() {
-                let mut group_indices = HashMap::with_capacity(settings.groups.len());
-                for group_name in settings.groups {
-                    group_indices.insert(
-                        struct_settings
-                            .group_by_name(&group_name)
-                            .ok_or(syn::Error::new_spanned(field, "Can't find group"))?
-                            .clone(),
-                        struct_settings
-                            .next_group_index(&group_name)
-                            .ok_or(syn::Error::new_spanned(field, "Can't find group"))?,
-                    );
+                    index,
+                    propagate: settings.propagate,
+                    kind: FieldKind::Mandatory,
                 }
-                Self::Grouped(FieldInfoGrouped::new(
+            } else if !settings.groups.is_empty() {
+                for group_name in settings.groups {
+                    struct_settings
+                        .group_by_name_mut(&group_name.to_string())
+                        .ok_or(syn::Error::new_spanned(group_name, "Can't find group"))?
+                        .associate(index);
+                }
+
+                Self {
                     field,
                     ident,
-                    settings.propagate,
-                    group_indices,
-                )?)
+                    index,
+                    propagate: settings.propagate,
+                    kind: FieldKind::Grouped,
+                }
             } else {
-                Self::Optional(FieldInfoOptional::new(field, ident, settings.propagate)?)
+                Self {
+                    field,
+                    ident,
+                    index,
+                    propagate: settings.propagate,
+                    kind: FieldKind::Optional,
+                }
             };
 
             Ok(info)
@@ -72,178 +107,84 @@ impl<'a> FieldInfo<'a> {
         }
     }
 
-    pub fn ident(&self) -> &syn::Ident {
-        match self {
-            FieldInfo::Optional(field) => field.ident(),
-            FieldInfo::Mandatory(field) => field.ident(),
-            FieldInfo::Grouped(field) => field.ident(),
-        }
-    }
-
-    pub fn propagate(&self) -> bool {
-        match self {
-            FieldInfo::Optional(field) => field.propagate(),
-            FieldInfo::Mandatory(field) => field.propagate(),
-            FieldInfo::Grouped(field) => field.propagate(),
-        }
-    }
-
-    pub fn is_option_type(&self) -> bool {
-        match self {
-            FieldInfo::Optional(_) => true,
-            FieldInfo::Mandatory(field) => field.is_option_type(),
-            FieldInfo::Grouped(_) => true,
-        }
-    }
-
-    pub fn inner_type(&self) -> Option<&syn::Type> {
-        match self {
-            FieldInfo::Optional(field) => Some(field.inner_type()),
-            FieldInfo::Mandatory(field) => field.inner_type(),
-            FieldInfo::Grouped(field) => Some(field.inner_type()),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct FieldInfoOptional<'a> {
-    field: &'a syn::Field,
-    ident: &'a syn::Ident,
-    inner_ty: &'a syn::Type,
-    propagate: bool,
-}
-
-impl<'a> FieldInfoOptional<'a> {
-    fn new(field: &'a syn::Field, ident: &'a syn::Ident, propagate: bool) -> syn::Result<Self> {
-        Ok(Self {
-            field,
-            ident,
-            inner_ty: inner_type(&field.ty)
-                .ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
-            propagate,
-        })
-    }
-
-    pub fn ty(&self) -> &syn::Type {
-        &self.field.ty
-    }
-
-    fn inner_type(&self) -> &syn::Type {
-        self.inner_ty
-    }
-
+    /// Retrieves the identifier of the field.
     pub fn ident(&self) -> &syn::Ident {
         self.ident
     }
 
-    pub fn propagate(&self) -> bool {
-        self.propagate
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct FieldInfoMandatory<'a> {
-    field: &'a syn::Field,
-    ident: &'a syn::Ident,
-    inner_ty: Option<&'a syn::Type>,
-    propagate: bool,
-    mandatory_index: usize,
-}
-
-impl<'a> FieldInfoMandatory<'a> {
-    fn new(
-        field: &'a syn::Field,
-        ident: &'a syn::Ident,
-        propagate: bool,
-        mandatory_index: usize,
-    ) -> syn::Result<Self> {
-        Ok(Self {
-            field,
-            ident,
-            inner_ty: inner_type(&field.ty),
-            propagate,
-            mandatory_index,
-        })
-    }
-
-    pub fn ty(&self) -> &syn::Type {
-        &self.field.ty
-    }
-
-    pub fn inner_type(&self) -> Option<&syn::Type> {
-        self.inner_ty
-    }
-
-    pub fn ident(&self) -> &syn::Ident {
-        self.ident
-    }
-
+    /// Checks if the field's attributes indicate propagation.
     pub fn propagate(&self) -> bool {
         self.propagate
     }
 
-    pub fn mandatory_index(&self) -> usize {
-        self.mandatory_index
-    }
-
+    /// Checks if the field's type is an Option.
     pub fn is_option_type(&self) -> bool {
         is_option(&self.field.ty)
     }
-}
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct FieldInfoGrouped<'a> {
-    field: &'a syn::Field,
-    ident: &'a syn::Ident,
-    inner_ty: &'a syn::Type,
-    propagate: bool,
-    group_indices: HashMap<GroupInfo, usize>,
-}
-
-impl<'a> FieldInfoGrouped<'a> {
-    fn new(
-        field: &'a syn::Field,
-        ident: &'a syn::Ident,
-        propagate: bool,
-        group_indices: HashMap<GroupInfo, usize>,
-    ) -> syn::Result<Self> {
-        Ok(Self {
-            field,
-            ident,
-            inner_ty: inner_type(&field.ty)
-                .ok_or(syn::Error::new_spanned(field, "Can't find inner type"))?,
-            propagate,
-            group_indices,
-        })
-    }
-
+    /// Retrieves the type of the field.
     pub fn ty(&self) -> &syn::Type {
         &self.field.ty
     }
 
-    pub fn inner_type(&self) -> &syn::Type {
-        self.inner_ty
+    /// Retrieves the inner type of the field if it is wrapped in an Option
+    pub fn inner_type(&self) -> Option<&syn::Type> {
+        inner_type(&self.field.ty)
     }
 
-    pub fn ident(&self) -> &syn::Ident {
-        self.ident
+    /// Retrieves the kind of the field, which can be Optional, Mandatory, or Grouped.
+    pub fn kind(&self) -> &FieldKind {
+        &self.kind
     }
 
-    pub fn propagate(&self) -> bool {
-        self.propagate
+    /// Retrieves the index of the field within the struct.
+    pub fn index(&self) -> usize {
+        self.index
     }
 
-    pub fn group_indices(&self) -> &HashMap<GroupInfo, usize> {
-        &self.group_indices
+    /// Generates a constant identifier based on the field's index.
+    pub fn const_ident(&self) -> syn::Ident {
+        format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
+    }
+
+    /// Retrieves the input type for the builder's setter method.
+    pub fn setter_input_type(&self) -> &syn::Type {
+        match self.kind() {
+            FieldKind::Optional => self.ty(),
+            FieldKind::Mandatory if self.is_option_type() => self.inner_type().expect(
+                "Couldn't read inner type of option, even though it's seen as an Option type",
+            ),
+            FieldKind::Mandatory => self.ty(),
+            FieldKind::Grouped => self
+                .inner_type()
+                .expect("Couldn't read inner type of option, even though it's marked as grouped"),
+        }
     }
 }
 
+impl<'a> PartialOrd for FieldInfo<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.index.partial_cmp(&other.index)
+    }
+}
+
+impl<'a> Ord for FieldInfo<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
+    }
+}
+
+/// Represents settings for struct field generation.
 #[derive(Debug, Clone)]
 pub struct FieldSettings {
+    /// Indicates if the field is mandatory.
     pub mandatory: bool,
+    /// Indicates if the field should propagate values.
     pub propagate: bool,
+    /// The input name for the builder's setter method.
     pub input_name: syn::Ident,
-    pub groups: HashSet<String>,
+    /// The groups this field belongs to.
+    pub groups: HashSet<syn::Ident>,
 }
 
 impl Default for FieldSettings {
@@ -258,11 +199,21 @@ impl Default for FieldSettings {
 }
 
 impl FieldSettings {
+    /// Creates a new `FieldSettings` instance with default values.
     pub fn new() -> FieldSettings {
         Self::default()
     }
 
-    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
+    /// Updates field settings based on provided attributes.
+    ///
+    /// # Arguments
+    ///
+    /// - `attrs`: A slice of `syn::Attribute` representing the attributes applied to the field.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Result` indicating success or failure of attribute handling.
+    fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
         attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))
@@ -270,13 +221,50 @@ impl FieldSettings {
         Ok(self)
     }
 
-    pub fn with_ty(mut self, ty: &syn::Type) -> Self {
+    /// Updates field settings based on the field's type.
+    ///
+    /// # Arguments
+    ///
+    /// - `ty`: A reference to the `syn::Type` representing the field's type.
+    ///
+    /// # Returns
+    ///
+    /// The updated `FieldSettings` instance.
+    fn with_ty(mut self, ty: &syn::Type) -> Self {
         if !self.mandatory && !is_option(ty) {
             self.mandatory = true;
         }
         self
     }
 
+    /// Handles the parsing and processing of a builder attribute applied to a field.
+    ///
+    /// This method is responsible for interpreting the meaning of a builder attribute and updating the
+    /// `FieldSettings` accordingly. It supports the following builder attributes:
+    ///
+    /// - `#[builder(mandatory)]`: Marks the field as mandatory, meaning it must be set during the builder
+    ///   construction. If provided without an equals sign (e.g., `#[builder(mandatory)]`), it sets the field as mandatory.
+    ///   If provided with an equals sign (e.g., `#[builder(mandatory = true)]`), it sets the mandatory flag based on the value.
+    ///
+    /// - `#[builder(optional)]`: Marks the field as optional, meaning it does not have to be set during
+    ///   the builder construction. If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
+    ///   If provided with an equals sign (e.g., `#[builder(optional = true)]`), it sets the optional flag based on the value.
+    ///
+    /// - `#[builder(group = group_name)]`: Associates the field with a group named `group_name`. Fields in the same group
+    ///   are treated as a unit, and at least one of them must be set during builder construction. If the field is marked as mandatory,
+    ///   it cannot be part of a group. This attribute allows specifying the group name both as an identifier (e.g., `group = my_group`)
+    ///   and as a string (e.g., `group = "my_group"`).
+    ///
+    /// - `#[builder(propagate)]`: Indicates that the field should propagate its value when the builder is constructed. If this attribute
+    ///   is present, the field's value will be copied or moved to the constructed object when the builder is used to build the object.
+    ///
+    /// # Arguments
+    ///
+    /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the field.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         if let Some(ident) = attr.path().get_ident() {
             if ident != BUILDER {
@@ -331,7 +319,7 @@ impl FieldSettings {
                             .get_ident()
                             .ok_or(syn::Error::new_spanned(path, "Can't parse group"))?;
 
-                        if !self.groups.insert(group_name.to_string()) {
+                        if !self.groups.insert(group_name.clone()) {
                             return Err(syn::Error::new_spanned(
                                 &expr,
                                 "Multiple adds to the same group",
@@ -343,7 +331,10 @@ impl FieldSettings {
                         ..
                     }) = &expr
                     {
-                        if !self.groups.insert(lit.value()) {
+                        if !self
+                            .groups
+                            .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
+                        {
                             return Err(syn::Error::new_spanned(
                                 &expr,
                                 "Multiple adds to the same group",

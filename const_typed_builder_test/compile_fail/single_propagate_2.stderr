@@ -1,0 +1,8 @@
+error[E0277]: the trait bound `Bar: const_typed_builder::Builder` is not satisfied
+ --> ./compile_fail/single_propagate_2.rs:4:45
+  |
+4 |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+  |                                             ^^^^^^^ the trait `const_typed_builder::Builder` is not implemented for `Bar`
+  |
+  = help: the trait `const_typed_builder::Builder` is implemented for `Foo`
+  = note: this error originates in the derive macro `Builder` (in Nightly builds, run with -Z macro-backtrace for more info)

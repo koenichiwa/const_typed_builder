@@ -1,50 +1,57 @@
-use std::hash::Hash;
-
-use quote::format_ident;
+use std::{collections::BTreeSet, hash::Hash};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
 
+/// Represents information about a group, including its name, member count, and group type.
 #[derive(Debug, Clone)]
 pub struct GroupInfo {
     name: syn::Ident,
-    member_count: usize,
+    associated_indices: BTreeSet<usize>,
     group_type: GroupType,
 }
 
 impl GroupInfo {
+    /// Creates a new `GroupInfo` instance.
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: The identifier representing the group's name.
+    /// - `group_type`: The type of the group.
+    ///
+    /// # Returns
+    ///
+    /// A `GroupInfo` instance with the provided name and group type.
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
         GroupInfo {
             name,
-            member_count: 0,
+            associated_indices: BTreeSet::new(),
             group_type,
         }
     }
 
+    /// Retrieves the name of the group.
     pub fn name(&self) -> &syn::Ident {
         &self.name
     }
 
+    /// Retrieves the expected member count based on the group type.
     pub fn expected_count(&self) -> usize {
         match self.group_type {
-            GroupType::Exact(expected) => expected,
-            GroupType::AtLeast(expected) => expected,
-            GroupType::AtMost(expected) => expected,
+            GroupType::Exact(expected)
+            | GroupType::AtLeast(expected)
+            | GroupType::AtMost(expected) => expected,
         }
     }
 
-    pub fn member_count(&self) -> usize {
-        self.member_count
+    pub fn associate(&mut self, index: usize) -> bool {
+        self.associated_indices.insert(index)
     }
 
-    pub fn next_index(&mut self) -> usize {
-        self.member_count += 1;
-        self.member_count - 1
+    pub fn indices(&self) -> &BTreeSet<usize> {
+        &self.associated_indices
     }
 
-    pub fn partial_const_ident(&self, index: usize) -> syn::Ident {
-        format_ident!("{}_{}", &self.name.to_string().to_ascii_uppercase(), index)
-    }
-
+    /// Retrieves the function symbol associated with the group type.
     pub fn function_symbol(&self) -> Symbol {
         match self.group_type {
             GroupType::Exact(_) => EXACT,
@@ -53,8 +60,21 @@ impl GroupInfo {
         }
     }
 
+    /// Retrieves the group type.
     pub fn group_type(&self) -> &GroupType {
         &self.group_type
+    }
+
+    pub fn is_valid_with(&self, indices: &[usize]) -> bool {
+        let applicable_indices_count = self
+            .associated_indices
+            .intersection(&indices.iter().copied().collect())
+            .count();
+        match self.group_type {
+            GroupType::Exact(count) => applicable_indices_count == count,
+            GroupType::AtLeast(count) => applicable_indices_count >= count,
+            GroupType::AtMost(count) => applicable_indices_count <= count,
+        }
     }
 }
 
@@ -72,9 +92,13 @@ impl Hash for GroupInfo {
     }
 }
 
+/// Represents the type of a group, which can be one of three variants: `Exact`, `AtLeast`, or `AtMost`.
 #[derive(Debug, Clone)]
 pub enum GroupType {
+    /// Represents a group with an exact member count.
     Exact(usize),
+    /// Represents a group with at least a certain number of members.
     AtLeast(usize),
+    /// Represents a group with at most a certain number of members.
     AtMost(usize),
 }

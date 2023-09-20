@@ -13,6 +13,7 @@ use self::{
 use crate::{info::StructInfo, StreamResult};
 use quote::quote;
 
+/// The `Generator` struct is responsible for generating code for the builder pattern based on the provided `StructInfo`.
 pub struct Generator<'a> {
     data_gen: DataGenerator<'a>,
     target_gen: TargetGenerator<'a>,
@@ -20,6 +21,15 @@ pub struct Generator<'a> {
 }
 
 impl<'a> Generator<'a> {
+    /// Creates a new `Generator` instance for code generation.
+    ///
+    /// # Arguments
+    ///
+    /// - `info`: A reference to the `StructInfo` representing the input struct.
+    ///
+    /// # Returns
+    ///
+    /// A `Generator` instance initialized with the provided `StructInfo`.
     pub fn new(info: &'a StructInfo<'a>) -> Self {
         let generics_gen = GenericsGenerator::new(info.field_infos(), info.generics());
         let field_gen = FieldGenerator::new(info.field_infos());
@@ -44,10 +54,16 @@ impl<'a> Generator<'a> {
                 info.vis(),
                 info.builder_name(),
                 info.data_name(),
+                info.solve_type(),
             ),
         }
     }
 
+    /// Generates the builder pattern code and returns a token stream.
+    ///
+    /// # Returns
+    ///
+    /// A `StreamResult` representing the generated token stream.
     pub fn generate(&self) -> StreamResult {
         let target = self.target_gen.generate();
         let data = self.data_gen.generate()?;
