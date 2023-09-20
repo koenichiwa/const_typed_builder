@@ -42,7 +42,7 @@ impl Builder for Foo {
     }
 }
 #[derive(Debug)]
-pub struct FooBuilder<const M_0: bool> {
+pub struct FooBuilder<const __BUILDER_CONST0: bool> {
     data: FooData,
 }
 impl FooBuilder<false> {
