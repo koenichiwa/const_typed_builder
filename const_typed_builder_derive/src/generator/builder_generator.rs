@@ -3,8 +3,9 @@ use super::{
     group_generator::GroupGenerator,
 };
 use crate::{info::SolveType, StreamResult, VecStreamResult};
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 
 // The `BuilderGenerator` struct is responsible for generating code related to the builder struct,
 /// including its definition, implementation of setter methods, `new` method, and `build` method.
@@ -59,6 +60,10 @@ impl<'a> BuilderGenerator<'a> {
         }
     }
 
+    fn data_field_ident(&self) -> syn::Ident {
+        format_ident!("__{}", self.data_name.to_string().to_case(Case::Snake))
+    }
+
     // Generates the code for the builder struct and its methods and returns a token stream.
     ///
     /// # Returns
@@ -77,6 +82,7 @@ impl<'a> BuilderGenerator<'a> {
     /// Generates the code for the builder struct definition.
     fn generate_struct(&self) -> TokenStream {
         let data_name = self.data_name;
+        let data_field = self.data_field_ident();
         let builder_name = self.builder_name;
 
         let generics = self.generics_gen.builder_struct_generics();
@@ -89,7 +95,7 @@ impl<'a> BuilderGenerator<'a> {
         quote!(
             #[derive(Debug)]
             #vis struct #builder_name #impl_generics #where_clause {
-                data: #data_name #type_generics
+                #data_field: #data_name #type_generics
             }
         )
     }
@@ -112,6 +118,7 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_new_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
         let data_name = self.data_name;
+        let data_field = self.data_field_ident();
 
         let type_generics = self.generics_gen.const_generics_valued(false);
         let (impl_generics, _, where_clause) = self.generics_gen.target_generics().split_for_impl();
@@ -126,7 +133,7 @@ impl<'a> BuilderGenerator<'a> {
             impl #impl_generics Default for #builder_name #type_generics #where_clause {
                 fn default() -> Self {
                     #builder_name {
-                        data: #data_name::default(),
+                        #data_field: #data_name::default(),
                     }
                 }
             }
@@ -137,6 +144,7 @@ impl<'a> BuilderGenerator<'a> {
     fn generate_build_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
         let target_name = self.target_name;
+        let data_field = self.data_field_ident();
         let (impl_generics, target_type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
@@ -154,7 +162,7 @@ impl<'a> BuilderGenerator<'a> {
                                 impl #impl_generics #builder_name #type_generics #where_clause{
 
                                     pub fn build(self) -> #target_name #target_type_generics {
-                                        self.data.into()
+                                        self.#data_field.into()
                                     }
                                 }
                             )
@@ -189,7 +197,7 @@ impl<'a> BuilderGenerator<'a> {
 
                         pub fn build(self) -> #target_name #target_type_generics {
                             #correctness_check
-                            self.data.into()
+                            self.#data_field.into()
                         }
                     }
                 )
@@ -200,6 +208,7 @@ impl<'a> BuilderGenerator<'a> {
     /// Generates the code for the setter methods of the builder.
     fn generate_setters_impl(&self) -> StreamResult {
         let builder_name = self.builder_name;
+        let data_field = self.data_field_ident();
         let setters = self
             .field_gen
             .fields().iter().map(|field| {
@@ -215,10 +224,10 @@ impl<'a> BuilderGenerator<'a> {
                 let tokens = quote!(
                     impl #const_idents_impl #builder_name #const_idents_type_input #where_clause {
                         pub fn #field_name (self, #input_type) -> #builder_name #const_idents_type_output {
-                            let mut data = self.data;
-                            data.#field_name = #input_value;
+                            let mut #data_field = self.#data_field;
+                            #data_field.#field_name = #input_value;
                             #builder_name {
-                                data,
+                                #data_field,
                             }
                         }
                     }
