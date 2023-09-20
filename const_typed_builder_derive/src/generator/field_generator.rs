@@ -152,10 +152,10 @@ impl<'a> FieldGenerator<'a> {
             quote!(#field_name)
         };
 
-        if field.kind() == &FieldKind::Optional { 
-            quote!(#field_value) 
+        if field.kind() == &FieldKind::Optional {
+            quote!(#field_value)
         } else {
-            quote!(Some(#field_value)) 
+            quote!(Some(#field_value))
         }
     }
 }

@@ -200,9 +200,9 @@ impl StructSettings {
     }
 
     /// Handles the parsing and processing of attributes applied to a struct.
-    /// 
+    ///
     /// See the specific functions [`handle_builder_attribute`] and [`handle_group_attribute`] for more information.
-    /// 
+    ///
     /// /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
@@ -294,7 +294,7 @@ impl StructSettings {
     /// updating the `StructSettings` accordingly. It supports the following group attributes:
     ///
     /// - `#[group(group_name = (exact(N)|at_least(N)|at_most(N)|single)]`:
-    ///   Associates fields of the struct with a group named "group_name" and specifies the group's behavior. 
+    ///   Associates fields of the struct with a group named "group_name" and specifies the group's behavior.
     ///   The `group_name` should be a string identifier. The group can have one of the following behaviors:
     ///     - `exact(N)`: Exactly N fields in the group must be set during the builder construction.
     ///     - `at_least(N)`: At least N fields in the group must be set during the builder construction.

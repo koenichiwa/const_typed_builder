@@ -37,9 +37,9 @@ impl GroupInfo {
     /// Retrieves the expected member count based on the group type.
     pub fn expected_count(&self) -> usize {
         match self.group_type {
-            GroupType::Exact(expected) | 
-            GroupType::AtLeast(expected) | 
-            GroupType::AtMost(expected) => expected,
+            GroupType::Exact(expected)
+            | GroupType::AtLeast(expected)
+            | GroupType::AtMost(expected) => expected,
         }
     }
 
