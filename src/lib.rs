@@ -1,3 +1,4 @@
+// #![allow(rustdoc::broken_intra_doc_links)]
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 /// The `Builder` derive macro provides a convenient and ergonomic way to create builder patterns for struct types in Rust.
 /// It allows you to generate builder methods for constructing instances of a struct with various features and constraints, all checked at compile time.
@@ -106,7 +107,7 @@
 ///
 /// ### Examples:
 ///
-/// Valid construction only one field in 'my_group' is provided
+/// Valid construction only one field in `my_group` is provided
 /// ```rust
 /// # use const_typed_builder::Builder;
 /// #[derive(Debug, Builder)]
@@ -122,7 +123,7 @@
 ///     .baz("World".to_string())
 ///     .build();
 /// ```
-/// Invalid construction because both fields in 'my_group' are provided
+/// Invalid construction because both fields in `my_group` are provided
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
 /// #[derive(Debug, Builder)]
@@ -139,7 +140,7 @@
 ///     .baz("World".to_string())
 ///     .build();
 /// ```
-/// Valid construction because at least 2 fields in 'my_group' are provided:
+/// Valid construction because at least 2 fields in `my_group` are provided:
 /// ```rust
 /// # use const_typed_builder::Builder;
 /// #[derive(Debug, Builder)]

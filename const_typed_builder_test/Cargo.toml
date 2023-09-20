@@ -14,5 +14,5 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-const_typed_builder = { path = "../../const_typed_builder", version = "=0.1.1" }
+const_typed_builder = { path = "../../const_typed_builder", version = "=0.2.0" }
 trybuild = "1.0.84"

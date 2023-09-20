@@ -21,14 +21,29 @@ pub struct FieldInfo<'a> {
     kind: FieldKind,
 }
 
+/// Represents the kind of a field, which can be Optional, Mandatory, or Grouped.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FieldKind {
+    /// Indicates an optional field.
     Optional,
+    /// Indicates a mandatory field.
     Mandatory,
+    /// Indicates a field that is part of one or several groups.
     Grouped,
 }
 
 impl<'a> FieldInfo<'a> {
+    /// Creates a new `FieldInfo` instance for a struct field.
+    ///
+    /// # Arguments
+    ///
+    /// - `field`: A reference to the `syn::Field` representing the field.
+    /// - `struct_settings`: A mutable reference to `StructSettings` for the struct containing this field.
+    /// - `index`: The index of the field within the struct.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the `FieldInfo` instance or an error if the field is unnamed.
     pub fn new(
         field: &'a syn::Field,
         struct_settings: &mut StructSettings,
@@ -102,6 +117,7 @@ impl<'a> FieldInfo<'a> {
         self.propagate
     }
 
+    /// Checks if the field's type is an Option.
     pub fn is_option_type(&self) -> bool {
         is_option(&self.field.ty)
     }
@@ -111,18 +127,22 @@ impl<'a> FieldInfo<'a> {
         &self.field.ty
     }
 
+    /// Retrieves the inner type of the field if it is wrapped in an Option
     pub fn inner_type(&self) -> Option<&syn::Type> {
         inner_type(&self.field.ty)
     }
 
+    /// Retrieves the kind of the field, which can be Optional, Mandatory, or Grouped.
     pub fn kind(&self) -> &FieldKind {
         &self.kind
     }
 
+    /// Retrieves the index of the field within the struct.
     pub fn index(&self) -> usize {
         self.index
     }
 
+    /// Generates a constant identifier based on the field's index.
     pub fn const_ident(&self) -> syn::Ident {
         format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
     }
@@ -163,6 +183,7 @@ pub struct FieldSettings {
     pub propagate: bool,
     /// The input name for the builder's setter method.
     pub input_name: syn::Ident,
+    /// The groups this field belongs to.
     pub groups: HashSet<syn::Ident>,
 }
 
@@ -192,7 +213,7 @@ impl FieldSettings {
     /// # Returns
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
-    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
+    fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
         attrs
             .iter()
             .map(|attr| self.handle_attribute(attr))
@@ -209,13 +230,41 @@ impl FieldSettings {
     /// # Returns
     ///
     /// The updated `FieldSettings` instance.
-    pub fn with_ty(mut self, ty: &syn::Type) -> Self {
+    fn with_ty(mut self, ty: &syn::Type) -> Self {
         if !self.mandatory && !is_option(ty) {
             self.mandatory = true;
         }
         self
     }
 
+    /// Handles the parsing and processing of a builder attribute applied to a field.
+    ///
+    /// This method is responsible for interpreting the meaning of a builder attribute and updating the
+    /// `FieldSettings` accordingly. It supports the following builder attributes:
+    ///
+    /// - `#[builder(mandatory)]`: Marks the field as mandatory, meaning it must be set during the builder
+    ///   construction. If provided without an equals sign (e.g., `#[builder(mandatory)]`), it sets the field as mandatory.
+    ///   If provided with an equals sign (e.g., `#[builder(mandatory = true)]`), it sets the mandatory flag based on the value.
+    ///
+    /// - `#[builder(optional)]`: Marks the field as optional, meaning it does not have to be set during
+    ///   the builder construction. If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
+    ///   If provided with an equals sign (e.g., `#[builder(optional = true)]`), it sets the optional flag based on the value.
+    ///
+    /// - `#[builder(group = group_name)]`: Associates the field with a group named `group_name`. Fields in the same group
+    ///   are treated as a unit, and at least one of them must be set during builder construction. If the field is marked as mandatory,
+    ///   it cannot be part of a group. This attribute allows specifying the group name both as an identifier (e.g., `group = my_group`)
+    ///   and as a string (e.g., `group = "my_group"`).
+    ///
+    /// - `#[builder(propagate)]`: Indicates that the field should propagate its value when the builder is constructed. If this attribute
+    ///   is present, the field's value will be copied or moved to the constructed object when the builder is used to build the object.
+    ///
+    /// # Arguments
+    ///
+    /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the field.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         if let Some(ident) = attr.path().get_ident() {
             if ident != BUILDER {
