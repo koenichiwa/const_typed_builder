@@ -38,6 +38,7 @@ let foo = Foo::builder()
 Subset of launchd:
 ```rust
 use const_typed_builder::Builder;
+use std::path::PathBuf;
 
 #[derive(Debug, Builder)]
 pub struct ResourceLimits {
