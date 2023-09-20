@@ -30,8 +30,9 @@ pub struct Foo {
 }
 
 let foo = Foo::builder()
-    .bar("Hello world!".to_string()) // The program would not compile without this call
-    .build()                         // Because this function is only implemented for the version of FooBuilder where `bar` is initialized
+    .bar("Hello world!".to_string()) // <- The program would not compile without this call
+    .build();                        // <- Because this function is only implemented for the
+                                     // .. version of FooBuilder where `bar` is initialized
 ```
 
 Subset of launchd:
@@ -74,12 +75,16 @@ pub struct Launchd {
 }
 
 let launchd = Launchd::builder()
-    .label("my_label".to_string())                 // <- 1: Mandatory
-    .program("./my_program".into())                // <- 2: Launchd expects that least one of these fields is set..
-    .program_arguments(vec!["my_arg".to_string()]) // <- 2: .. We can remove either one, but never both
-//  .on_demand(false)                                 <- 3: If this is uncommented then the struct will never be valid
-    .soft_resource_limits(|builder| builder.core(Some(1)).build()) // <- 4: Propagating to `ResourceLimits::builder`
-    .build()
+    .label("my_label".to_string())    // <- 1: Mandatory
+    .program("./my_program".into())   // <- 2: Launchd expects that least one of these fields is set..
+    .program_arguments(               // <- 2: .. We can remove either one, but never both
+        vec!["my_arg".to_string()]
+    ) 
+//  .on_demand(false)                    <- 3: If this is uncommented then the struct will never be valid
+    .soft_resource_limits(|builder|
+        builder.core(Some(1)).build() // <- 4: Propagating to `ResourceLimits::builder`
+    ) 
+    .build();
 ```
 
 ### Attributes
