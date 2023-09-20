@@ -92,9 +92,9 @@ impl Default for FooData {
 - `#[builder(assume_mandatory)]`: Indicates that all fields in the struct should be assumed as mandatory.
   If provided without an equals sign (e.g., `#[builder(assume_mandatory)]`), it sets the `mandatory` flag for fields to true.
   If provided with an equals sign (e.g., `#[builder(assume_mandatory = true)]`), it sets the `mandatory` flag for fields based on the value.
-- `#[builder(solver = `solve_type`)]`: Specifies the solver type to be used for building the struct. The `solve_type` should be one of
+- `#[builder(solver = <solve_type>)]`: Specifies the solver type to be used for building the struct. The `solve_type` should be one of
    the predefined solver types, such as `brute_force` or `compiler`. If provided with an equals sign (e.g., `#[builder(solver = brute_force)]`),
-   it sets the `solver_type` accordingly.
+   it sets the "solver type" accordingly.
 - `#[group(group_name = (exact(N)|at_least(N)|at_most(N)|single)]`:
   Associates fields of the struct with a group named "group_name" and specifies the group's behavior.
   The `group_name` should be a string identifier. The group can have one of the following behaviors:
@@ -107,7 +107,7 @@ impl Default for FooData {
 - `#[builder(mandatory)]`: Marks the field as mandatory, meaning it must be set during the builder
   construction. If provided without an equals sign (e.g., `#[builder(mandatory)]`), it sets the field as mandatory.
   If provided with an equals sign (e.g., `#[builder(mandatory = true)]`), it sets the mandatory flag based on the value.
-- `#[builder(optional)]`: Marks the field as optional, this is the exact opposite of mandatory.
+- `#[builder(optional)]`: Marks the field as optional, this is the exact opposite of `#[builder(mandatory)]`.
   If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
   If provided with an equals sign (e.g., `#[builder(optional = true)]`), it sets the optional flag based on the value.
 - `#[builder(group = group_name)]`: Associates the field with a group named `group_name`. Fields in the same group
