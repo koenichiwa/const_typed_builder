@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use crate::{
     info::{GroupInfo, GroupType},
     CONST_IDENT_PREFIX,
@@ -7,6 +5,7 @@ use crate::{
 use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use std::collections::BTreeSet;
 
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
