@@ -83,7 +83,7 @@ let launchd = Launchd::builder()
     ) 
 //  .on_demand(false)                    <- 3: If this is uncommented then the struct will never be valid
     .soft_resource_limits(|builder|
-        builder.core(Some(1)).build() // <- 4: Propagating to `ResourceLimits::builder`
+        Some(builder.core(Some(1)).build()) // <- 4: Propagating to `ResourceLimits::builder`
     ) 
     .build();
 ```
