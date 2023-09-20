@@ -107,8 +107,8 @@ impl Default for FooData {
 - `#[builder(mandatory)]`: Marks the field as mandatory, meaning it must be set during the builder
   construction. If provided without an equals sign (e.g., `#[builder(mandatory)]`), it sets the field as mandatory.
   If provided with an equals sign (e.g., `#[builder(mandatory = true)]`), it sets the mandatory flag based on the value.
-- `#[builder(optional)]`: Marks the field as optional, meaning it does not have to be set during
-  the builder construction. If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
+- `#[builder(optional)]`: Marks the field as optional, this is the exact opposite of mandatory.
+  If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
   If provided with an equals sign (e.g., `#[builder(optional = true)]`), it sets the optional flag based on the value.
 - `#[builder(group = group_name)]`: Associates the field with a group named `group_name`. Fields in the same group
   are treated as a unit, and at least one of them must be set during builder construction. If the field is marked as mandatory,
