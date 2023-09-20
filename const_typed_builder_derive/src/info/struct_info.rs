@@ -166,7 +166,7 @@ impl Default for StructSettings {
 impl StructSettings {
     /// Creates a new `StructSettings` instance with default values.
     fn new() -> Self {
-        Default::default()
+        StructSettings::default()
     }
 
     pub fn add_mandatory_index(&mut self, index: usize) -> bool {
@@ -199,6 +199,17 @@ impl StructSettings {
         Ok(self)
     }
 
+    /// Handles the parsing and processing of attributes applied to a struct.
+    /// 
+    /// See the specific functions [`handle_builder_attribute`] and [`handle_group_attribute`] for more information.
+    /// 
+    /// /// # Arguments
+    ///
+    /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         if let Some(ident) = attr.path().get_ident() {
             if ident == GROUP {
@@ -213,6 +224,26 @@ impl StructSettings {
         }
     }
 
+    /// Handles the parsing and processing of builder attributes applied to a struct.
+    ///
+    /// This method is responsible for interpreting the meaning of builder attributes applied to the struct and
+    /// updating the `StructSettings` accordingly. It supports the following builder attributes:
+    ///
+    /// - `#[builder(assume_mandatory)]`: Indicates that all fields in the struct should be assumed as mandatory.
+    ///   If provided without an equals sign (e.g., `#[builder(assume_mandatory)]`), it sets the `mandatory` flag for fields to true.
+    ///   If provided with an equals sign (e.g., `#[builder(assume_mandatory = true)]`), it sets the `mandatory` flag for fields based on the value.
+    ///
+    /// - `#[builder(solver = `solve_type`)]`: Specifies the solver type to be used for building the struct. The `solve_type` should be one of
+    ///   the predefined solver types, such as `brute_force` or `compiler`. If provided with an equals sign (e.g., `#[builder(solver = brute_force)]`),
+    ///   it sets the `solver_type` accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_builder_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         let list = attr.meta.require_list()?;
         if list.tokens.is_empty() {
@@ -247,16 +278,36 @@ impl StructSettings {
                             _ => Err(syn::Error::new_spanned(&path, "Unknown solver type"))?,
                         }
                     } else {
-                        Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?
+                        Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?;
                     }
                 } else {
-                    Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?
+                    Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?;
                 }
             }
             Ok(())
         })
     }
 
+    /// Handles the parsing and processing of group attributes applied to a struct.
+    ///
+    /// This method is responsible for interpreting the meaning of group attributes applied to the struct and
+    /// updating the `StructSettings` accordingly. It supports the following group attributes:
+    ///
+    /// - `#[group(group_name = (exact(N)|at_least(N)|at_most(N)|single)]`:
+    ///   Associates fields of the struct with a group named "group_name" and specifies the group's behavior. 
+    ///   The `group_name` should be a string identifier. The group can have one of the following behaviors:
+    ///     - `exact(N)`: Exactly N fields in the group must be set during the builder construction.
+    ///     - `at_least(N)`: At least N fields in the group must be set during the builder construction.
+    ///     - `at_most(N)`: At most N fields in the group can be set during the builder construction.
+    ///     - `single`: Only one field in the group can be set during the builder construction.
+    ///
+    /// # Arguments
+    ///
+    /// - `attr`: A reference to the `syn::Attribute` representing the group attribute applied to the struct.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_group_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
         let list = attr.meta.require_list()?;
         if list.tokens.is_empty() {

@@ -6,31 +6,31 @@ use syn::{Ident, Path};
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Symbol<'a>(&'a str);
 
-/// Constant representing the "mandatory" symbol.
+/// Constant representing the `mandatory` symbol.
 pub const MANDATORY: Symbol = Symbol("mandatory");
-/// Constant representing the "group" symbol.
+/// Constant representing the `group` symbol.
 pub const GROUP: Symbol = Symbol("group");
-/// Constant representing the "builder" symbol.
+/// Constant representing the `builder` symbol.
 pub const BUILDER: Symbol = Symbol("builder");
-/// Constant representing the "single" symbol.
+/// Constant representing the `single` symbol.
 pub const SINGLE: Symbol = Symbol("single");
-/// Constant representing the "at_least" symbol.
+/// Constant representing the `at_least` symbol.
 pub const AT_LEAST: Symbol = Symbol("at_least");
-/// Constant representing the "at_most" symbol.
+/// Constant representing the `at_most` symbol.
 pub const AT_MOST: Symbol = Symbol("at_most");
-/// Constant representing the "exact" symbol.
+/// Constant representing the `exact` symbol.
 pub const EXACT: Symbol = Symbol("exact");
-/// Constant representing the "propagate" symbol.
+/// Constant representing the `propagate` symbol.
 pub const PROPAGATE: Symbol = Symbol("propagate");
-/// Constant representing the "assume_mandatory" symbol.
+/// Constant representing the `assume_mandatory` symbol.
 pub const ASSUME_MANDATORY: Symbol = Symbol("assume_mandatory");
-/// Constant representing the "optional" symbol.
+/// Constant representing the `optional` symbol.
 pub const OPTIONAL: Symbol = Symbol("optional");
-/// Constant representing the "solver" symbol.
+/// Constant representing the `solver` symbol.
 pub const SOLVER: Symbol = Symbol("solver");
-/// Constant representing the "brute_force" symbol.
+/// Constant representing the `brute_force` symbol.
 pub const BRUTE_FORCE: Symbol = Symbol("brute_force");
-/// Constant representing the "compiler" symbol.
+/// Constant representing the `compiler` symbol.
 pub const COMPILER: Symbol = Symbol("compiler");
 
 impl<'a> From<&'a String> for Symbol<'a> {

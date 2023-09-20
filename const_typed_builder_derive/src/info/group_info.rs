@@ -37,8 +37,8 @@ impl GroupInfo {
     /// Retrieves the expected member count based on the group type.
     pub fn expected_count(&self) -> usize {
         match self.group_type {
-            GroupType::Exact(expected) => expected,
-            GroupType::AtLeast(expected) => expected,
+            GroupType::Exact(expected) | 
+            GroupType::AtLeast(expected) | 
             GroupType::AtMost(expected) => expected,
         }
     }
@@ -68,7 +68,7 @@ impl GroupInfo {
     pub fn is_valid_with(&self, indices: &[usize]) -> bool {
         let applicable_indices_count = self
             .associated_indices
-            .intersection(&BTreeSet::from_iter(indices.iter().copied()))
+            .intersection(&indices.iter().copied().collect())
             .count();
         match self.group_type {
             GroupType::Exact(count) => applicable_indices_count == count,
@@ -92,7 +92,7 @@ impl Hash for GroupInfo {
     }
 }
 
-/// Represents the type of a group, which can be one of three variants: Exact, AtLeast, or AtMost.
+/// Represents the type of a group, which can be one of three variants: `Exact`, `AtLeast`, or `AtMost`.
 #[derive(Debug, Clone)]
 pub enum GroupType {
     /// Represents a group with an exact member count.
