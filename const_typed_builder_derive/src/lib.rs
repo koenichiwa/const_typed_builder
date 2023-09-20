@@ -1,7 +1,6 @@
 mod generator;
 mod info;
 mod symbol;
-mod util;
 
 use generator::Generator;
 use info::StructInfo;

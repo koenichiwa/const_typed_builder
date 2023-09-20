@@ -1,14 +1,12 @@
-use std::collections::{BTreeSet, HashMap};
-
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
-use quote::format_ident;
-use syn::Token;
-
 use crate::symbol::{
     ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
     SOLVER,
 };
+use quote::format_ident;
+use std::collections::{BTreeSet, HashMap};
+use syn::Token;
 
 /// A type alias for a collection of `FieldInfo` instances.
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;

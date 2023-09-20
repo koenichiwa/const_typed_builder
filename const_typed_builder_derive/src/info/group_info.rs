@@ -1,6 +1,5 @@
-use std::{collections::BTreeSet, hash::Hash};
-
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
+use std::{collections::BTreeSet, hash::Hash};
 
 /// Represents information about a group, including its name, member count, and group type.
 #[derive(Debug, Clone)]
