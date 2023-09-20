@@ -1,6 +1,6 @@
 # `Builder` Derive Macro Documentation
 
- The `Builder` derive macro is used to generate builder methods for structs in Rust. These builder methods allow you to construct instances of the struct by chaining method calls, providing a convenient and readable way to create complex objects with various configurations and compile-time validity checking. This documentation will provide an overview of how to use the `Builder` derive macro.
+ The `Builder` derive macro is used to generate builder methods for structs in Rust, its biggest feature in this crate is that it provides compile-time validation on the struct. The user can employ several configurations that define the validity of of a complex struct, and it is checked before the struct is ever created.
 
  ## Prerequisites
 
@@ -16,7 +16,9 @@ Also, make sure you have the following import statements in your code:
 ```rust
 use const_typed_builder::Builder;
 ```
-## Effects 
+## Overview 
+
+### Simple example
 This derive:
 ```rust
 use const_typed_builder::Builder;
@@ -83,12 +85,15 @@ impl Default for FooData {
     }
 }
 ```
-## Inspirations
-Builder macros have been done before, but not exactly what I needed for my use case. Also look into [derive_builder](https://crates.io/crates/derive_builder) and [typed-builder](https://crates.io/crates/typed-builder). Those projects are currently way more mature, but anyone willing to test this crate is currently a godsend.
 
 > [!NOTE]
-> The current default implementation for checking the validity of grouped fields is `brute_force`. The problem is directly related to [SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem), and the `brute_force` implementation currently has a $`O(2^g)`$ where $`g`$ is the amount of grouped variables. This is not a problem with a couple of fields, but it might impact compile time significantly with more fields. Future editions might improve on this.
+> Checking the validity of each field is a problem directly related to [SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem), which is an NP-complete problem. This has effect especially the grouped fields. The current default implementation for checking the validity of grouped fields is `brute_force`, and this implementation currently has a complexity of $`O(2^g)`$ where $`g`$ is the amount of grouped variables. This is not a problem with a couple of fields, but it might impact compile time significantly with more fields. This can be still optimized significantly. Future editions might improve on this complexity.
 >
-> Although I haven't been able to recreate the issue yet, it seems that const values [aren't guaranteed to be evaluated at compile time](https://doc.rust-lang.org/reference/const_eval.html). This creates the issue that the group verification is not guaranteed to fail in its current implementation when the solver type is set to `compiler`. Users can opt in to the `compiler` solver, which might solve it quicker than `brute_force`, although this is not guaranteed.
+> Another implementation is `compiler`. I haven't tested its speed increase yet, but it might have an issue. Although I haven't been able to recreate the issue yet, it seems that const values [aren't guaranteed to be evaluated at compile time](https://doc.rust-lang.org/reference/const_eval.html). This creates the issue that the group verification is not guaranteed to fail during compile-time. 
+> 
+> Users can opt in to the `compiler` solver, by adding `#[builder(solver = compiler)]` above the struct. I'm not making any guarantees on its performance.
 >
-> Anyone who would like to help, and add a SAT solver as a dependency (behind a feature flag) is welcome to do so.
+> Anyone who would like to help, and add a SAT solver as a dependency (behind a feature flag) is welcome to do so!
+
+## Inspirations
+Builder macros have been done before, but not exactly what I needed for my use case. Also look into [derive_builder](https://crates.io/crates/derive_builder) and [typed-builder](https://crates.io/crates/typed-builder). Those projects are currently way more mature, but anyone willing to test this crate is currently a godsend.
