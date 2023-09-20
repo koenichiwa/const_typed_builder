@@ -28,6 +28,11 @@ impl<'a> GroupGenerator<'a> {
         Self { groups }
     }
 
+    /// Returns all valid combinations of the const generics for the grouped fields
+    /// 
+    /// # Returns
+    /// 
+    /// An `Iterator<Item = Vec<usize>>` that holds each vector of field indices
     pub fn valid_groupident_combinations(&self) -> impl Iterator<Item = Vec<usize>> + '_ {
         let group_indices: BTreeSet<usize> = self
             .groups
@@ -124,6 +129,7 @@ impl<'a> GroupGenerator<'a> {
             #at_most
         )
     }
+    
     /// Generates the correctness check for groups and returns a `TokenStream` as an optional value.
     ///
     /// # Returns

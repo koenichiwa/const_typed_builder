@@ -164,6 +164,11 @@ impl<'a> GenericsGenerator<'a> {
         self.add_const_generics_for_impl(&mut all)
     }
 
+    /// Adds const generic identifiers to the target structs `syn::Generics` and returns a `syn::Generics` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `syn::Generics` instance representing the generics for the builder struct.
     fn add_const_generics_for_impl(
         &self,
         tokens: &mut dyn Iterator<Item = syn::Ident>,
@@ -175,7 +180,11 @@ impl<'a> GenericsGenerator<'a> {
         });
         res
     }
-
+    /// Adds valued const generics to the target structs `syn::Generics` and returns a `Tokenstream` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `Tokenstream` instance representing the generics for the builder struct.
     fn add_const_generics_valued_for_type(
         &self,
         constants: &mut dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>,

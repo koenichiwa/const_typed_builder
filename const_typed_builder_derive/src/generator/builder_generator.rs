@@ -31,6 +31,7 @@ impl<'a> BuilderGenerator<'a> {
     /// - `target_vis`: A reference to the visibility of the target struct.
     /// - `builder_name`: A reference to the identifier representing the builder struct's name.
     /// - `data_name`: A reference to the identifier representing the data struct's name.
+    /// - `solve_type`: The type of solver employed for validating the grouped fields
     ///
     /// # Returns
     ///

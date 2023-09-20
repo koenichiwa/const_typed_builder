@@ -28,8 +28,9 @@ pub const ASSUME_MANDATORY: Symbol = Symbol("assume_mandatory");
 pub const OPTIONAL: Symbol = Symbol("optional");
 /// Constant representing the "solver" symbol.
 pub const SOLVER: Symbol = Symbol("solver");
-
+/// Constant representing the "brute_force" symbol.
 pub const BRUTE_FORCE: Symbol = Symbol("brute_force");
+/// Constant representing the "compiler" symbol.
 pub const COMPILER: Symbol = Symbol("compiler");
 
 impl<'a> From<&'a String> for Symbol<'a> {
