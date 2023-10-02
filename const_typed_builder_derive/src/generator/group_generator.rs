@@ -4,9 +4,8 @@ use crate::{
 };
 use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
-use proc_macro_error::{emit_error, emit_warning};
 use quote::{format_ident, quote};
-use std::{cmp::Ordering, collections::BTreeSet};
+use std::collections::BTreeSet;
 
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
@@ -25,53 +24,8 @@ impl<'a> GroupGenerator<'a> {
     ///
     /// A `GroupGenerator` instance initialized with the provided groups.
     pub fn new(groups: Vec<&'a GroupInfo>) -> Self {
-        Self::can_be_valid(&groups);
+        groups.iter().for_each(|group| group.check());
         Self { groups }
-    }
-
-    fn can_be_valid(groups: &[&'a GroupInfo]) {
-        groups.iter().for_each(|group| {
-            let valid_range = 1..group.indices().len();
-            if valid_range.is_empty() {
-                emit_warning!(group.name(), format!("There is not an valid expected count"))
-            } else if !valid_range.contains(&group.expected_count()) {
-                emit_warning!(group.name(), format!("Expected count is outside of valid range {valid_range:#?}"));
-            }
-            match group.group_type() {
-                GroupType::Exact(expected) => {
-                    match expected.cmp(&valid_range.start) {
-                        Ordering::Less => emit_error!(group.name(), "Group can never be satisfied"),
-                        Ordering::Equal | Ordering::Greater => {},
-                    }
-                    match expected.cmp(&valid_range.end) {
-                        Ordering::Less => {}
-                        Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
-                        Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need exact {} out of {} fields", expected, valid_range.end)),
-                    }
-                },
-                GroupType::AtLeast(expected) => {
-                    match expected.cmp(&valid_range.start) {
-                        Ordering::Less => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
-                        Ordering::Equal | Ordering::Greater => {},
-                    }
-                    match expected.cmp(&valid_range.end) {
-                        Ordering::Less => {}
-                        Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
-                        Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need at least {} out of {} fields", expected, valid_range.end)),
-                    }
-                },
-                GroupType::AtMost(expected) => {
-                    match expected.cmp(&valid_range.start) {
-                        Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Remove the group and use [builder(skip)] instead"),
-                        Ordering::Equal | Ordering::Greater => {},
-                    }
-                    match expected.cmp(&valid_range.end) {
-                        Ordering::Less => {}
-                        Ordering::Equal | Ordering::Greater => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
-                    }
-                },
-            }
-        });
     }
 
     /// Returns all valid combinations of the const generics for the grouped fields

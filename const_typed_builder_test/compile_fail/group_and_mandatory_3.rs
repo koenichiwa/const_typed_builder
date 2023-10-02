@@ -6,8 +6,7 @@ fn main() {
     pub struct Foo {
         #[builder(group = quz)]
         bar: Option<String>,
-        #[builder(mandatory)]
-        #[builder(group = quz)]
+        #[builder(mandatory, group = quz)]
         baz: Option<String>,
         qux: String,
     }
