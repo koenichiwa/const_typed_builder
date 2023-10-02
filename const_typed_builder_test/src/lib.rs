@@ -676,7 +676,7 @@ mod test {
         }
         let expected = Foo {
             bar: "Hello world!".to_string(),
-            baz: None
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(foo, expected);
