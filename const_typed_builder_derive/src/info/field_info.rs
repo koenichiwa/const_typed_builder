@@ -89,7 +89,7 @@ impl<'a> FieldInfo<'a> {
                         group.associate(index);
                     } else {
                         emit_error!(
-                            group_name, 
+                            group_name,
                             format!("No group called {group_name} is available");
                             hint = format!("You might want to add a #[{GROUP}(...)] attribute to the container")
                         );
@@ -283,12 +283,9 @@ impl FieldSettings {
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
         let attr_ident = match attr.path().require_ident() {
-            Ok(ident) if ident == BUILDER => {ident}
+            Ok(ident) if ident == BUILDER => ident,
             Ok(ident) => {
-                emit_error!(
-                    ident,
-                    format!("{ident} can't be used as a field attribute")
-                );
+                emit_error!(ident, format!("{ident} can't be used as a field attribute"));
                 return;
             }
             Err(err) => {

@@ -311,10 +311,12 @@ impl StructSettings {
             }
             Ok(())
         })
-        .unwrap_or_else(|err| emit_error!(
-            &attr.meta, "Unknown error";
-            note = err
-        ))
+        .unwrap_or_else(|err| {
+            emit_error!(
+                &attr.meta, "Unknown error";
+                note = err
+            )
+        })
     }
 
     /// Handles the parsing and processing of group attributes applied to a struct.
@@ -385,7 +387,7 @@ impl StructSettings {
                                 AT_MOST => GroupType::AtMost(group_args),
                                 SINGLE => {
                                     emit_error!(
-                                        args, 
+                                        args,
                                         "`{}` doesn't take any arguments", SINGLE;
                                         help = "`{}` is shorthand for {}(1)", SINGLE, EXACT
                                     );
@@ -429,7 +431,7 @@ impl StructSettings {
                     match (&group_type.to_string()).into() {
                         EXACT | AT_LEAST | AT_MOST => {
                             emit_error!(
-                                &attr.meta, 
+                                &attr.meta,
                                 "Missing arguments for group type";
                                 help = "Try `{}(1)`, or any other usize", &group_type
                             );
@@ -438,7 +440,7 @@ impl StructSettings {
                         SINGLE => GroupType::Exact(1),
                         _ => {
                             emit_error!(
-                                group_type, 
+                                group_type,
                                 "Unknown group type";
                                 help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
                             );
