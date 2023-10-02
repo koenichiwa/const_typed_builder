@@ -6,7 +6,7 @@ use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
 use proc_macro_error::{emit_error, emit_warning};
 use quote::{format_ident, quote};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, cmp::Ordering};
 
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
@@ -38,36 +38,36 @@ impl<'a> GroupGenerator<'a> {
                 emit_warning!(group.name(), format!("Expected count is outside of valid range {valid_range:#?}"));
             }
             match group.group_type() {
-                crate::info::GroupType::Exact(expected) => {
+                GroupType::Exact(expected) => {
                     match expected.cmp(&valid_range.start) {
-                        std::cmp::Ordering::Less => emit_error!(group.name(), "Group can never be satisfied"),
-                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
+                        Ordering::Less => emit_error!(group.name(), "Group can never be satisfied"),
+                        Ordering::Equal | Ordering::Greater => {},
                     }
                     match expected.cmp(&valid_range.end) {
-                        std::cmp::Ordering::Less => {}
-                        std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
-                        std::cmp::Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need exact {} out of {} fields", expected, valid_range.end)),
+                        Ordering::Less => {}
+                        Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
+                        Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need exact {} out of {} fields", expected, valid_range.end)),
                     }
                 },
-                crate::info::GroupType::AtLeast(expected) => {
+                GroupType::AtLeast(expected) => {
                     match expected.cmp(&valid_range.start) {
-                        std::cmp::Ordering::Less => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
-                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
+                        Ordering::Less => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
+                        Ordering::Equal | Ordering::Greater => {},
                     }
                     match expected.cmp(&valid_range.end) {
-                        std::cmp::Ordering::Less => {}
-                        std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
-                        std::cmp::Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need at least {} out of {} fields", expected, valid_range.end)),
+                        Ordering::Less => {}
+                        Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
+                        Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need at least {} out of {} fields", expected, valid_range.end)),
                     }
                 },
-                crate::info::GroupType::AtMost(expected) => {
+                GroupType::AtMost(expected) => {
                     match expected.cmp(&valid_range.start) {
-                        std::cmp::Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Remove the group and use [builder(skip)] instead"),
-                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
+                        Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Remove the group and use [builder(skip)] instead"),
+                        Ordering::Equal | Ordering::Greater => {},
                     }
                     match expected.cmp(&valid_range.end) {
-                        std::cmp::Ordering::Less => {}
-                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
+                        Ordering::Less => {}
+                        Ordering::Equal | Ordering::Greater => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
                     }
                 },
             }
