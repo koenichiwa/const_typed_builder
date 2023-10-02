@@ -282,18 +282,23 @@ impl FieldSettings {
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
-        match attr.path().require_ident() {
-            Ok(ident) if ident == BUILDER => {}
+        let attr_ident = match attr.path().require_ident() {
+            Ok(ident) if ident == BUILDER => {ident}
             Ok(ident) => {
                 emit_error!(
                     ident,
                     format!("{ident} can't be used as a field attribute")
                 );
+                return;
             }
             Err(err) => {
-                emit_error!(attr.path(), err);
+                emit_error!(
+                    attr.path(), "Can't parse attribute";
+                    note = err
+                );
+                return;
             }
-        }
+        };
 
         match attr.meta.require_list() {
             Ok(list) => {
@@ -301,14 +306,22 @@ impl FieldSettings {
                     emit_warning!(list, "Empty atrribute list");
                 }
             }
-            Err(err) => emit_error!(attr, err),
+            Err(err) => emit_error!(
+                attr, "Attribute expected contain a list of specifiers";
+                help = "Try specifying it like #[{}(specifier)]", attr_ident;
+                note = err
+            ),
         }
 
         attr.parse_nested_meta(|meta| {
             let path_ident = match meta.path.require_ident() {
                 Ok(ident) => ident,
                 Err(err) => {
-                    emit_error!(&attr.meta, err);
+                    emit_error!(
+                        &attr.meta, "Specifier cannot be parsed";
+                        help = "Try specifying it like #[{}(specifier)]", attr_ident;
+                        note = err
+                    );
                     return Ok(());
                 }
             };
@@ -364,7 +377,11 @@ impl FieldSettings {
                                 match path.require_ident() {
                                     Ok(ident) => ident,
                                     Err(err) => {
-                                        emit_error!(path, err);
+                                        emit_error!(
+                                            path, "Group name not specified correctly";
+                                            help = "Try defining it like #[{}(foo)]", BUILDER;
+                                            note = err
+                                        );
                                         return Ok(());
                                     }
                                 }.clone()
@@ -376,14 +393,13 @@ impl FieldSettings {
                                 syn::Ident::new(lit.value().as_str(), lit.span())
                             }
                             expr => {
-                                emit_error!(expr, "Can't parse expression");
+                                emit_error!(expr, "Can't parse group name");
                                 return Ok(());
                             },
                         };
                         if self.groups.contains(&group_name) {
                             emit_error!(
-                                group_name.span(), 
-                                "Multiple adds to the same group";
+                                group_name.span(), "Multiple adds to the same group";
                                 help = self.groups.get(&group_name).unwrap().span() => "Remove this attribute"
                             );
                         } else {
@@ -408,7 +424,10 @@ impl FieldSettings {
             }
             Ok(())
         })
-        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
+        .unwrap_or_else(|err| emit_error!(
+            &attr.meta, "Unknown error";
+            note = err
+        ))
     }
 }
 
