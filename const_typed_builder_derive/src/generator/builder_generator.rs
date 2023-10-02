@@ -2,7 +2,10 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::{info::SolveType, StreamResult, VecStreamResult};
+use crate::{
+    info::{FieldKind, SolveType},
+    StreamResult, VecStreamResult,
+};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -210,7 +213,10 @@ impl<'a> BuilderGenerator<'a> {
         let data_field = self.data_field_ident();
         let setters = self
             .field_gen
-            .fields().iter().map(|field| {
+            .fields()
+            .iter()
+            .filter(|field| field.kind() != &FieldKind::Skipped)
+            .map(|field| {
                 let const_idents_impl = self.generics_gen.builder_const_generic_idents_set_impl(field);
                 let const_idents_type_input = self.generics_gen.builder_const_generic_idents_set_type(field, false);
                 let const_idents_type_output = self.generics_gen.builder_const_generic_idents_set_type(field, true);

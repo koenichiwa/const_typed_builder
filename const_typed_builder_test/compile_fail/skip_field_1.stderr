@@ -1,0 +1,8 @@
+error[E0599]: no method named `baz` found for struct `FooBuilder` in the current scope
+ --> ./compile_fail/skip_field_1.rs:9:62
+  |
+3 |     #[derive(Debug, PartialEq, Builder)]
+  |                                ------- method `baz` not found for this struct
+...
+9 |     let foo = Foo::builder().bar("Hello world!".to_string()).baz("Skipped".to_string()).build();
+  |                                                              ^^^ method not found in `FooBuilder<true>`

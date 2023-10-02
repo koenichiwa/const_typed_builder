@@ -665,4 +665,20 @@ mod test {
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(foo.bar, "Hello world!");
     }
+
+    #[test]
+    fn skip_field() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo {
+            bar: String,
+            #[builder(skip)]
+            baz: Option<String>,
+        }
+        let expected = Foo {
+            bar: "Hello world!".to_string(),
+            baz: None,
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(foo, expected);
+    }
 }
