@@ -4,6 +4,7 @@ use crate::{
     CONST_IDENT_PREFIX,
 };
 use proc_macro2::Span;
+use proc_macro_error::emit_error;
 use quote::format_ident;
 use std::collections::HashSet;
 use syn::{ExprPath, Token};
@@ -47,7 +48,7 @@ impl<'a> FieldInfo<'a> {
         field: &'a syn::Field,
         struct_settings: &mut StructSettings,
         index: usize,
-    ) -> syn::Result<Self> {
+    ) -> Option<Self> {
         if let syn::Field {
             attrs,
             ident: Some(ident),
@@ -61,7 +62,8 @@ impl<'a> FieldInfo<'a> {
                 .default_field_settings()
                 .clone()
                 .with_ty(ty)
-                .with_attrs(attrs)?;
+                .with_attrs(attrs)
+                .ok()?;
 
             let info = if settings.skipped {
                 Self {
@@ -82,10 +84,12 @@ impl<'a> FieldInfo<'a> {
                 }
             } else if !settings.groups.is_empty() {
                 for group_name in settings.groups {
-                    struct_settings
-                        .group_by_name_mut(&group_name.to_string())
-                        .ok_or(syn::Error::new_spanned(group_name, "Can't find group"))?
-                        .associate(index);
+                    if let Some(group) = struct_settings.group_by_name_mut(&group_name.to_string())
+                    {
+                        group.associate(index);
+                    } else {
+                        emit_error!(group_name, "Can't find group");
+                    }
                 }
 
                 Self {
@@ -105,12 +109,10 @@ impl<'a> FieldInfo<'a> {
                 }
             };
 
-            Ok(info)
+            Some(info)
         } else {
-            Err(syn::Error::new_spanned(
-                field,
-                "Unnamed fields are not supported",
-            ))
+            emit_error!(field, "Unnamed fields are not supported",);
+            None
         }
     }
 

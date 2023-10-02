@@ -1,7 +1,4 @@
-use crate::{
-    info::{FieldInfo, FieldKind},
-    VecStreamResult,
-};
+use crate::info::{FieldInfo, FieldKind};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
@@ -35,7 +32,7 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `VecStreamResult` representing the generated code for the data struct fields.
-    pub fn data_struct_fields(&self) -> VecStreamResult {
+    pub fn data_struct_fields(&self) -> Vec<TokenStream> {
         self.fields
             .iter()
             .filter_map(|field| {
@@ -55,7 +52,7 @@ impl<'a> FieldGenerator<'a> {
                 let tokens = quote!(
                     pub #field_name: #data_field_type
                 );
-                Some(Ok(tokens))
+                Some(tokens)
             })
             .collect()
     }
@@ -65,7 +62,7 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `VecStreamResult` representing the generated code for the `From` trait implementation.
-    pub fn data_impl_from_fields(&self) -> VecStreamResult {
+    pub fn data_impl_from_fields(&self) -> Vec<TokenStream> {
         self.fields
             .iter()
             .map(|field| {
@@ -82,7 +79,7 @@ impl<'a> FieldGenerator<'a> {
                         quote!(#field_name: data.#field_name.unwrap())
                     }
                 };
-                Ok(tokens)
+                tokens
             })
             .collect()
     }

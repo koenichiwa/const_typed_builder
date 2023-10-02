@@ -4,6 +4,7 @@ use crate::symbol::{
     ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
     SOLVER,
 };
+use proc_macro_error::emit_error;
 use quote::format_ident;
 use std::collections::{BTreeSet, HashMap};
 use syn::Token;
@@ -47,49 +48,49 @@ impl<'a> StructInfo<'a> {
     /// # Returns
     ///
     /// A `syn::Result` containing the `StructInfo` instance if successful,
-    pub fn new(ast: &'a syn::DeriveInput) -> syn::Result<Self> {
-        if let syn::DeriveInput {
-            attrs,
-            vis,
-            ident,
-            generics,
-            data:
-                syn::Data::Struct(syn::DataStruct {
-                    fields: syn::Fields::Named(fields),
-                    ..
-                }),
-        } = &ast
-        {
-            if fields.named.is_empty() {
-                return Err(syn::Error::new_spanned(fields, "No fields found"));
-            }
-
-            let mut settings = StructSettings::new().with_attrs(attrs)?;
-
-            let field_infos = fields
-                .named
-                .iter()
-                .enumerate()
-                .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
-                .collect::<syn::Result<Vec<_>>>()?;
-
-            let info = StructInfo {
-                ident,
+    pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
+        match &ast {
+            syn::DeriveInput {
+                attrs,
                 vis,
+                ident,
                 generics,
-                builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
-                data_ident: format_ident!("{}{}", ident, settings.data_suffix),
-                _mandatory_indices: settings.mandatory_indices,
-                groups: settings.groups,
-                field_infos,
-                solve_type: settings.solver_type,
-            };
-            Ok(info)
-        } else {
-            Err(syn::Error::new_spanned(
-                ast,
-                "Builder is only supported for named structs",
-            ))
+                data:
+                    syn::Data::Struct(syn::DataStruct {
+                        fields: syn::Fields::Named(fields),
+                        ..
+                    }),
+            } => {
+                if fields.named.is_empty() {
+                    emit_error!(fields, "No fields found");
+                }
+
+                let mut settings = StructSettings::new().with_attrs(attrs).ok()?;
+
+                let field_infos = fields
+                    .named
+                    .iter()
+                    .enumerate()
+                    .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
+                    .collect::<Option<Vec<_>>>()?;
+
+                let info = StructInfo {
+                    ident,
+                    vis,
+                    generics,
+                    builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
+                    data_ident: format_ident!("{}{}", ident, settings.data_suffix),
+                    _mandatory_indices: settings.mandatory_indices,
+                    groups: settings.groups,
+                    field_infos,
+                    solve_type: settings.solver_type,
+                };
+                Some(info)
+            }
+            _ => {
+                emit_error!(ast, "Builder is only supported for named structs",);
+                None
+            }
         }
     }
 

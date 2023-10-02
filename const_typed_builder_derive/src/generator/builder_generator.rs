@@ -2,10 +2,7 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::{
-    info::{FieldKind, SolveType},
-    StreamResult, VecStreamResult,
-};
+use crate::info::{FieldKind, SolveType};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -72,14 +69,14 @@ impl<'a> BuilderGenerator<'a> {
     /// # Returns
     ///
     /// A `StreamResult` representing the generated code for the builder struct and methods.
-    pub fn generate(&self) -> StreamResult {
+    pub fn generate(&self) -> TokenStream {
         let builder_struct = self.generate_struct();
-        let builder_impl = self.generate_impl()?;
+        let builder_impl = self.generate_impl();
         let tokens = quote!(
             #builder_struct
             #builder_impl
         );
-        Ok(tokens)
+        tokens
     }
 
     /// Generates the code for the builder struct definition.
@@ -103,8 +100,8 @@ impl<'a> BuilderGenerator<'a> {
     }
 
     /// Generates the implementation code for the builder struct's `new`, `build` and setter methods.
-    fn generate_impl(&self) -> StreamResult {
-        let builder_setters = self.generate_setters_impl()?;
+    fn generate_impl(&self) -> TokenStream {
+        let builder_setters = self.generate_setters_impl();
         let builder_new = self.generate_new_impl();
         let builder_build = self.generate_build_impl();
 
@@ -113,7 +110,7 @@ impl<'a> BuilderGenerator<'a> {
             #builder_setters
             #builder_build
         );
-        Ok(tokens)
+        tokens
     }
 
     /// Generates the code for the `new` method implementation.
@@ -208,7 +205,7 @@ impl<'a> BuilderGenerator<'a> {
     }
 
     /// Generates the code for the setter methods of the builder.
-    fn generate_setters_impl(&self) -> StreamResult {
+    fn generate_setters_impl(&self) -> TokenStream {
         let builder_name = self.builder_name;
         let data_field = self.data_field_ident();
         let setters = self
@@ -237,12 +234,12 @@ impl<'a> BuilderGenerator<'a> {
                         }
                     }
                 );
-                Ok(tokens)
-            }).collect::<VecStreamResult>()?;
+                tokens
+            });
 
         let tokens = quote!(
             #(#setters)*
         );
-        Ok(tokens)
+        tokens
     }
 }
