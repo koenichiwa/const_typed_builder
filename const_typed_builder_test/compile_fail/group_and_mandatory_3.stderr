@@ -4,8 +4,15 @@ error: Can't use both mandatory and group
 10 |         #[builder(group = quz)]
    |                   ^^^^^
 
-warning: Group can only be satisfied if all fields are initialized. Consider removing group and using [builder(mandatory)] instead
- --> ./compile_fail/group_and_mandatory_3.rs:5:13
-  |
-5 |     #[group(quz = single)]
-  |             ^^^
+error[E0599]: no function or associated item named `builder` found for struct `Foo` in the current scope
+  --> ./compile_fail/group_and_mandatory_3.rs:15:18
+   |
+6  |     pub struct Foo {
+   |     -------------- function or associated item `builder` not found for this struct
+...
+15 |     let _ = Foo::builder().bar("Hello".to_string()).baz("Hello".to_string()).qux("world!".to_string()).build();
+   |                  ^^^^^^^ function or associated item not found in `Foo`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `builder`, perhaps you need to implement it:
+           candidate #1: `const_typed_builder::Builder`
