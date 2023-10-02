@@ -279,9 +279,12 @@ impl FieldSettings {
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
         match attr.path().require_ident() {
-            Ok(ident) if ident == BUILDER => {},
+            Ok(ident) if ident == BUILDER => {}
             Ok(ident) => {
-                emit_error!(ident, format!("{ident} can't be used as a top level field attribute"));
+                emit_error!(
+                    ident,
+                    format!("{ident} can't be used as a top level field attribute")
+                );
             }
             Err(err) => {
                 emit_error!(attr.path(), err);
@@ -365,7 +368,7 @@ impl FieldSettings {
                                 if !self.groups.insert(group_name.clone()) {
                                     emit_error!(path, "Multiple adds to the same group",);
                                 }
-                            },
+                            }
                             syn::Expr::Lit(syn::ExprLit {
                                 lit: syn::Lit::Str(lit),
                                 ..
@@ -376,7 +379,7 @@ impl FieldSettings {
                                 {
                                     emit_error!(lit, "Multiple adds to the same group",);
                                 }
-                            },
+                            }
                             expr => emit_error!(expr, "Can't parse expression"),
                         }
                     }
@@ -389,8 +392,11 @@ impl FieldSettings {
                 }
             }
 
-            if self.mandatory && self.groups.len() > 0 {
-                emit_error!(&meta.path, format!("Can't use both {MANDATORY} and {GROUP}"),);
+            if self.mandatory && !self.groups.is_empty() {
+                emit_error!(
+                    &meta.path,
+                    format!("Can't use both {MANDATORY} and {GROUP}"),
+                );
             }
             Ok(())
         })
