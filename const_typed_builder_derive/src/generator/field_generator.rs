@@ -68,10 +68,10 @@ impl<'a> FieldGenerator<'a> {
     pub fn data_impl_from_fields(&self) -> VecStreamResult {
         self.fields
             .iter()
-            .filter_map(|field| {
+            .map(|field| {
                 let field_name = field.ident();
                 let tokens = match field.kind() {
-                    FieldKind::Skipped => return None,
+                    FieldKind::Skipped => quote!(#field_name: None),
                     FieldKind::Mandatory if field.is_option_type() => {
                         quote!(#field_name: data.#field_name)
                     }
@@ -82,7 +82,7 @@ impl<'a> FieldGenerator<'a> {
                         quote!(#field_name: data.#field_name.unwrap())
                     }
                 };
-                Some(Ok(tokens))
+                Ok(tokens)
             })
             .collect()
     }
@@ -93,10 +93,14 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// A `TokenStream` representing the generated default field values.
     pub fn data_impl_default_fields(&self) -> TokenStream {
-        let fields_none = self.fields.iter().map(|field| {
-            let field_name = field.ident();
-            quote!(#field_name: None)
-        });
+        let fields_none = self
+            .fields
+            .iter()
+            .filter(|field| field.kind() != &FieldKind::Skipped)
+            .map(|field| {
+                let field_name = field.ident();
+                quote!(#field_name: None)
+            });
         quote!(
             #(#fields_none),*
         )
