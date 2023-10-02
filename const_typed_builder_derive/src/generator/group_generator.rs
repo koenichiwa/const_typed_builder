@@ -31,26 +31,43 @@ impl<'a> GroupGenerator<'a> {
 
     fn can_be_valid(groups: &[&'a GroupInfo]) {
         groups.iter().for_each(|group| {
-            let associated_count = group.indices().len();
+            let valid_range = 1..group.indices().len();
+            if valid_range.is_empty() {
+                emit_warning!(group.name(), format!("There is not an valid expected count"))
+            } else if !valid_range.contains(&group.expected_count()) {
+                emit_warning!(group.name(), format!("Expected count is outside of valid range {valid_range:#?}"));
+            }
             match group.group_type() {
-                crate::info::GroupType::Exact(expected) => {
-                    match associated_count.cmp(expected) {
+                crate::info::GroupType::Exact(expected) => {   
+                    match expected.cmp(&valid_range.start) {
                         std::cmp::Ordering::Less => emit_error!(group.name(), "Group can never be satisfied"),
-                        std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized. Consider removing group and using [builder(mandatory)] instead"),
-                        std::cmp::Ordering::Greater => {},
+                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
+                    } 
+                    match expected.cmp(&valid_range.end) {
+                        std::cmp::Ordering::Less => {}
+                        std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
+                        std::cmp::Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need exact {} out of {} fields", expected, valid_range.end)),
                     }
                 },
                 crate::info::GroupType::AtLeast(expected) => {
-                    if associated_count < *expected {
-                        emit_error!(group.name(), "Group cannot be satisfied");
-                    }
-                    if *expected == 0  {
-                        emit_warning!(group.name(), "Group has no effect. Consider removing the group")
+                    match expected.cmp(&valid_range.start) {
+                        std::cmp::Ordering::Less => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
+                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
+                    } 
+                    match expected.cmp(&valid_range.end) {
+                        std::cmp::Ordering::Less => {}
+                        std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
+                        std::cmp::Ordering::Greater => emit_error!(group.name(), format!("Group can never be satisfied. Need at least {} out of {} fields", expected, valid_range.end)),
                     }
                 },
                 crate::info::GroupType::AtMost(expected) => {
-                    if *expected == 0  {
-                        emit_warning!(group.name(), "Group can only be satisfied if none of the fields are initialized. Consider removing group and using [builder(skip)] instead");
+                    match expected.cmp(&valid_range.start) {
+                        std::cmp::Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Removing the group and use [builder(skip)] instead"),
+                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
+                    } 
+                    match expected.cmp(&valid_range.end) {
+                        std::cmp::Ordering::Less => {}
+                        std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
                     }
                 },
             }
