@@ -93,7 +93,6 @@ impl<'a> BuilderGenerator<'a> {
         let vis = self.target_vis;
 
         quote!(
-            #[derive(Debug)]
             #vis struct #builder_name #impl_generics #where_clause {
                 #data_field: #data_name #type_generics
             }

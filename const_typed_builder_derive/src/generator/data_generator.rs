@@ -94,7 +94,6 @@ impl<'a> DataGenerator<'a> {
             self.generics_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
-            #[derive(Debug)]
             pub struct #data_name #impl_generics #where_clause{
                 #(#fields),*
             }
