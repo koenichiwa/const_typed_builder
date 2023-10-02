@@ -4,6 +4,7 @@ use crate::{
     CONST_IDENT_PREFIX,
 };
 use proc_macro2::Span;
+use proc_macro_error::{emit_error, emit_warning};
 use quote::format_ident;
 use std::collections::HashSet;
 use syn::{ExprPath, Token};
@@ -47,7 +48,7 @@ impl<'a> FieldInfo<'a> {
         field: &'a syn::Field,
         struct_settings: &mut StructSettings,
         index: usize,
-    ) -> syn::Result<Self> {
+    ) -> Option<Self> {
         if let syn::Field {
             attrs,
             ident: Some(ident),
@@ -61,7 +62,8 @@ impl<'a> FieldInfo<'a> {
                 .default_field_settings()
                 .clone()
                 .with_ty(ty)
-                .with_attrs(attrs)?;
+                .with_attrs(attrs)
+                .ok()?;
 
             let info = if settings.skipped {
                 Self {
@@ -82,10 +84,12 @@ impl<'a> FieldInfo<'a> {
                 }
             } else if !settings.groups.is_empty() {
                 for group_name in settings.groups {
-                    struct_settings
-                        .group_by_name_mut(&group_name.to_string())
-                        .ok_or(syn::Error::new_spanned(group_name, "Can't find group"))?
-                        .associate(index);
+                    if let Some(group) = struct_settings.group_by_name_mut(&group_name.to_string())
+                    {
+                        group.associate(index);
+                    } else {
+                        emit_error!(group_name, "Can't find group");
+                    }
                 }
 
                 Self {
@@ -105,12 +109,10 @@ impl<'a> FieldInfo<'a> {
                 }
             };
 
-            Ok(info)
+            Some(info)
         } else {
-            Err(syn::Error::new_spanned(
-                field,
-                "Unnamed fields are not supported",
-            ))
+            emit_error!(field, "Unnamed fields are not supported",);
+            None
         }
     }
 
@@ -226,10 +228,8 @@ impl FieldSettings {
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
     fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
-        attrs
-            .iter()
-            .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()?;
+        attrs.iter().for_each(|attr| self.handle_attribute(attr));
+        // .collect::<Result<Vec<_>, _>>()?;
         Ok(self)
     }
 
@@ -277,103 +277,130 @@ impl FieldSettings {
     /// # Returns
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        if let Some(ident) = attr.path().get_ident() {
-            if ident != BUILDER {
-                return Ok(());
+    fn handle_attribute(&mut self, attr: &syn::Attribute) {
+        match attr.path().require_ident() {
+            Ok(ident) if ident == BUILDER => {}
+            Ok(ident) => {
+                emit_error!(
+                    ident,
+                    format!("{ident} can't be used as a top level field attribute")
+                );
+            }
+            Err(err) => {
+                emit_error!(attr.path(), err);
             }
         }
-        let list = attr.meta.require_list()?;
-        if list.tokens.is_empty() {
-            return Ok(());
+
+        match attr.meta.require_list() {
+            Ok(list) => {
+                if list.tokens.is_empty() {
+                    emit_warning!(list, "Empty atrribute list");
+                }
+            }
+            Err(err) => emit_error!(attr, err),
         }
 
         attr.parse_nested_meta(|meta| {
-            if meta.path == SKIP {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.skipped = value;
-                    }
-                } else {
-                    self.skipped = true;
+            let path_ident = match meta.path.require_ident() {
+                Ok(ident) => ident,
+                Err(err) => {
+                    emit_error!(&attr.meta, err);
+                    return Ok(());
                 }
-            }
-            if meta.path == MANDATORY {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.mandatory = value;
-                    }
-                } else {
-                    self.mandatory = true;
-                }
-            }
-            if meta.path == OPTIONAL {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.mandatory = !value;
-                    }
-                } else {
-                    self.mandatory = false;
-                }
-            }
-            if meta.path == GROUP {
-                if self.mandatory {
-                    return Err(syn::Error::new_spanned(
-                        &meta.path,
-                        "Only optionals in group",
-                    ));
-                }
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Path(ExprPath { path, .. }) = &expr {
-                        let group_name = path
-                            .get_ident()
-                            .ok_or(syn::Error::new_spanned(path, "Can't parse group"))?;
+            };
 
-                        if !self.groups.insert(group_name.clone()) {
-                            return Err(syn::Error::new_spanned(
-                                &expr,
-                                "Multiple adds to the same group",
-                            ));
-                        }
-                    }
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Str(lit),
-                        ..
-                    }) = &expr
-                    {
-                        if !self
-                            .groups
-                            .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
+            match (&path_ident.to_string()).into() {
+                SKIP => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
                         {
-                            return Err(syn::Error::new_spanned(
-                                &expr,
-                                "Multiple adds to the same group",
-                            ));
+                            self.skipped = value;
+                        }
+                    } else {
+                        self.skipped = true;
+                    }
+                }
+                MANDATORY => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
+                        {
+                            self.mandatory = value;
+                        }
+                    } else {
+                        self.mandatory = true;
+                    }
+                }
+                OPTIONAL => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
+                        {
+                            self.mandatory = !value;
+                        }
+                    } else {
+                        self.mandatory = false;
+                    }
+                }
+                GROUP => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        match expr {
+                            syn::Expr::Path(ExprPath { path, .. }) => {
+                                let group_name = match path.require_ident() {
+                                    Ok(ident) => ident,
+                                    Err(err) => {
+                                        emit_error!(path, err);
+                                        return Ok(());
+                                    }
+                                };
+
+                                if !self.groups.insert(group_name.clone()) {
+                                    emit_error!(path, "Multiple adds to the same group",);
+                                }
+                            }
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Str(lit),
+                                ..
+                            }) => {
+                                if !self
+                                    .groups
+                                    .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
+                                {
+                                    emit_error!(lit, "Multiple adds to the same group",);
+                                }
+                            }
+                            expr => emit_error!(expr, "Can't parse expression"),
                         }
                     }
                 }
+                PROPAGATE => {
+                    self.propagate = true;
+                }
+                _ => {
+                    emit_error!(&attr.meta, "Unknown attribute")
+                }
             }
-            if meta.path == PROPAGATE {
-                self.propagate = true;
+
+            if self.mandatory && !self.groups.is_empty() {
+                emit_error!(
+                    &meta.path,
+                    format!("Can't use both {MANDATORY} and {GROUP}"),
+                );
             }
             Ok(())
         })
+        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
     }
 }
 

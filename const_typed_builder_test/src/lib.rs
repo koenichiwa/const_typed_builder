@@ -244,10 +244,13 @@ mod test {
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
+            #[builder(group = baz)]
+            baz: Option<String>,
         }
 
         let expected = Foo {
             bar: Some("Hello world!".to_string()),
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
@@ -261,10 +264,13 @@ mod test {
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
+            #[builder(group = baz)]
+            baz: Option<String>,
         }
 
         let expected = Foo {
             bar: Some("Hello world!".to_string()),
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
@@ -369,19 +375,6 @@ mod test {
             .baz("Hello".to_string())
             .build();
         assert_eq!(expected, foo);
-
-        // FIXME: Should fail or warn
-        #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(quz = single)]
-        pub struct Nope {
-            #[builder(group = quz)]
-            bar: Option<String>,
-            #[builder(group = quz)]
-            #[builder(mandatory)]
-            baz: Option<String>,
-            #[builder(mandatory)]
-            qux: Option<String>,
-        }
     }
 
     #[test]

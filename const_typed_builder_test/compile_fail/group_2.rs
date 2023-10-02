@@ -6,6 +6,8 @@ fn main() {
     pub struct Foo {
         #[builder(group = baz)]
         bar: Option<String>,
+        #[builder(group = baz)]
+        baz: Option<String>,
     }
-    let foobuilder = Foo::builder().bar("Hello world!".to_string());
+    let foo = Foo::builder().bar("Hello world!".to_string()).build();
 }
