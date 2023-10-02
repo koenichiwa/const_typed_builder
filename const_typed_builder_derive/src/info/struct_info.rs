@@ -65,7 +65,7 @@ impl<'a> StructInfo<'a> {
                     emit_error!(fields, "No fields found");
                 }
 
-                let mut settings = StructSettings::new().with_attrs(attrs).ok()?;
+                let mut settings = StructSettings::new().with_attrs(attrs);
 
                 let field_infos = fields
                     .named
@@ -190,12 +190,9 @@ impl StructSettings {
     /// # Returns
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
-    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
-        attrs
-            .iter()
-            .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(self)
+    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> Self {
+        attrs.iter().for_each(|attr| self.handle_attribute(attr));
+        self
     }
 
     /// Handles the parsing and processing of attributes applied to a struct.
@@ -209,17 +206,13 @@ impl StructSettings {
     /// # Returns
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
+    fn handle_attribute(&mut self, attr: &syn::Attribute) {
         if let Some(ident) = attr.path().get_ident() {
             if ident == GROUP {
-                self.handle_group_attribute(attr)
+                self.handle_group_attribute(attr);
             } else if ident == BUILDER {
-                self.handle_builder_attribute(attr)
-            } else {
-                Ok(())
+                self.handle_builder_attribute(attr);
             }
-        } else {
-            Ok(())
         }
     }
 
@@ -243,11 +236,15 @@ impl StructSettings {
     /// # Returns
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_builder_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        let list = attr.meta.require_list()?;
-        if list.tokens.is_empty() {
-            return Ok(());
-        }
+    fn handle_builder_attribute(&mut self, attr: &syn::Attribute) {
+        match attr.meta.require_list() {
+            Ok(list) => {
+                if list.tokens.is_empty() {
+                    return;
+                }
+            }
+            Err(err) => emit_error!(attr, err),
+        };
 
         attr.parse_nested_meta(|meta| {
             if meta.path == ASSUME_MANDATORY {
@@ -268,23 +265,25 @@ impl StructSettings {
                 if meta.input.peek(Token![=]) {
                     let expr: syn::Expr = meta.value()?.parse()?;
                     if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
-                        let solve_type = path
-                            .get_ident()
-                            .ok_or_else(|| syn::Error::new_spanned(&path, "Can't parse solver"))?;
-                        match (&solve_type.to_string()).into() {
-                            BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
-                            COMPILER => self.solver_type = SolveType::Compiler,
-                            _ => Err(syn::Error::new_spanned(&path, "Unknown solver type"))?,
+                        if let Some(solve_type) = path.get_ident() {
+                            match (&solve_type.to_string()).into() {
+                                BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
+                                COMPILER => self.solver_type = SolveType::Compiler,
+                                _ => emit_error!(&path, "Unknown solver type"),
+                            }
+                        } else {
+                            emit_error!(meta.path, "Can't parse solver specification");
                         }
                     } else {
-                        Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?;
+                        emit_error!(meta.path, "Can't parse solver specification");
                     }
                 } else {
-                    Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?;
+                    emit_error!(meta.path, "Solver type needs to be specified");
                 }
             }
             Ok(())
         })
+        .unwrap()
     }
 
     /// Handles the parsing and processing of group attributes applied to a struct.
@@ -307,73 +306,102 @@ impl StructSettings {
     /// # Returns
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_group_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        let list = attr.meta.require_list()?;
-        if list.tokens.is_empty() {
-            return Ok(());
-        }
+    fn handle_group_attribute(&mut self, attr: &syn::Attribute) {
+        match attr.meta.require_list() {
+            Ok(list) => {
+                if list.tokens.is_empty() {
+                    return;
+                }
+            }
+            Err(err) => emit_error!(attr, err),
+        };
 
         attr.parse_nested_meta(|meta| {
-            let group_name = meta
-                .path
-                .get_ident()
-                .ok_or_else(|| syn::Error::new_spanned(&attr.meta, "Can't parse group name"))?
-                .clone();
+            let group_name = match meta.path.require_ident() {
+                Ok(ident) => ident,
+                Err(err) => {
+                    emit_error!(&attr.meta, err);
+                    return Ok(());
+                }
+            };
 
-            let expr: syn::Expr = meta.value()?.parse()?;
-
-            let group_type = match &expr {
+            let group_type = match meta.value()?.parse()? {
                 syn::Expr::Call(syn::ExprCall { func, args, .. }) => {
-                    let group_type = if let syn::Expr::Path(syn::ExprPath { path, .. }) =
-                        func.as_ref()
-                    {
-                        path.get_ident()
-                            .ok_or_else(|| syn::Error::new_spanned(func, "Can't parse group type"))
-                    } else {
-                        Err(syn::Error::new_spanned(func, "Can't find group type"))
-                    }?;
+                    let group_type = match func.as_ref() {
+                        syn::Expr::Path(syn::ExprPath { path, .. }) => match path.require_ident() {
+                            Ok(ident) => ident,
+                            Err(err) => {
+                                emit_error!(&attr.meta, err);
+                                return Ok(());
+                            }
+                        },
+                        _ => {
+                            emit_error!(&attr.meta, "Can't find group type");
+                            return Ok(());
+                        }
+                    };
 
-                    let group_args = if let Some(syn::Expr::Lit(syn::ExprLit {
-                        attrs: _,
-                        lit: syn::Lit::Int(val),
-                    })) = args.first()
-                    {
-                        val.base10_parse::<usize>()
-                    } else {
-                        Err(syn::Error::new_spanned(func, "Can't parse group args"))
-                    }?;
-                    match (&group_type.to_string()).into() {
-                        EXACT => Ok(GroupType::Exact(group_args)),
-                        AT_LEAST => Ok(GroupType::AtLeast(group_args)),
-                        AT_MOST => Ok(GroupType::AtMost(group_args)),
-                        SINGLE => Err(syn::Error::new_spanned(
-                            args,
-                            "`single` doesn't take any arguments",
-                        )),
-                        _ => Err(syn::Error::new_spanned(group_type, "Unknown group type")),
+                    match args.first() {
+                        Some(syn::Expr::Lit(syn::ExprLit {
+                            attrs: _,
+                            lit: syn::Lit::Int(val),
+                        })) => match val.base10_parse::<usize>() {
+                            Ok(group_args) => match (&group_type.to_string()).into() {
+                                EXACT => GroupType::Exact(group_args),
+                                AT_LEAST => GroupType::AtLeast(group_args),
+                                AT_MOST => GroupType::AtMost(group_args),
+                                SINGLE => {
+                                    emit_error!(args, "`single` doesn't take any arguments",);
+                                    return Ok(());
+                                }
+                                _ => {
+                                    emit_error!(group_type, "Unknown group type");
+                                    return Ok(());
+                                }
+                            },
+                            Err(err) => {
+                                emit_error!(val, err);
+                                return Ok(());
+                            }
+                        },
+                        _ => {
+                            emit_error!(func, "Can't parse group args");
+                            return Ok(());
+                        }
                     }
                 }
                 syn::Expr::Path(syn::ExprPath { path, .. }) => {
-                    let group_type = path
-                        .get_ident()
-                        .ok_or_else(|| syn::Error::new_spanned(path, "Can't parse group type"))?;
+                    let group_type = match path.require_ident() {
+                        Ok(ident) => ident,
+                        Err(err) => {
+                            emit_error!(path, err);
+                            return Ok(());
+                        }
+                    };
                     match (&group_type.to_string()).into() {
-                        EXACT | AT_LEAST | AT_MOST => Err(syn::Error::new_spanned(
-                            &attr.meta,
-                            "Missing arguments for group type",
-                        )),
-                        SINGLE => Ok(GroupType::Exact(1)),
-                        _ => Err(syn::Error::new_spanned(&attr.meta, "Can't parse group")),
+                        EXACT | AT_LEAST | AT_MOST => {
+                            emit_error!(&attr.meta, "Missing arguments for group type");
+                            return Ok(());
+                        }
+                        SINGLE => GroupType::Exact(1),
+                        _ => {
+                            emit_error!(&attr.meta, "Can't parse group");
+                            return Ok(());
+                        }
                     }
                 }
-                _ => Err(syn::Error::new_spanned(&attr.meta, "Can't parse group")),
+                _ => {
+                    emit_error!(&attr.meta, "Can't find group type");
+                    return Ok(());
+                }
             };
 
             self.groups.insert(
                 group_name.to_string(),
-                GroupInfo::new(group_name, group_type?),
+                GroupInfo::new(group_name.clone(), group_type),
             );
             Ok(())
         })
+        .unwrap()
     }
 }
