@@ -1,16 +1,10 @@
-error: cannot find attribute `build` in this scope
- --> ./compile_fail/group_solver_compiler_1.rs:7:7
-  |
-7 |     #[build(solver = compiler)]
-  |       ^^^^^
-
 error[E0599]: no method named `build` found for struct `FooBuilder<true, false>` in the current scope
-  --> ./compile_fail/group_solver_compiler_1.rs:14:62
+  --> ./compile_fail/group_2.rs:12:62
    |
-5  |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+4  |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
    |                                             ------- method `build` not found for this struct
 ...
-14 |     let foo = Foo::builder().bar("Hello world!".to_string()).build();
+12 |     let foo = Foo::builder().bar("Hello world!".to_string()).build();
    |                                                              ^^^^^ method not found in `FooBuilder<true, false>`
    |
    = note: the method was found for

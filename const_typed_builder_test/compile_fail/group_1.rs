@@ -7,5 +7,5 @@ fn main() {
         #[builder(group = baz)]
         bar: Option<String>,
     }
-    let foo = Foo::builder().bar("Hello world!".to_string()).build();
+    let foobuilder = Foo::builder().bar("Hello world!".to_string());
 }
