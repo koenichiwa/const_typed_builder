@@ -655,4 +655,14 @@ mod test {
             .build();
         assert_eq!(expected, foo);
     }
+
+    #[test]
+    fn no_other_derive_necessary() {
+        #[derive(Builder)]
+        pub struct Foo {
+            bar: String,
+        }
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(foo.bar, "Hello world!");
+    }
 }
