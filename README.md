@@ -46,10 +46,7 @@ pub struct ResourceLimits {
     // ...
 }
 #[derive(Debug, Builder)]
-#[group(program = at_least(1), deprecated = at_most(0))]
-//                             ^ `my_group = at_most(0)` can be used to denote deprecated
-// fields that you still want to deserialize. It will be replaced by the attribute
-// `#[builder(skip)]` on a field in a future version
+#[group(program = at_least(1))]
 pub struct Launchd {
     #[builder(mandatory)]
     label: Option<String>,
@@ -63,9 +60,9 @@ pub struct Launchd {
     #[builder(group = program)]
     program_arguments: Option<Vec<String>>,
     // ...
-    #[builder(group = deprecated)]
+    #[builder(skip)]
     on_demand: Option<bool>, // NB: deprecated (see KeepAlive), but still needed for reading old plists.
-    #[builder(group = deprecated)]
+    #[builder(skip)]
     service_ipc: Option<bool>, // NB: "Please remove this key from your launchd.plist."
     // ...
     #[builder(propagate)]
@@ -81,7 +78,7 @@ let launchd = Launchd::builder()
     .program_arguments(               // <- 2: .. We can remove either one, but never both
         vec!["my_arg".to_string()]
     ) 
-//  .on_demand(false)                    <- 3: If this is uncommented then the struct will never be valid
+//  .on_demand(false)                    <- 3: This function doesn't exist
     .soft_resource_limits(|builder|
         Some(builder.core(Some(1)).build()) // <- 4: Propagating to `ResourceLimits::builder`
     ) 

@@ -1,4 +1,4 @@
-error: Group cannot be satisfied
+error: Group can never be satisfied. Need at least 2 out of 1 fields
  --> ./compile_fail/group_1.rs:5:13
   |
 5 |     #[group(baz = at_least(2))]

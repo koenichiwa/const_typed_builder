@@ -244,10 +244,13 @@ mod test {
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
+            #[builder(group = baz)]
+            baz: Option<String>,
         }
 
         let expected = Foo {
             bar: Some("Hello world!".to_string()),
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
@@ -261,10 +264,13 @@ mod test {
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
+            #[builder(group = baz)]
+            baz: Option<String>,
         }
 
         let expected = Foo {
             bar: Some("Hello world!".to_string()),
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
