@@ -1,0 +1,11 @@
+error: Can't use both mandatory and group
+  --> ./compile_fail/group_and_mandatory_4.rs:10:19
+   |
+10 |         #[builder(mandatory)]
+   |                   ^^^^^^^^^
+
+warning: Group can only be satisfied if all fields are initialized. Consider removing group and using [builder(mandatory)] instead
+ --> ./compile_fail/group_and_mandatory_4.rs:5:13
+  |
+5 |     #[group(quz = single)]
+  |             ^^^

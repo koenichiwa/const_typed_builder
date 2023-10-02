@@ -4,7 +4,7 @@ use crate::{
     CONST_IDENT_PREFIX,
 };
 use proc_macro2::Span;
-use proc_macro_error::emit_error;
+use proc_macro_error::{emit_error, emit_warning};
 use quote::format_ident;
 use std::collections::HashSet;
 use syn::{ExprPath, Token};
@@ -278,21 +278,23 @@ impl FieldSettings {
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
-        if let Some(ident) = attr.path().get_ident() {
-            if ident != BUILDER {
-                return;
+        match attr.path().require_ident() {
+            Ok(ident) if ident == BUILDER => {},
+            Ok(ident) => {
+                emit_error!(ident, format!("{ident} can't be used as a top level field attribute"));
+            }
+            Err(err) => {
+                emit_error!(attr.path(), err);
             }
         }
+
         match attr.meta.require_list() {
             Ok(list) => {
                 if list.tokens.is_empty() {
-                    return;
+                    emit_warning!(list, "Empty atrribute list");
                 }
             }
             Err(err) => emit_error!(attr, err),
-        }
-        if let Err(err) = attr.meta.require_list() {
-            emit_error!(attr, err)
         }
 
         attr.parse_nested_meta(|meta| {
@@ -348,31 +350,34 @@ impl FieldSettings {
                     }
                 }
                 GROUP => {
-                    if self.mandatory {
-                        emit_error!(&meta.path, "Only optionals in group",);
-                    }
                     if meta.input.peek(Token![=]) {
                         let expr: syn::Expr = meta.value()?.parse()?;
-                        if let syn::Expr::Path(ExprPath { path, .. }) = &expr {
-                            let group_name = path
-                                .get_ident()
-                                .ok_or(syn::Error::new_spanned(path, "Can't parse group"))?;
+                        match expr {
+                            syn::Expr::Path(ExprPath { path, .. }) => {
+                                let group_name = match path.require_ident() {
+                                    Ok(ident) => ident,
+                                    Err(err) => {
+                                        emit_error!(path, err);
+                                        return Ok(());
+                                    }
+                                };
 
-                            if !self.groups.insert(group_name.clone()) {
-                                emit_error!(&expr, "Multiple adds to the same group",);
-                            }
-                        }
-                        if let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit),
-                            ..
-                        }) = &expr
-                        {
-                            if !self
-                                .groups
-                                .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
-                            {
-                                emit_error!(&expr, "Multiple adds to the same group",);
-                            }
+                                if !self.groups.insert(group_name.clone()) {
+                                    emit_error!(path, "Multiple adds to the same group",);
+                                }
+                            },
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Str(lit),
+                                ..
+                            }) => {
+                                if !self
+                                    .groups
+                                    .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
+                                {
+                                    emit_error!(lit, "Multiple adds to the same group",);
+                                }
+                            },
+                            expr => emit_error!(expr, "Can't parse expression"),
                         }
                     }
                 }
@@ -382,6 +387,10 @@ impl FieldSettings {
                 _ => {
                     emit_error!(&attr.meta, "Unknown attribute")
                 }
+            }
+
+            if self.mandatory && self.groups.len() > 0 {
+                emit_error!(&meta.path, format!("Can't use both {MANDATORY} and {GROUP}"),);
             }
             Ok(())
         })

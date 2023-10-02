@@ -4,7 +4,7 @@ use crate::symbol::{
     ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
     SOLVER,
 };
-use proc_macro_error::emit_error;
+use proc_macro_error::{emit_error, emit_warning};
 use quote::format_ident;
 use std::collections::{BTreeSet, HashMap};
 use syn::Token;
@@ -214,10 +214,18 @@ impl StructSettings {
                 return;
             }
         };
+        match attr.meta.require_list() {
+            Ok(list) => {
+                if list.tokens.is_empty() {
+                    emit_warning!(list, "Empty atrribute list");
+                }
+            }
+            Err(err) => emit_error!(attr, err),
+        };
         match (&path_ident.to_string()).into() {
             GROUP => self.handle_group_attribute(attr),
             BUILDER => self.handle_builder_attribute(attr),
-            _ => emit_error!(&attr.meta, "Unknown attribute"),
+            _ => emit_error!(&attr, "Unknown attribute"),
         }
     }
 
@@ -242,15 +250,6 @@ impl StructSettings {
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_builder_attribute(&mut self, attr: &syn::Attribute) {
-        match attr.meta.require_list() {
-            Ok(list) => {
-                if list.tokens.is_empty() {
-                    return;
-                }
-            }
-            Err(err) => emit_error!(attr, err),
-        };
-
         attr.parse_nested_meta(|meta| {
             let path_ident = match meta.path.require_ident() {
                 Ok(ident) => ident,
@@ -264,12 +263,12 @@ impl StructSettings {
                 ASSUME_MANDATORY => {
                     if meta.input.peek(Token![=]) {
                         let expr: syn::Expr = meta.value()?.parse()?;
-                        if let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                            ..
-                        }) = expr
-                        {
-                            self.default_field_settings.mandatory = value;
+                        match &expr {
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                                ..
+                            }) => self.default_field_settings.mandatory = *value,
+                            expr => emit_error!(expr, "Can't parse expression"),
                         }
                     } else {
                         self.default_field_settings.mandatory = true;
@@ -325,15 +324,6 @@ impl StructSettings {
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_group_attribute(&mut self, attr: &syn::Attribute) {
-        match attr.meta.require_list() {
-            Ok(list) => {
-                if list.tokens.is_empty() {
-                    return;
-                }
-            }
-            Err(err) => emit_error!(attr, err),
-        };
-
         attr.parse_nested_meta(|meta| {
             let group_name = match meta.path.require_ident() {
                 Ok(ident) => ident,
