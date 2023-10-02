@@ -62,7 +62,7 @@ impl<'a> GroupGenerator<'a> {
                 },
                 crate::info::GroupType::AtMost(expected) => {
                     match expected.cmp(&valid_range.start) {
-                        std::cmp::Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Removing the group and use [builder(skip)] instead"),
+                        std::cmp::Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Remove the group and use [builder(skip)] instead"),
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
                     }
                     match expected.cmp(&valid_range.end) {
