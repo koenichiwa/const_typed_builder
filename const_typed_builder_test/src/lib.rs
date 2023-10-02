@@ -370,7 +370,7 @@ mod test {
             .build();
         assert_eq!(expected, foo);
 
-        // FIXME: Should fail or warn
+        // FIXME: Should fail
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
         #[group(quz = single)]
         pub struct Nope {
