@@ -1,7 +1,6 @@
-use self::util::{inner_type, is_option};
 use super::struct_info::StructSettings;
 use crate::{
-    symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE},
+    symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE, SKIP},
     CONST_IDENT_PREFIX,
 };
 use proc_macro2::Span;
@@ -28,6 +27,8 @@ pub enum FieldKind {
     Mandatory,
     /// Indicates a field that is part of one or several groups.
     Grouped,
+    /// Indicates a field that not included in the builder.
+    Skipped,
 }
 
 impl<'a> FieldInfo<'a> {
@@ -62,7 +63,15 @@ impl<'a> FieldInfo<'a> {
                 .with_ty(ty)
                 .with_attrs(attrs)?;
 
-            let info = if settings.mandatory {
+            let info = if settings.skipped {
+                Self {
+                    field,
+                    ident,
+                    index,
+                    propagate: settings.propagate,
+                    kind: FieldKind::Skipped,
+                }
+            } else if settings.mandatory {
                 struct_settings.add_mandatory_index(index); // TODO: Check bool
                 Self {
                     field,
@@ -117,7 +126,7 @@ impl<'a> FieldInfo<'a> {
 
     /// Checks if the field's type is an Option.
     pub fn is_option_type(&self) -> bool {
-        is_option(&self.field.ty)
+        util::is_option(&self.field.ty)
     }
 
     /// Retrieves the type of the field.
@@ -127,7 +136,7 @@ impl<'a> FieldInfo<'a> {
 
     /// Retrieves the inner type of the field if it is wrapped in an Option
     pub fn inner_type(&self) -> Option<&syn::Type> {
-        inner_type(&self.field.ty)
+        util::inner_type(&self.field.ty)
     }
 
     /// Retrieves the kind of the field, which can be Optional, Mandatory, or Grouped.
@@ -146,16 +155,19 @@ impl<'a> FieldInfo<'a> {
     }
 
     /// Retrieves the input type for the builder's setter method.
-    pub fn setter_input_type(&self) -> &syn::Type {
+    pub fn setter_input_type(&self) -> Option<&syn::Type> {
         match self.kind() {
-            FieldKind::Optional => self.ty(),
-            FieldKind::Mandatory if self.is_option_type() => self.inner_type().expect(
+            FieldKind::Optional => Some(self.ty()),
+            FieldKind::Mandatory if self.is_option_type() => Some(self.inner_type().expect(
                 "Couldn't read inner type of option, even though it's seen as an Option type",
-            ),
-            FieldKind::Mandatory => self.ty(),
-            FieldKind::Grouped => self
-                .inner_type()
-                .expect("Couldn't read inner type of option, even though it's marked as grouped"),
+            )),
+            FieldKind::Mandatory => Some(self.ty()),
+            FieldKind::Grouped => {
+                Some(self.inner_type().expect(
+                    "Couldn't read inner type of option, even though it's marked as grouped",
+                ))
+            }
+            FieldKind::Skipped => None,
         }
     }
 }
@@ -175,6 +187,7 @@ impl<'a> Ord for FieldInfo<'a> {
 /// Represents settings for struct field generation.
 #[derive(Debug, Clone)]
 pub struct FieldSettings {
+    pub skipped: bool,
     /// Indicates if the field is mandatory.
     pub mandatory: bool,
     /// Indicates if the field should propagate values.
@@ -188,6 +201,7 @@ pub struct FieldSettings {
 impl Default for FieldSettings {
     fn default() -> FieldSettings {
         FieldSettings {
+            skipped: false,
             mandatory: false,
             propagate: false,
             input_name: syn::Ident::new("input", Span::call_site()),
@@ -229,7 +243,7 @@ impl FieldSettings {
     ///
     /// The updated `FieldSettings` instance.
     fn with_ty(mut self, ty: &syn::Type) -> Self {
-        if !self.mandatory && !is_option(ty) {
+        if !self.mandatory && !util::is_option(ty) {
             self.mandatory = true;
         }
         self
@@ -275,6 +289,20 @@ impl FieldSettings {
         }
 
         attr.parse_nested_meta(|meta| {
+            if meta.path == SKIP {
+                if meta.input.peek(Token![=]) {
+                    let expr: syn::Expr = meta.value()?.parse()?;
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                        ..
+                    }) = expr
+                    {
+                        self.skipped = value;
+                    }
+                } else {
+                    self.skipped = true;
+                }
+            }
             if meta.path == MANDATORY {
                 if meta.input.peek(Token![=]) {
                     let expr: syn::Expr = meta.value()?.parse()?;
