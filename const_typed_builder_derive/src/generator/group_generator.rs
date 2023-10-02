@@ -29,15 +29,15 @@ impl<'a> GroupGenerator<'a> {
         Self { groups }
     }
 
-    fn can_be_valid(groups: &[&'a GroupInfo]) -> () {
+    fn can_be_valid(groups: &[&'a GroupInfo]) {
         groups.iter().for_each(|group| {
             let associated_count = group.indices().len();
             match group.group_type() {
                 crate::info::GroupType::Exact(expected) => {
-                    if associated_count < *expected {
-                        emit_error!(group.name(), "Group can never be satisfied");
-                    } else if  associated_count == *expected {
-                        emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized. Consider removing group and using [builder(mandatory)] instead");
+                    match associated_count.cmp(expected) {
+                        std::cmp::Ordering::Less => emit_error!(group.name(), "Group can never be satisfied"),
+                        std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized. Consider removing group and using [builder(mandatory)] instead"),
+                        std::cmp::Ordering::Greater => {},
                     }
                 },
                 crate::info::GroupType::AtLeast(expected) => {
