@@ -6,7 +6,7 @@ use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
 use proc_macro_error::{emit_error, emit_warning};
 use quote::{format_ident, quote};
-use std::{collections::BTreeSet, cmp::Ordering};
+use std::{cmp::Ordering, collections::BTreeSet};
 
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
