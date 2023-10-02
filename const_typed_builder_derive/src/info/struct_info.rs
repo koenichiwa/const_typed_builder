@@ -344,7 +344,10 @@ impl StructSettings {
                             }
                         },
                         _ => {
-                            emit_error!(&attr.meta, "Can't find group type");
+                            emit_error!(
+                                &attr.meta, "No group type specified";
+                                hint = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                            );
                             return Ok(());
                         }
                     };
@@ -359,11 +362,19 @@ impl StructSettings {
                                 AT_LEAST => GroupType::AtLeast(group_args),
                                 AT_MOST => GroupType::AtMost(group_args),
                                 SINGLE => {
-                                    emit_error!(args, "`single` doesn't take any arguments",);
+                                    emit_error!(
+                                        args, 
+                                        "`{}` doesn't take any arguments", SINGLE;
+                                        help = "`{}` is shorthand for {}(1)", SINGLE, EXACT
+                                    );
                                     return Ok(());
                                 }
                                 _ => {
-                                    emit_error!(group_type, "Unknown group type");
+                                    emit_error!(
+                                        group_type, 
+                                        "Unknown group type";
+                                        help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                                    );
                                     return Ok(());
                                 }
                             },
@@ -389,18 +400,29 @@ impl StructSettings {
                     };
                     match (&group_type.to_string()).into() {
                         EXACT | AT_LEAST | AT_MOST => {
-                            emit_error!(&attr.meta, "Missing arguments for group type");
+                            emit_error!(
+                                &attr.meta, 
+                                "Missing arguments for group type";
+                                help = "Try `{}(1)`, or any other usize", &group_type
+                            );
                             return Ok(());
                         }
                         SINGLE => GroupType::Exact(1),
                         _ => {
-                            emit_error!(&attr.meta, "Can't parse group");
+                            emit_error!(
+                                group_type, 
+                                "Unknown group type";
+                                help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                            );
                             return Ok(());
                         }
                     }
                 }
                 _ => {
-                    emit_error!(&attr.meta, "Can't find group type");
+                    emit_error!(
+                        &attr.meta, "No group type specified";
+                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                    );
                     return Ok(());
                 }
             };

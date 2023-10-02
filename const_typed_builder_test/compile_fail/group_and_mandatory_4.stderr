@@ -1,4 +1,7 @@
-error: Can't use both mandatory and group
+error: Can't use both mandatory and group attributes
+
+         = help: Remove either types of attribute from this field
+
   --> ./compile_fail/group_and_mandatory_4.rs:10:19
    |
 10 |         #[builder(mandatory)]

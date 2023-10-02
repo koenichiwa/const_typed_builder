@@ -88,7 +88,11 @@ impl<'a> FieldInfo<'a> {
                     {
                         group.associate(index);
                     } else {
-                        emit_error!(group_name, "Can't find group");
+                        emit_error!(
+                            group_name, 
+                            format!("No group called {group_name} is available");
+                            hint = format!("You might want to add a #[{GROUP}(...)] attribute to the container")
+                        );
                     }
                 }
 
@@ -111,7 +115,7 @@ impl<'a> FieldInfo<'a> {
 
             Some(info)
         } else {
-            emit_error!(field, "Unnamed fields are not supported",);
+            emit_error!(field, "Unnamed fields are not supported");
             None
         }
     }
@@ -283,7 +287,7 @@ impl FieldSettings {
             Ok(ident) => {
                 emit_error!(
                     ident,
-                    format!("{ident} can't be used as a top level field attribute")
+                    format!("{ident} can't be used as a field attribute")
                 );
             }
             Err(err) => {
@@ -355,32 +359,35 @@ impl FieldSettings {
                 GROUP => {
                     if meta.input.peek(Token![=]) {
                         let expr: syn::Expr = meta.value()?.parse()?;
-                        match expr {
+                        let group_name = match expr {
                             syn::Expr::Path(ExprPath { path, .. }) => {
-                                let group_name = match path.require_ident() {
+                                match path.require_ident() {
                                     Ok(ident) => ident,
                                     Err(err) => {
                                         emit_error!(path, err);
                                         return Ok(());
                                     }
-                                };
-
-                                if !self.groups.insert(group_name.clone()) {
-                                    emit_error!(path, "Multiple adds to the same group",);
-                                }
+                                }.clone()
                             }
                             syn::Expr::Lit(syn::ExprLit {
                                 lit: syn::Lit::Str(lit),
                                 ..
                             }) => {
-                                if !self
-                                    .groups
-                                    .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
-                                {
-                                    emit_error!(lit, "Multiple adds to the same group",);
-                                }
+                                syn::Ident::new(lit.value().as_str(), lit.span())
                             }
-                            expr => emit_error!(expr, "Can't parse expression"),
+                            expr => {
+                                emit_error!(expr, "Can't parse expression");
+                                return Ok(());
+                            },
+                        };
+                        if self.groups.contains(&group_name) {
+                            emit_error!(
+                                group_name.span(), 
+                                "Multiple adds to the same group";
+                                help = self.groups.get(&group_name).unwrap().span() => "Remove this attribute"
+                            );
+                        } else {
+                            self.groups.insert(group_name);
                         }
                     }
                 }
@@ -395,7 +402,8 @@ impl FieldSettings {
             if self.mandatory && !self.groups.is_empty() {
                 emit_error!(
                     &meta.path,
-                    format!("Can't use both {MANDATORY} and {GROUP}"),
+                    format!("Can't use both {MANDATORY} and {GROUP} attributes");
+                    hint = "Remove either types of attribute from this field"
                 );
             }
             Ok(())
