@@ -207,12 +207,17 @@ impl StructSettings {
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
-        if let Some(ident) = attr.path().get_ident() {
-            if ident == GROUP {
-                self.handle_group_attribute(attr);
-            } else if ident == BUILDER {
-                self.handle_builder_attribute(attr);
+        let path_ident = match attr.path().require_ident() {
+            Ok(ident) => ident,
+            Err(err) => {
+                emit_error!(attr.path(), err);
+                return;
             }
+        };
+        match (&path_ident.to_string()).into() {
+            GROUP => self.handle_group_attribute(attr),
+            BUILDER => self.handle_builder_attribute(attr),
+            _ => emit_error!(&attr.meta, "Unknown attribute"),
         }
     }
 
@@ -247,43 +252,56 @@ impl StructSettings {
         };
 
         attr.parse_nested_meta(|meta| {
-            if meta.path == ASSUME_MANDATORY {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.default_field_settings.mandatory = value;
-                    }
-                } else {
-                    self.default_field_settings.mandatory = true;
+            let path_ident = match meta.path.require_ident() {
+                Ok(ident) => ident,
+                Err(err) => {
+                    emit_error!(&attr.meta, err);
+                    return Ok(());
                 }
-            }
-            if meta.path == SOLVER {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
-                        if let Some(solve_type) = path.get_ident() {
-                            match (&solve_type.to_string()).into() {
-                                BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
-                                COMPILER => self.solver_type = SolveType::Compiler,
-                                _ => emit_error!(&path, "Unknown solver type"),
+            };
+
+            match (&path_ident.to_string()).into() {
+                ASSUME_MANDATORY => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
+                        {
+                            self.default_field_settings.mandatory = value;
+                        }
+                    } else {
+                        self.default_field_settings.mandatory = true;
+                    }
+                }
+                SOLVER => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
+                            if let Some(solve_type) = path.get_ident() {
+                                match (&solve_type.to_string()).into() {
+                                    BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
+                                    COMPILER => self.solver_type = SolveType::Compiler,
+                                    _ => emit_error!(&path, "Unknown solver type"),
+                                }
+                            } else {
+                                emit_error!(meta.path, "Can't parse solver specification");
                             }
                         } else {
                             emit_error!(meta.path, "Can't parse solver specification");
                         }
                     } else {
-                        emit_error!(meta.path, "Can't parse solver specification");
+                        emit_error!(meta.path, "Solver type needs to be specified");
                     }
-                } else {
-                    emit_error!(meta.path, "Solver type needs to be specified");
+                }
+                _ => {
+                    emit_error!(meta.path, "Unknown attribute");
                 }
             }
             Ok(())
         })
-        .unwrap()
+        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
     }
 
     /// Handles the parsing and processing of group attributes applied to a struct.
@@ -364,8 +382,9 @@ impl StructSettings {
                                 return Ok(());
                             }
                         },
+
                         _ => {
-                            emit_error!(func, "Can't parse group args");
+                            emit_error!(func, "Can't parse group argument");
                             return Ok(());
                         }
                     }
@@ -402,6 +421,6 @@ impl StructSettings {
             );
             Ok(())
         })
-        .unwrap()
+        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
     }
 }
