@@ -38,11 +38,11 @@ impl<'a> GroupGenerator<'a> {
                 emit_warning!(group.name(), format!("Expected count is outside of valid range {valid_range:#?}"));
             }
             match group.group_type() {
-                crate::info::GroupType::Exact(expected) => {   
+                crate::info::GroupType::Exact(expected) => {
                     match expected.cmp(&valid_range.start) {
                         std::cmp::Ordering::Less => emit_error!(group.name(), "Group can never be satisfied"),
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
-                    } 
+                    }
                     match expected.cmp(&valid_range.end) {
                         std::cmp::Ordering::Less => {}
                         std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
@@ -53,7 +53,7 @@ impl<'a> GroupGenerator<'a> {
                     match expected.cmp(&valid_range.start) {
                         std::cmp::Ordering::Less => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
-                    } 
+                    }
                     match expected.cmp(&valid_range.end) {
                         std::cmp::Ordering::Less => {}
                         std::cmp::Ordering::Equal => emit_warning!(group.name(), "Group can only be satisfied if all fields are initialized"; hint = "Consider removing group and using [builder(mandatory)] instead"),
@@ -64,7 +64,7 @@ impl<'a> GroupGenerator<'a> {
                     match expected.cmp(&valid_range.start) {
                         std::cmp::Ordering::Less => emit_error!(group.name(), "This group prevents all of the fields to be initialized"; hint = "Removing the group and use [builder(skip)] instead"),
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {},
-                    } 
+                    }
                     match expected.cmp(&valid_range.end) {
                         std::cmp::Ordering::Less => {}
                         std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => emit_warning!(group.name(), "Group has no effect"; hint = "Consider removing the group"),
