@@ -385,7 +385,7 @@ impl FieldSettings {
             }
             Ok(())
         })
-        .unwrap()
+        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
     }
 }
 
