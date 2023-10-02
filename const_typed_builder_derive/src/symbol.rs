@@ -32,6 +32,8 @@ pub const SOLVER: Symbol = Symbol("solver");
 pub const BRUTE_FORCE: Symbol = Symbol("brute_force");
 /// Constant representing the `compiler` symbol.
 pub const COMPILER: Symbol = Symbol("compiler");
+/// Constant representing the `skip` symbol.
+pub const SKIP: Symbol = Symbol("skip");
 
 impl<'a> From<&'a String> for Symbol<'a> {
     fn from(value: &'a String) -> Self {
