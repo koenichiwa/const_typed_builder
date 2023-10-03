@@ -88,6 +88,7 @@ let launchd = Launchd::builder()
 ```
 
 ### Attributes
+This is a quick overview of the features in this library. See [`const_typed_builder_derive::Builder`] for a more in depth explanation of all the features, including examples.
 **Struct**
 - `#[builder(assume_mandatory)]`: Indicates that all fields in the struct should be assumed as mandatory.
   If provided without an equals sign (e.g., `#[builder(assume_mandatory)]`), it sets the `mandatory` flag for fields to true.
