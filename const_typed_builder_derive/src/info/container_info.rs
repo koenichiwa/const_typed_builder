@@ -19,7 +19,7 @@ pub enum SolveType {
 }
 /// Represents the information about a struct used for code generation.
 #[derive(Debug)]
-pub struct StructInfo<'a> {
+pub struct ContainerInfo<'a> {
     /// The identifier of the struct.
     ident: &'a syn::Ident,
     /// The visibility of the struct.
@@ -39,8 +39,8 @@ pub struct StructInfo<'a> {
     solve_type: SolveType,
 }
 
-impl<'a> StructInfo<'a> {
-    /// Creates a new `StructInfo` instance from a `syn::DeriveInput`.
+impl<'a> ContainerInfo<'a> {
+    /// Creates a new `ContainerInfo` instance from a `syn::DeriveInput`.
     ///
     /// # Arguments
     ///
@@ -48,7 +48,7 @@ impl<'a> StructInfo<'a> {
     ///
     /// # Returns
     ///
-    /// An optional `StructInfo` instance if successful,
+    /// An optional `ContainerInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
         match &ast {
             syn::DeriveInput {
@@ -66,7 +66,7 @@ impl<'a> StructInfo<'a> {
                     emit_error!(fields, "No fields found");
                 }
 
-                let mut settings = StructSettings::new().with_attrs(attrs);
+                let mut settings = ContainerSettings::new().with_attrs(attrs);
 
                 let field_infos = fields
                     .named
@@ -75,7 +75,7 @@ impl<'a> StructInfo<'a> {
                     .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
                     .collect::<Option<Vec<_>>>()?;
 
-                let info = StructInfo {
+                let info = ContainerInfo {
                     ident,
                     vis,
                     generics,
@@ -138,7 +138,7 @@ impl<'a> StructInfo<'a> {
 
 /// Represents settings for struct generation.
 #[derive(Debug)]
-pub struct StructSettings {
+pub struct ContainerSettings {
     /// The suffix to be added to the generated builder struct name.
     builder_suffix: String,
     /// The suffix to be added to the generated data struct name.
@@ -153,9 +153,9 @@ pub struct StructSettings {
     solver_type: SolveType,
 }
 
-impl Default for StructSettings {
+impl Default for ContainerSettings {
     fn default() -> Self {
-        StructSettings {
+        ContainerSettings {
             builder_suffix: "Builder".to_string(),
             data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
@@ -166,10 +166,10 @@ impl Default for StructSettings {
     }
 }
 
-impl StructSettings {
+impl ContainerSettings {
     /// Creates a new `StructSettings` instance with default values.
     fn new() -> Self {
-        StructSettings::default()
+        ContainerSettings::default()
     }
 
     /// Add a field index to the set of mandatory indices

@@ -10,7 +10,7 @@ use self::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator, target_generator::TargetGenerator,
 };
-use crate::info::StructInfo;
+use crate::info::ContainerInfo;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -31,7 +31,7 @@ impl<'a> Generator<'a> {
     /// # Returns
     ///
     /// A `Generator` instance initialized with the provided `StructInfo`.
-    pub fn new(info: &'a StructInfo<'a>) -> Self {
+    pub fn new(info: &'a ContainerInfo<'a>) -> Self {
         let generics_gen = GenericsGenerator::new(info.field_infos(), info.generics());
         let field_gen = FieldGenerator::new(info.field_infos());
         let group_gen = GroupGenerator::new(info.groups().values().collect());

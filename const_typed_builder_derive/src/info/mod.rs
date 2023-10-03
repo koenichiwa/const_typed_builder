@@ -1,7 +1,7 @@
 mod field_info;
 mod group_info;
-mod struct_info;
+mod container_info;
 
 pub use field_info::{FieldInfo, FieldKind};
 pub use group_info::{GroupInfo, GroupType};
-pub use struct_info::{SolveType, StructInfo};
+pub use container_info::{SolveType, ContainerInfo};

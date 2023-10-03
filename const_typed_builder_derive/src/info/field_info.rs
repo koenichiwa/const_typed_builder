@@ -1,4 +1,4 @@
-use super::struct_info::StructSettings;
+use super::container_info::ContainerSettings;
 use crate::{
     symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE, SKIP},
     CONST_IDENT_PREFIX,
@@ -46,7 +46,7 @@ impl<'a> FieldInfo<'a> {
     /// An otpional `FieldInfo` instance if successful.
     pub fn new(
         field: &'a syn::Field,
-        struct_settings: &mut StructSettings,
+        struct_settings: &mut ContainerSettings,
         index: usize,
     ) -> Option<Self> {
         if let syn::Field {
