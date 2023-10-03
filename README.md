@@ -8,7 +8,7 @@ To use the `Builder` derive macro, you should have the `const_typed_builder` cra
 
 ```toml
 [dependencies]
-const_typed_builder = "0.2"
+const_typed_builder = "0.3"
 ```
 
 Also, make sure you have the following import statements in your code:
