@@ -37,24 +37,26 @@ impl<'a> FieldGenerator<'a> {
     pub fn data_struct_fields(&self) -> Vec<TokenStream> {
         self.fields
             .iter()
-            .filter_map(|field| {
-                let field_name = field.ident();
-
-                let data_field_type = match field.kind() {
-                    FieldKind::Skipped => return None,
-                    FieldKind::Optional => field.ty().to_token_stream(),
-                    FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
-                    FieldKind::Mandatory => {
-                        let ty = field.ty();
-                        quote!(Option<#ty>)
-                    }
-                    FieldKind::Grouped => field.ty().to_token_stream(),
-                };
-
-                let tokens = quote!(
-                    pub #field_name: #data_field_type
-                );
-                Some(tokens)
+            .flat_map(|(variant, fields)|{
+                fields.iter().filter_map(|field| {
+                    let field_name = field.ident();
+    
+                    let data_field_type = match field.kind() {
+                        FieldKind::Skipped => return None,
+                        FieldKind::Optional => field.ty().to_token_stream(),
+                        FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
+                        FieldKind::Mandatory => {
+                            let ty = field.ty();
+                            quote!(Option<#ty>)
+                        }
+                        FieldKind::Grouped => field.ty().to_token_stream(),
+                    };
+    
+                    let tokens = quote!(
+                        pub #field_name: #data_field_type
+                    );
+                    Some(tokens)
+                })
             })
             .collect()
     }
@@ -64,26 +66,29 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `Vec<TokenStream>` representing the fields for the `From` trait implementation. Either containing `unwrap`, `None` or just the type.
-    pub fn data_impl_from_fields(&self) -> Vec<TokenStream> {
+    pub fn data_impl_from_fields(&self) -> Vec<(usize, Option::<&syn::Ident>, Vec<TokenStream>)> {
         self.fields
             .iter()
-            .map(|field| {
-                let field_name = field.ident();
-                let tokens = match field.kind() {
-                    FieldKind::Skipped => quote!(#field_name: None),
-                    FieldKind::Mandatory if field.is_option_type() => {
-                        quote!(#field_name: data.#field_name)
-                    }
-                    FieldKind::Optional | FieldKind::Grouped => {
-                        quote!(#field_name: data.#field_name)
-                    }
-                    FieldKind::Mandatory => {
-                        quote!(#field_name: data.#field_name.unwrap())
-                    }
-                };
-                tokens
-            })
-            .collect()
+            .enumerate()
+            .map(|(index, (variant, fields))| {
+                let fields: Vec<_> = fields.iter().map(|field|{
+                    let field_name = field.ident();
+                    let tokens = match field.kind() {
+                        FieldKind::Skipped => quote!(#field_name: None),
+                        FieldKind::Mandatory if field.is_option_type() => {
+                            quote!(#field_name: data.#field_name)
+                        }
+                        FieldKind::Optional | FieldKind::Grouped => {
+                            quote!(#field_name: data.#field_name)
+                        }
+                        FieldKind::Mandatory => {
+                            quote!(#field_name: data.#field_name.unwrap())
+                        }
+                    };
+                    tokens
+                }).collect();
+                (index, variant.as_ref(), fields)
+            }).collect()
     }
 
     /// Generates default field values for the data struct and returns a token stream.
@@ -95,10 +100,13 @@ impl<'a> FieldGenerator<'a> {
         let fields_none = self
             .fields
             .iter()
-            .filter(|field| field.kind() != &FieldKind::Skipped)
-            .map(|field| {
-                let field_name = field.ident();
-                quote!(#field_name: None)
+            .flat_map(|(variant, fields)| {
+                fields.iter()
+                .filter(|field| field.kind() != &FieldKind::Skipped)
+                .map(|field| {
+                    let field_name = field.ident();
+                    quote!(#field_name: None)
+                })
             });
         quote!(
             #(#fields_none),*
