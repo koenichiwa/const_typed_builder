@@ -10,7 +10,8 @@ use self::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator, target_generator::TargetGenerator,
 };
-use crate::{info::StructInfo, StreamResult};
+use crate::info::StructInfo;
+use proc_macro2::TokenStream;
 use quote::quote;
 
 /// The `Generator` struct is responsible for generating code for the builder pattern based on the provided `StructInfo`.
@@ -63,16 +64,16 @@ impl<'a> Generator<'a> {
     ///
     /// # Returns
     ///
-    /// A `StreamResult` representing the generated token stream.
-    pub fn generate(&self) -> StreamResult {
+    /// A `TokenStream` representing the generated token stream.
+    pub fn generate(&self) -> TokenStream {
         let target = self.target_gen.generate();
-        let data = self.data_gen.generate()?;
-        let builder = self.builder_gen.generate()?;
+        let data = self.data_gen.generate();
+        let builder = self.builder_gen.generate();
         let tokens = quote!(
             #target
             #builder
             #data
         );
-        Ok(tokens)
+        tokens
     }
 }

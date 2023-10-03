@@ -18,6 +18,8 @@ quote = "1.0"
 proc-macro2 = "1.0"
 either = "1.9"
 itertools = "0.11.0"
+convert_case = "0.6"
+proc-macro-error = "1.0"
 
 [lib]
 proc-macro = true

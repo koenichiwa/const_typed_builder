@@ -244,10 +244,13 @@ mod test {
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
+            #[builder(group = baz)]
+            baz: Option<String>,
         }
 
         let expected = Foo {
             bar: Some("Hello world!".to_string()),
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
@@ -261,10 +264,13 @@ mod test {
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
+            #[builder(group = baz)]
+            baz: Option<String>,
         }
 
         let expected = Foo {
             bar: Some("Hello world!".to_string()),
+            baz: None,
         };
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(expected, foo);
@@ -369,19 +375,6 @@ mod test {
             .baz("Hello".to_string())
             .build();
         assert_eq!(expected, foo);
-
-        // FIXME: Should fail or warn
-        #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(quz = single)]
-        pub struct Nope {
-            #[builder(group = quz)]
-            bar: Option<String>,
-            #[builder(group = quz)]
-            #[builder(mandatory)]
-            baz: Option<String>,
-            #[builder(mandatory)]
-            qux: Option<String>,
-        }
     }
 
     #[test]
@@ -654,5 +647,31 @@ mod test {
             .bar(|builder| Some(builder.baz("Hello world!".to_string()).build()))
             .build();
         assert_eq!(expected, foo);
+    }
+
+    #[test]
+    fn no_other_derive_necessary() {
+        #[derive(Builder)]
+        pub struct Foo {
+            bar: String,
+        }
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(foo.bar, "Hello world!");
+    }
+
+    #[test]
+    fn skip_field() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo {
+            bar: String,
+            #[builder(skip)]
+            baz: Option<String>,
+        }
+        let expected = Foo {
+            bar: "Hello world!".to_string(),
+            baz: None,
+        };
+        let foo = Foo::builder().bar("Hello world!".to_string()).build();
+        assert_eq!(foo, expected);
     }
 }

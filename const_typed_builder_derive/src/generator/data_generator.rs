@@ -1,5 +1,5 @@
 use super::{field_generator::FieldGenerator, generics_generator::GenericsGenerator};
-use crate::StreamResult;
+use proc_macro2::TokenStream;
 use quote::quote;
 
 /// The `DataGenerator` struct is responsible for generating code related to the data struct
@@ -42,24 +42,24 @@ impl<'a> DataGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `StreamResult` representing the generated code for the data struct and conversions.
-    pub fn generate(&self) -> StreamResult {
-        let data_struct = self.generate_struct()?;
-        let data_impl = self.generate_impl()?;
+    /// A `TokenStream` representing the generated code for the data struct and conversions.
+    pub fn generate(&self) -> TokenStream {
+        let data_struct = self.generate_struct();
+        let data_impl = self.generate_impl();
 
         let tokens = quote!(
             #data_struct
             #data_impl
         );
 
-        Ok(tokens)
+        tokens
     }
 
     /// Generates the implementation code for conversions between the data struct and the target struct.
-    fn generate_impl(&self) -> StreamResult {
+    fn generate_impl(&self) -> TokenStream {
         let data_name = self.data_name;
         let struct_name = self.target_name;
-        let from_fields = self.field_gen.data_impl_from_fields()?;
+        let from_fields = self.field_gen.data_impl_from_fields();
         let def_fields = self.field_gen.data_impl_default_fields();
 
         let (impl_generics, type_generics, where_clause) =
@@ -67,6 +67,7 @@ impl<'a> DataGenerator<'a> {
 
         let tokens = quote!(
             impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
+                #[doc(hidden)]
                 fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
                     #struct_name {
                         #(#from_fields),*
@@ -75,6 +76,7 @@ impl<'a> DataGenerator<'a> {
             }
 
             impl #impl_generics Default for #data_name #type_generics #where_clause {
+                #[doc(hidden)]
                 fn default() -> Self {
                     #data_name {
                         #def_fields
@@ -82,23 +84,23 @@ impl<'a> DataGenerator<'a> {
                 }
             }
         );
-        Ok(tokens)
+        tokens
     }
 
     /// Generates the code for the data struct itself.
-    fn generate_struct(&self) -> StreamResult {
+    fn generate_struct(&self) -> TokenStream {
         let data_name = self.data_name;
 
-        let fields = self.field_gen.data_struct_fields()?;
+        let fields = self.field_gen.data_struct_fields();
         let (impl_generics, _type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
-            #[derive(Debug)]
+            #[doc(hidden)]
             pub struct #data_name #impl_generics #where_clause{
                 #(#fields),*
             }
         );
-        Ok(tokens)
+        tokens
     }
 }

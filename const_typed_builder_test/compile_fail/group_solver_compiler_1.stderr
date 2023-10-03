@@ -1,14 +1,21 @@
-error: cannot find attribute `build` in this scope
- --> ./compile_fail/group_solver_compiler_1.rs:7:7
-  |
-7 |     #[build(solver = compiler)]
-  |       ^^^^^
-
-error[E0599]: no method named `build` found for struct `FooBuilder` in the current scope
-  --> ./compile_fail/group_solver_compiler_1.rs:12:62
+warning: unused variable: `foo`
+  --> ./compile_fail/group_solver_compiler_1.rs:14:9
    |
-5  |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
-   |                                             ------- method `build` not found for this struct
-...
-12 |     let foo = Foo::builder().bar("Hello world!".to_string()).build();
-   |                                                              ^^^^^ method not found in `FooBuilder<true>`
+14 |     let foo = Foo::builder().bar("Hello world!".to_string()).build();
+   |         ^^^ help: if this is intentional, prefix it with an underscore: `_foo`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+error[E0080]: evaluation of `main::FooBuilder::<true, false>::GROUP_VERIFIER` failed
+ --> ./compile_fail/group_solver_compiler_1.rs:5:45
+  |
+5 |     #[derive(Debug, Default, PartialEq, Eq, Builder)]
+  |                                             ^^^^^^^ the evaluated program panicked at '`.build()` failed because the bounds of group `baz` where not met (at_least 2)', $DIR/./compile_fail/group_solver_compiler_1.rs:5:45
+  |
+  = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `panic` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: the above error was encountered while instantiating `fn main::FooBuilder::<true, false>::build`
+  --> ./compile_fail/group_solver_compiler_1.rs:14:15
+   |
+14 |     let foo = Foo::builder().bar("Hello world!".to_string()).build();
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

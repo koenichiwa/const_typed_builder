@@ -1,14 +1,13 @@
-use std::collections::{BTreeSet, HashMap};
-
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
-use quote::format_ident;
-use syn::Token;
-
 use crate::symbol::{
     ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
     SOLVER,
 };
+use proc_macro_error::{emit_error, emit_warning};
+use quote::format_ident;
+use std::collections::{BTreeSet, HashMap};
+use syn::Token;
 
 /// A type alias for a collection of `FieldInfo` instances.
 type FieldInfos<'a> = Vec<FieldInfo<'a>>;
@@ -36,6 +35,7 @@ pub struct StructInfo<'a> {
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
     field_infos: FieldInfos<'a>,
+    /// The solver used to find all possible valid combinations for the groups
     solve_type: SolveType,
 }
 
@@ -48,50 +48,50 @@ impl<'a> StructInfo<'a> {
     ///
     /// # Returns
     ///
-    /// A `syn::Result` containing the `StructInfo` instance if successful,
-    pub fn new(ast: &'a syn::DeriveInput) -> syn::Result<Self> {
-        if let syn::DeriveInput {
-            attrs,
-            vis,
-            ident,
-            generics,
-            data:
-                syn::Data::Struct(syn::DataStruct {
-                    fields: syn::Fields::Named(fields),
-                    ..
-                }),
-        } = &ast
-        {
-            if fields.named.is_empty() {
-                return Err(syn::Error::new_spanned(fields, "No fields found"));
-            }
-
-            let mut settings = StructSettings::new().with_attrs(attrs)?;
-
-            let field_infos = fields
-                .named
-                .iter()
-                .enumerate()
-                .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
-                .collect::<syn::Result<Vec<_>>>()?;
-
-            let info = StructInfo {
-                ident,
+    /// An optional `StructInfo` instance if successful,
+    pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
+        match &ast {
+            syn::DeriveInput {
+                attrs,
                 vis,
+                ident,
                 generics,
-                builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
-                data_ident: format_ident!("{}{}", ident, settings.data_suffix),
-                _mandatory_indices: settings.mandatory_indices,
-                groups: settings.groups,
-                field_infos,
-                solve_type: settings.solver_type,
-            };
-            Ok(info)
-        } else {
-            Err(syn::Error::new_spanned(
-                ast,
-                "Builder is only supported for named structs",
-            ))
+                data:
+                    syn::Data::Struct(syn::DataStruct {
+                        fields: syn::Fields::Named(fields),
+                        ..
+                    }),
+            } => {
+                if fields.named.is_empty() {
+                    emit_error!(fields, "No fields found");
+                }
+
+                let mut settings = StructSettings::new().with_attrs(attrs);
+
+                let field_infos = fields
+                    .named
+                    .iter()
+                    .enumerate()
+                    .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
+                    .collect::<Option<Vec<_>>>()?;
+
+                let info = StructInfo {
+                    ident,
+                    vis,
+                    generics,
+                    builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
+                    data_ident: format_ident!("{}{}", ident, settings.data_suffix),
+                    _mandatory_indices: settings.mandatory_indices,
+                    groups: settings.groups,
+                    field_infos,
+                    solve_type: settings.solver_type,
+                };
+                Some(info)
+            }
+            _ => {
+                emit_error!(ast, "Builder is only supported for named structs",);
+                None
+            }
         }
     }
 
@@ -130,6 +130,7 @@ impl<'a> StructInfo<'a> {
         &self.groups
     }
 
+    /// Retrieves the solver type used to find all possible valid combinations for the groups
     pub fn solve_type(&self) -> SolveType {
         self.solve_type
     }
@@ -146,7 +147,9 @@ pub struct StructSettings {
     default_field_settings: FieldSettings,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
+    /// The indices of the mandatory fields
     mandatory_indices: BTreeSet<usize>,
+    /// The solver used to find all possible valid combinations for the groups
     solver_type: SolveType,
 }
 
@@ -169,10 +172,12 @@ impl StructSettings {
         StructSettings::default()
     }
 
+    /// Add a field index to the set of mandatory indices
     pub fn add_mandatory_index(&mut self, index: usize) -> bool {
         self.mandatory_indices.insert(index)
     }
 
+    /// Get a GroupInfo by its identifier
     pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut GroupInfo> {
         self.groups.get_mut(group_name)
     }
@@ -191,12 +196,9 @@ impl StructSettings {
     /// # Returns
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
-    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
-        attrs
-            .iter()
-            .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(self)
+    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> Self {
+        attrs.iter().for_each(|attr| self.handle_attribute(attr));
+        self
     }
 
     /// Handles the parsing and processing of attributes applied to a struct.
@@ -206,21 +208,33 @@ impl StructSettings {
     /// /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        if let Some(ident) = attr.path().get_ident() {
-            if ident == GROUP {
-                self.handle_group_attribute(attr)
-            } else if ident == BUILDER {
-                self.handle_builder_attribute(attr)
-            } else {
-                Ok(())
+    fn handle_attribute(&mut self, attr: &syn::Attribute) {
+        let attr_ident = match attr.path().require_ident() {
+            Ok(ident) => ident,
+            Err(err) => {
+                emit_error!(
+                    attr.path(), "Can't parse attribute";
+                    note = err
+                );
+                return;
             }
-        } else {
-            Ok(())
+        };
+        match attr.meta.require_list() {
+            Ok(list) => {
+                if list.tokens.is_empty() {
+                    emit_warning!(list, "Empty atrribute list");
+                }
+            }
+            Err(err) => emit_error!(
+                attr, "Attribute expected contain a list of specifiers";
+                help = "Try specifying it like #[{}(specifier)]", attr_ident;
+                note = err
+            ),
+        }
+        match (&attr_ident.to_string()).into() {
+            GROUP => self.handle_group_attribute(attr),
+            BUILDER => self.handle_builder_attribute(attr),
+            _ => emit_error!(&attr, "Unknown attribute"),
         }
     }
 
@@ -240,51 +254,66 @@ impl StructSettings {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_builder_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        let list = attr.meta.require_list()?;
-        if list.tokens.is_empty() {
-            return Ok(());
-        }
-
+    fn handle_builder_attribute(&mut self, attr: &syn::Attribute) {
         attr.parse_nested_meta(|meta| {
-            if meta.path == ASSUME_MANDATORY {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.default_field_settings.mandatory = value;
-                    }
-                } else {
-                    self.default_field_settings.mandatory = true;
+            let path_ident = match meta.path.require_ident() {
+                Ok(ident) => ident,
+                Err(err) => {
+                    emit_error!(
+                        &attr.meta, "Specifier cannot be parsed";
+                        help = "Try specifying it like #[{}(specifier)]", BUILDER;
+                        note = err
+                    );
+                    return Ok(());
                 }
-            }
-            if meta.path == SOLVER {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
-                        let solve_type = path
-                            .get_ident()
-                            .ok_or_else(|| syn::Error::new_spanned(&path, "Can't parse solver"))?;
-                        match (&solve_type.to_string()).into() {
-                            BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
-                            COMPILER => self.solver_type = SolveType::Compiler,
-                            _ => Err(syn::Error::new_spanned(&path, "Unknown solver type"))?,
+            };
+
+            match (&path_ident.to_string()).into() {
+                ASSUME_MANDATORY => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        match &expr {
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                                ..
+                            }) => self.default_field_settings.mandatory = *value,
+                            expr => emit_error!(expr, "Can't parse expression"),
                         }
                     } else {
-                        Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?;
+                        self.default_field_settings.mandatory = true;
                     }
-                } else {
-                    Err(syn::Error::new_spanned(meta.path, "Can't parse solver"))?;
+                }
+                SOLVER => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
+                            if let Some(solve_type) = path.get_ident() {
+                                match (&solve_type.to_string()).into() {
+                                    BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
+                                    COMPILER => self.solver_type = SolveType::Compiler,
+                                    _ => emit_error!(&path, "Unknown solver type"),
+                                }
+                            } else {
+                                emit_error!(meta.path, "Can't parse solver specification");
+                            }
+                        } else {
+                            emit_error!(meta.path, "Can't parse solver specification");
+                        }
+                    } else {
+                        emit_error!(meta.path, "Solver type needs to be specified");
+                    }
+                }
+                _ => {
+                    emit_error!(meta.path, "Unknown attribute");
                 }
             }
             Ok(())
+        })
+        .unwrap_or_else(|err| {
+            emit_error!(
+                &attr.meta, "Unknown error";
+                note = err
+            )
         })
     }
 
@@ -304,77 +333,133 @@ impl StructSettings {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the group attribute applied to the struct.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_group_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        let list = attr.meta.require_list()?;
-        if list.tokens.is_empty() {
-            return Ok(());
-        }
-
+    fn handle_group_attribute(&mut self, attr: &syn::Attribute) {
         attr.parse_nested_meta(|meta| {
-            let group_name = meta
-                .path
-                .get_ident()
-                .ok_or_else(|| syn::Error::new_spanned(&attr.meta, "Can't parse group name"))?
-                .clone();
+            let group_name = match meta.path.require_ident() {
+                Ok(ident) => ident,
+                Err(err) => {
+                    emit_error!(
+                        &meta.path , "Group name is not specified correctly";
+                        help = "Try to define it like `#[{}(foo = {}(1))]`", GROUP, AT_LEAST;
+                        note = err
+                    );
+                    return Ok(());
+                }
+            };
 
-            let expr: syn::Expr = meta.value()?.parse()?;
-
-            let group_type = match &expr {
+            let group_type = match meta.value()?.parse()? {
                 syn::Expr::Call(syn::ExprCall { func, args, .. }) => {
-                    let group_type = if let syn::Expr::Path(syn::ExprPath { path, .. }) =
-                        func.as_ref()
-                    {
-                        path.get_ident()
-                            .ok_or_else(|| syn::Error::new_spanned(func, "Can't parse group type"))
-                    } else {
-                        Err(syn::Error::new_spanned(func, "Can't find group type"))
-                    }?;
+                    let group_type = match func.as_ref() {
+                        syn::Expr::Path(syn::ExprPath { path, .. }) => match path.require_ident() {
+                            Ok(ident) => ident,
+                            Err(err) => {
+                                emit_error!(
+                                    &meta.path , "Group type is not specified correctly";
+                                    help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST;
+                                    note = err
+                                );
+                                return Ok(());
+                            }
+                        },
+                        _ => {
+                            emit_error!(
+                                &attr.meta, "No group type specified";
+                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                            );
+                            return Ok(());
+                        }
+                    };
 
-                    let group_args = if let Some(syn::Expr::Lit(syn::ExprLit {
-                        attrs: _,
-                        lit: syn::Lit::Int(val),
-                    })) = args.first()
-                    {
-                        val.base10_parse::<usize>()
-                    } else {
-                        Err(syn::Error::new_spanned(func, "Can't parse group args"))
-                    }?;
-                    match (&group_type.to_string()).into() {
-                        EXACT => Ok(GroupType::Exact(group_args)),
-                        AT_LEAST => Ok(GroupType::AtLeast(group_args)),
-                        AT_MOST => Ok(GroupType::AtMost(group_args)),
-                        SINGLE => Err(syn::Error::new_spanned(
-                            args,
-                            "`single` doesn't take any arguments",
-                        )),
-                        _ => Err(syn::Error::new_spanned(group_type, "Unknown group type")),
+                    match args.first() {
+                        Some(syn::Expr::Lit(syn::ExprLit {
+                            attrs: _,
+                            lit: syn::Lit::Int(val),
+                        })) => match val.base10_parse::<usize>() {
+                            Ok(group_args) => match (&group_type.to_string()).into() {
+                                EXACT => GroupType::Exact(group_args),
+                                AT_LEAST => GroupType::AtLeast(group_args),
+                                AT_MOST => GroupType::AtMost(group_args),
+                                SINGLE => {
+                                    emit_error!(
+                                        args,
+                                        "`{}` doesn't take any arguments", SINGLE;
+                                        help = "`{}` is shorthand for {}(1)", SINGLE, EXACT
+                                    );
+                                    return Ok(());
+                                }
+                                _ => {
+                                    emit_error!(
+                                        group_type, "Unknown group type";
+                                        help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                                    );
+                                    return Ok(());
+                                }
+                            },
+                            Err(err) => {
+                                emit_error!(
+                                    val, "Couldn't parse group argument";
+                                    note = err
+                                );
+                                return Ok(());
+                            }
+                        },
+
+                        _ => {
+                            emit_error!(func, "Can't parse group argument");
+                            return Ok(());
+                        }
                     }
                 }
                 syn::Expr::Path(syn::ExprPath { path, .. }) => {
-                    let group_type = path
-                        .get_ident()
-                        .ok_or_else(|| syn::Error::new_spanned(path, "Can't parse group type"))?;
+                    let group_type = match path.require_ident() {
+                        Ok(ident) => ident,
+                        Err(err) => {
+                            emit_error!(
+                                &meta.path , "Group type is not specified correctly";
+                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST;
+                                note = err
+                            );
+                            return Ok(());
+                        }
+                    };
                     match (&group_type.to_string()).into() {
-                        EXACT | AT_LEAST | AT_MOST => Err(syn::Error::new_spanned(
-                            &attr.meta,
-                            "Missing arguments for group type",
-                        )),
-                        SINGLE => Ok(GroupType::Exact(1)),
-                        _ => Err(syn::Error::new_spanned(&attr.meta, "Can't parse group")),
+                        EXACT | AT_LEAST | AT_MOST => {
+                            emit_error!(
+                                &attr.meta,
+                                "Missing arguments for group type";
+                                help = "Try `{}(1)`, or any other usize", &group_type
+                            );
+                            return Ok(());
+                        }
+                        SINGLE => GroupType::Exact(1),
+                        _ => {
+                            emit_error!(
+                                group_type,
+                                "Unknown group type";
+                                help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                            );
+                            return Ok(());
+                        }
                     }
                 }
-                _ => Err(syn::Error::new_spanned(&attr.meta, "Can't parse group")),
+                _ => {
+                    emit_error!(
+                        &attr.meta, "No group type specified";
+                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                    );
+                    return Ok(());
+                }
             };
 
             self.groups.insert(
                 group_name.to_string(),
-                GroupInfo::new(group_name, group_type?),
+                GroupInfo::new(group_name.clone(), group_type),
             );
             Ok(())
         })
+        .unwrap_or_else(|err| emit_error!(
+            &attr.meta, "Unknown error";
+            note = err
+        ))
     }
 }

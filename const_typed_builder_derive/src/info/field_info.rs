@@ -1,15 +1,13 @@
-use std::collections::HashSet;
-
 use super::struct_info::StructSettings;
-use proc_macro2::Span;
-use quote::format_ident;
-use syn::{ExprPath, Token};
-
 use crate::{
-    symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE},
-    util::{inner_type, is_option},
+    symbol::{BUILDER, GROUP, MANDATORY, OPTIONAL, PROPAGATE, SKIP},
     CONST_IDENT_PREFIX,
 };
+use proc_macro2::Span;
+use proc_macro_error::{emit_error, emit_warning};
+use quote::format_ident;
+use std::collections::HashSet;
+use syn::{ExprPath, Token};
 
 /// Represents the information about a struct field used for code generation.
 #[derive(Debug, PartialEq, Eq)]
@@ -30,6 +28,8 @@ pub enum FieldKind {
     Mandatory,
     /// Indicates a field that is part of one or several groups.
     Grouped,
+    /// Indicates a field that not included in the builder.
+    Skipped,
 }
 
 impl<'a> FieldInfo<'a> {
@@ -43,12 +43,12 @@ impl<'a> FieldInfo<'a> {
     ///
     /// # Returns
     ///
-    /// A `Result` containing the `FieldInfo` instance or an error if the field is unnamed.
+    /// An otpional `FieldInfo` instance if successful.
     pub fn new(
         field: &'a syn::Field,
         struct_settings: &mut StructSettings,
         index: usize,
-    ) -> syn::Result<Self> {
+    ) -> Option<Self> {
         if let syn::Field {
             attrs,
             ident: Some(ident),
@@ -62,9 +62,18 @@ impl<'a> FieldInfo<'a> {
                 .default_field_settings()
                 .clone()
                 .with_ty(ty)
-                .with_attrs(attrs)?;
+                .with_attrs(attrs)
+                .ok()?;
 
-            let info = if settings.mandatory {
+            let info = if settings.skipped {
+                Self {
+                    field,
+                    ident,
+                    index,
+                    propagate: settings.propagate,
+                    kind: FieldKind::Skipped,
+                }
+            } else if settings.mandatory {
                 struct_settings.add_mandatory_index(index); // TODO: Check bool
                 Self {
                     field,
@@ -75,10 +84,16 @@ impl<'a> FieldInfo<'a> {
                 }
             } else if !settings.groups.is_empty() {
                 for group_name in settings.groups {
-                    struct_settings
-                        .group_by_name_mut(&group_name.to_string())
-                        .ok_or(syn::Error::new_spanned(group_name, "Can't find group"))?
-                        .associate(index);
+                    if let Some(group) = struct_settings.group_by_name_mut(&group_name.to_string())
+                    {
+                        group.associate(index);
+                    } else {
+                        emit_error!(
+                            group_name,
+                            format!("No group called {group_name} is available");
+                            hint = format!("You might want to add a #[{GROUP}(...)] attribute to the container")
+                        );
+                    }
                 }
 
                 Self {
@@ -98,12 +113,10 @@ impl<'a> FieldInfo<'a> {
                 }
             };
 
-            Ok(info)
+            Some(info)
         } else {
-            Err(syn::Error::new_spanned(
-                field,
-                "Unnamed fields are not supported",
-            ))
+            emit_error!(field, "Unnamed fields are not supported");
+            None
         }
     }
 
@@ -119,7 +132,7 @@ impl<'a> FieldInfo<'a> {
 
     /// Checks if the field's type is an Option.
     pub fn is_option_type(&self) -> bool {
-        is_option(&self.field.ty)
+        util::is_option(&self.field.ty)
     }
 
     /// Retrieves the type of the field.
@@ -129,7 +142,7 @@ impl<'a> FieldInfo<'a> {
 
     /// Retrieves the inner type of the field if it is wrapped in an Option
     pub fn inner_type(&self) -> Option<&syn::Type> {
-        inner_type(&self.field.ty)
+        util::inner_type(&self.field.ty)
     }
 
     /// Retrieves the kind of the field, which can be Optional, Mandatory, or Grouped.
@@ -148,16 +161,19 @@ impl<'a> FieldInfo<'a> {
     }
 
     /// Retrieves the input type for the builder's setter method.
-    pub fn setter_input_type(&self) -> &syn::Type {
+    pub fn setter_input_type(&self) -> Option<&syn::Type> {
         match self.kind() {
-            FieldKind::Optional => self.ty(),
-            FieldKind::Mandatory if self.is_option_type() => self.inner_type().expect(
+            FieldKind::Optional => Some(self.ty()),
+            FieldKind::Mandatory if self.is_option_type() => Some(self.inner_type().expect(
                 "Couldn't read inner type of option, even though it's seen as an Option type",
-            ),
-            FieldKind::Mandatory => self.ty(),
-            FieldKind::Grouped => self
-                .inner_type()
-                .expect("Couldn't read inner type of option, even though it's marked as grouped"),
+            )),
+            FieldKind::Mandatory => Some(self.ty()),
+            FieldKind::Grouped => {
+                Some(self.inner_type().expect(
+                    "Couldn't read inner type of option, even though it's marked as grouped",
+                ))
+            }
+            FieldKind::Skipped => None,
         }
     }
 }
@@ -177,6 +193,8 @@ impl<'a> Ord for FieldInfo<'a> {
 /// Represents settings for struct field generation.
 #[derive(Debug, Clone)]
 pub struct FieldSettings {
+    /// Indicates that this field is skipped.
+    pub skipped: bool,
     /// Indicates if the field is mandatory.
     pub mandatory: bool,
     /// Indicates if the field should propagate values.
@@ -190,6 +208,7 @@ pub struct FieldSettings {
 impl Default for FieldSettings {
     fn default() -> FieldSettings {
         FieldSettings {
+            skipped: false,
             mandatory: false,
             propagate: false,
             input_name: syn::Ident::new("input", Span::call_site()),
@@ -214,10 +233,8 @@ impl FieldSettings {
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
     fn with_attrs(mut self, attrs: &[syn::Attribute]) -> syn::Result<Self> {
-        attrs
-            .iter()
-            .map(|attr| self.handle_attribute(attr))
-            .collect::<Result<Vec<_>, _>>()?;
+        attrs.iter().for_each(|attr| self.handle_attribute(attr));
+        // .collect::<Result<Vec<_>, _>>()?;
         Ok(self)
     }
 
@@ -231,7 +248,7 @@ impl FieldSettings {
     ///
     /// The updated `FieldSettings` instance.
     fn with_ty(mut self, ty: &syn::Type) -> Self {
-        if !self.mandatory && !is_option(ty) {
+        if !self.mandatory && !util::is_option(ty) {
             self.mandatory = true;
         }
         self
@@ -261,92 +278,187 @@ impl FieldSettings {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the field.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
-    fn handle_attribute(&mut self, attr: &syn::Attribute) -> syn::Result<()> {
-        if let Some(ident) = attr.path().get_ident() {
-            if ident != BUILDER {
-                return Ok(());
+    fn handle_attribute(&mut self, attr: &syn::Attribute) {
+        let attr_ident = match attr.path().require_ident() {
+            Ok(ident) if ident == BUILDER => ident,
+            Ok(ident) => {
+                emit_error!(ident, format!("{ident} can't be used as a field attribute"));
+                return;
             }
-        }
-        let list = attr.meta.require_list()?;
-        if list.tokens.is_empty() {
-            return Ok(());
+            Err(err) => {
+                emit_error!(
+                    attr.path(), "Can't parse attribute";
+                    note = err
+                );
+                return;
+            }
+        };
+
+        match attr.meta.require_list() {
+            Ok(list) => {
+                if list.tokens.is_empty() {
+                    emit_warning!(list, "Empty atrribute list");
+                }
+            }
+            Err(err) => emit_error!(
+                attr, "Attribute expected contain a list of specifiers";
+                help = "Try specifying it like #[{}(specifier)]", attr_ident;
+                note = err
+            ),
         }
 
         attr.parse_nested_meta(|meta| {
-            if meta.path == MANDATORY {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.mandatory = value;
-                    }
-                } else {
-                    self.mandatory = true;
+            let path_ident = match meta.path.require_ident() {
+                Ok(ident) => ident,
+                Err(err) => {
+                    emit_error!(
+                        &attr.meta, "Specifier cannot be parsed";
+                        help = "Try specifying it like #[{}(specifier)]", attr_ident;
+                        note = err
+                    );
+                    return Ok(());
                 }
-            }
-            if meta.path == OPTIONAL {
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                        ..
-                    }) = expr
-                    {
-                        self.mandatory = !value;
-                    }
-                } else {
-                    self.mandatory = false;
-                }
-            }
-            if meta.path == GROUP {
-                if self.mandatory {
-                    return Err(syn::Error::new_spanned(
-                        &meta.path,
-                        "Only optionals in group",
-                    ));
-                }
-                if meta.input.peek(Token![=]) {
-                    let expr: syn::Expr = meta.value()?.parse()?;
-                    if let syn::Expr::Path(ExprPath { path, .. }) = &expr {
-                        let group_name = path
-                            .get_ident()
-                            .ok_or(syn::Error::new_spanned(path, "Can't parse group"))?;
+            };
 
-                        if !self.groups.insert(group_name.clone()) {
-                            return Err(syn::Error::new_spanned(
-                                &expr,
-                                "Multiple adds to the same group",
-                            ));
-                        }
-                    }
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Str(lit),
-                        ..
-                    }) = &expr
-                    {
-                        if !self
-                            .groups
-                            .insert(syn::Ident::new(lit.value().as_str(), lit.span()))
+            match (&path_ident.to_string()).into() {
+                SKIP => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
                         {
-                            return Err(syn::Error::new_spanned(
-                                &expr,
-                                "Multiple adds to the same group",
-                            ));
+                            self.skipped = value;
+                        }
+                    } else {
+                        self.skipped = true;
+                    }
+                }
+                MANDATORY => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
+                        {
+                            self.mandatory = value;
+                        }
+                    } else {
+                        self.mandatory = true;
+                    }
+                }
+                OPTIONAL => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Bool(syn::LitBool { value, .. }),
+                            ..
+                        }) = expr
+                        {
+                            self.mandatory = !value;
+                        }
+                    } else {
+                        self.mandatory = false;
+                    }
+                }
+                GROUP => {
+                    if meta.input.peek(Token![=]) {
+                        let expr: syn::Expr = meta.value()?.parse()?;
+                        let group_name = match expr {
+                            syn::Expr::Path(ExprPath { path, .. }) => {
+                                match path.require_ident() {
+                                    Ok(ident) => ident,
+                                    Err(err) => {
+                                        emit_error!(
+                                            path, "Group name not specified correctly";
+                                            help = "Try defining it like #[{}(foo)]", BUILDER;
+                                            note = err
+                                        );
+                                        return Ok(());
+                                    }
+                                }.clone()
+                            }
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Str(lit),
+                                ..
+                            }) => {
+                                syn::Ident::new(lit.value().as_str(), lit.span())
+                            }
+                            expr => {
+                                emit_error!(expr, "Can't parse group name");
+                                return Ok(());
+                            },
+                        };
+                        if self.groups.contains(&group_name) {
+                            emit_error!(
+                                group_name.span(), "Multiple adds to the same group";
+                                help = self.groups.get(&group_name).unwrap().span() => "Remove this attribute"
+                            );
+                        } else {
+                            self.groups.insert(group_name);
                         }
                     }
                 }
+                PROPAGATE => {
+                    self.propagate = true;
+                }
+                _ => {
+                    emit_error!(&attr.meta, "Unknown attribute")
+                }
             }
-            if meta.path == PROPAGATE {
-                self.propagate = true;
+
+            if self.mandatory && !self.groups.is_empty() {
+                emit_error!(
+                    &meta.path,
+                    format!("Can't use both {MANDATORY} and {GROUP} attributes");
+                    hint = "Remove either types of attribute from this field"
+                );
             }
             Ok(())
         })
+        .unwrap_or_else(|err| emit_error!(
+            &attr.meta, "Unknown error";
+            note = err
+        ))
+    }
+}
+
+mod util {
+    pub fn is_option(ty: &syn::Type) -> bool {
+        if let syn::Type::Path(type_path) = ty {
+            if type_path.qself.is_some() {
+                return false;
+            }
+            if let Some(segment) = type_path.path.segments.last() {
+                segment.ident == syn::Ident::new("Option", segment.ident.span())
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn inner_type(ty: &syn::Type) -> Option<&syn::Type> {
+        let path = if let syn::Type::Path(type_path) = ty {
+            if type_path.qself.is_some() {
+                return None;
+            }
+            &type_path.path
+        } else {
+            return None;
+        };
+        let segment = path.segments.last()?;
+        let syn::PathArguments::AngleBracketed(generic_params) = &segment.arguments else {
+            return None;
+        };
+
+        if let syn::GenericArgument::Type(inner) = generic_params.args.first()? {
+            Some(inner)
+        } else {
+            None
+        }
     }
 }

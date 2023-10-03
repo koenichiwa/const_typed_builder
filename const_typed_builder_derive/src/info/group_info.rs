@@ -1,6 +1,7 @@
-use std::{collections::BTreeSet, hash::Hash};
+use proc_macro_error::{emit_error, emit_warning};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
+use std::{cmp::Ordering, collections::BTreeSet, hash::Hash};
 
 /// Represents information about a group, including its name, member count, and group type.
 #[derive(Debug, Clone)]
@@ -43,10 +44,12 @@ impl GroupInfo {
         }
     }
 
+    /// Associate a field index with this group
     pub fn associate(&mut self, index: usize) -> bool {
         self.associated_indices.insert(index)
     }
 
+    /// Retrieves all associated indices
     pub fn indices(&self) -> &BTreeSet<usize> {
         &self.associated_indices
     }
@@ -74,6 +77,85 @@ impl GroupInfo {
             GroupType::Exact(count) => applicable_indices_count == count,
             GroupType::AtLeast(count) => applicable_indices_count >= count,
             GroupType::AtMost(count) => applicable_indices_count <= count,
+        }
+    }
+
+    /// Check if the group is formed correctly. Will emit errors or warnings if invalid.
+    pub fn check(&self) {
+        let valid_range = 1..self.indices().len();
+        if valid_range.is_empty() {
+            emit_warning!(self.name, format!("There is not an valid expected count"))
+        } else if !valid_range.contains(&self.expected_count()) {
+            emit_warning!(
+                self.name,
+                format!("Expected count is outside of valid range {valid_range:#?}")
+            );
+        }
+        match self.group_type() {
+            GroupType::Exact(expected) => {
+                match expected.cmp(&valid_range.start) {
+                    Ordering::Less => emit_error!(
+                        self.name,
+                        "This group prevents all of the fields to be initialized";
+                        hint = "Remove the group and use [builder(skip)] instead"
+                    ),
+                    Ordering::Equal | Ordering::Greater => {}
+                }
+                match expected.cmp(&valid_range.end) {
+                    Ordering::Less => {}
+                    Ordering::Equal => emit_warning!(
+                        self.name,
+                        "Group can only be satisfied if all fields are initialized";
+                        hint = "Consider removing group and using [builder(mandatory)] instead"
+                    ),
+                    Ordering::Greater => emit_error!(
+                        self.name,
+                        "Group can never be satisfied";
+                        note = format!("Expected amount of fields: exact {}, amount of available fields: {}", expected, valid_range.end)),
+                }
+            }
+            GroupType::AtLeast(expected) => {
+                match expected.cmp(&valid_range.start) {
+                    Ordering::Less => emit_warning!(
+                        self.name,
+                        "Group has no effect";
+                        hint = "Consider removing the group"
+                    ),
+                    Ordering::Equal | Ordering::Greater => {}
+                }
+                match expected.cmp(&valid_range.end) {
+                    Ordering::Less => {}
+                    Ordering::Equal => emit_warning!(
+                        self.name,
+                        "Group can only be satisfied if all fields are initialized";
+                        hint = "Consider removing group and using [builder(mandatory)] instead"
+                    ),
+                    Ordering::Greater => emit_error!(
+                        self.name,
+                        "Group can never be satisfied";
+                        note = format!("Expected amount of fields: at least {}, amount of available fields: {}", expected, valid_range.end);
+                    ),
+                }
+            }
+            GroupType::AtMost(expected) => {
+                match expected.cmp(&valid_range.start) {
+                    Ordering::Less => emit_error!(
+                        self.name,
+                        "This group prevents all of the fields to be initialized";
+                        hint = "Remove the group and use [builder(skip)] instead";
+                        note = format!("Expected amount of fields: at most {}, amount of available fields: {}", expected, valid_range.start)
+                    ),
+                    Ordering::Equal | Ordering::Greater => {}
+                }
+                match expected.cmp(&valid_range.end) {
+                    Ordering::Less => {}
+                    Ordering::Equal | Ordering::Greater => emit_warning!(
+                        self.name,
+                        "Group has no effect";
+                        hint = "Consider removing the group"
+                    ),
+                }
+            }
         }
     }
 }

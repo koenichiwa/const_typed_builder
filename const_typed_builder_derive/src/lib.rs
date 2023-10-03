@@ -1,17 +1,13 @@
 mod generator;
 mod info;
 mod symbol;
-mod util;
 
 use generator::Generator;
 use info::StructInfo;
 use proc_macro2::TokenStream;
+use proc_macro_error::proc_macro_error;
+use quote::quote;
 use syn::DeriveInput;
-
-/// A type alias for the result of a token stream operation.
-type StreamResult = syn::Result<TokenStream>;
-/// A type alias for the result of a vector of token streams.
-type VecStreamResult = syn::Result<Vec<TokenStream>>;
 
 const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST";
 
@@ -32,11 +28,11 @@ const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST";
 /// This will generate a builder pattern for `MyStruct`, allowing you to
 /// construct instances of `MyStruct` with a fluent API.
 #[proc_macro_derive(Builder, attributes(builder, group))]
+#[proc_macro_error]
 pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = syn::parse_macro_input!(input as DeriveInput);
-    impl_my_derive(&ast)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+    let stream = impl_my_derive(&ast);
+    quote!(#stream).into()
 }
 
 /// This function implements the custom derive for the `Builder` trait.
@@ -52,9 +48,9 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 ///
 /// # Returns
 ///
-/// A `StreamResult` representing the generated token stream.
-fn impl_my_derive(ast: &syn::DeriveInput) -> StreamResult {
+/// An optional `TokenStream` representing the generated token stream.
+fn impl_my_derive(ast: &syn::DeriveInput) -> Option<TokenStream> {
     let struct_info = StructInfo::new(ast)?;
     let generator = Generator::new(&struct_info);
-    generator.generate()
+    Some(generator.generate())
 }

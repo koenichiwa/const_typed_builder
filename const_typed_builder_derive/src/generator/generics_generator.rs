@@ -45,7 +45,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `TokenStream` representing the generated const generics.
     pub fn const_generics_valued(&self, value: bool) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional => None,
+            FieldKind::Skipped | FieldKind::Optional => None,
             FieldKind::Mandatory | FieldKind::Grouped => Some(Either::Right(syn::LitBool::new(
                 value,
                 field.ident().span(),
@@ -70,7 +70,7 @@ impl<'a> GenericsGenerator<'a> {
         value: bool,
     ) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional => None,
+            FieldKind::Skipped | FieldKind::Optional => None,
             _ if field == field_info => Some(Either::Right(syn::LitBool::new(
                 value,
                 field_info.ident().span(),
@@ -91,7 +91,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `syn::Generics` instance representing the generated const generics for the setter method input type.
     pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional => None,
+            FieldKind::Skipped | FieldKind::Optional => None,
             _ if field == field_info => None,
             FieldKind::Mandatory | FieldKind::Grouped => Some(field.const_ident()),
         });
@@ -105,7 +105,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `TokenStream` representing the generated const generics for the builder `build` method.
     pub fn builder_const_generic_idents_build(&self, true_indices: &[usize]) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional => None,
+            FieldKind::Skipped | FieldKind::Optional => None,
             FieldKind::Mandatory => Some(Either::Right(syn::LitBool::new(
                 true,
                 proc_macro2::Span::call_site(),
@@ -128,7 +128,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `TokenStream` representing the generated const generics for the builder `build` method.
     pub fn builder_const_generic_idents_build_unset_group(&self) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional => None,
+            FieldKind::Skipped | FieldKind::Optional => None,
             FieldKind::Mandatory => Some(Either::Right(syn::LitBool::new(
                 true,
                 proc_macro2::Span::call_site(),
@@ -145,7 +145,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `syn::Generics` instance representing the generated const generics for builder group partial identifiers.
     pub fn builder_const_generic_group_partial_idents(&self) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional | FieldKind::Mandatory => None,
+            FieldKind::Skipped | FieldKind::Optional | FieldKind::Mandatory => None,
             FieldKind::Grouped => Some(field.const_ident()),
         });
         self.add_const_generics_for_impl(&mut all)
@@ -158,7 +158,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `syn::Generics` instance representing the generated const generics for the builder struct.
     pub fn builder_struct_generics(&self) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
-            FieldKind::Optional => None,
+            FieldKind::Skipped | FieldKind::Optional => None,
             FieldKind::Mandatory | FieldKind::Grouped => Some(field.const_ident()),
         });
         self.add_const_generics_for_impl(&mut all)
