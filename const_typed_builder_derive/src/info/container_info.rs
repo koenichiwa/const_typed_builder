@@ -4,7 +4,7 @@ use crate::symbol::{
     ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
     SOLVER,
 };
-use proc_macro_error::{emit_error, emit_warning};
+use proc_macro_error::{emit_error, emit_warning, emit_call_site_error};
 use quote::format_ident;
 use std::collections::{BTreeSet, HashMap};
 use syn::Token;
@@ -26,6 +26,7 @@ pub struct ContainerInfo<'a> {
     vis: &'a syn::Visibility,
     /// The generics of the struct.
     generics: &'a syn::Generics,
+    data: &'a syn::Data,
     /// The identifier of the generated builder struct.
     builder_ident: syn::Ident,
     /// The identifier of the generated data struct.
@@ -50,49 +51,82 @@ impl<'a> ContainerInfo<'a> {
     ///
     /// An optional `ContainerInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
-        match &ast {
-            syn::DeriveInput {
-                attrs,
-                vis,
-                ident,
-                generics,
-                data:
-                    syn::Data::Struct(syn::DataStruct {
-                        fields: syn::Fields::Named(fields),
-                        ..
-                    }),
-            } => {
-                if fields.named.is_empty() {
-                    emit_error!(fields, "No fields found");
-                }
-
-                let mut settings = ContainerSettings::new().with_attrs(attrs);
-
-                let field_infos = fields
-                    .named
+        let mut settings = ContainerSettings::new().with_attrs(&ast.attrs);
+        let field_infos = match &ast.data {
+            syn::Data::Struct(syn::DataStruct {
+                fields,
+                ..
+            }) => {
+                let fields = match fields {
+                    syn::Fields::Named(fields) => Some(fields),
+                    syn::Fields::Unnamed(fields) => {
+                        emit_error!(fields, "Builder cannot handle unnamed fields");
+                        None
+                    },
+                    syn::Fields::Unit => {
+                        emit_error!(fields, "Cannot creat builder for empty struct");
+                        None
+                    },
+                };
+        
+                fields.map_or( Vec::new(), |fields| 
+                    fields.named
                     .iter()
                     .enumerate()
-                    .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
-                    .collect::<Option<Vec<_>>>()?;
+                    .filter_map(|(index, field)| FieldInfo::new(field, &mut settings, index))
+                    .collect::<Vec<_>>()
+                )
+            },
+            syn::Data::Enum(syn::DataEnum {
+                variants,
+                ..
+            }) => {
+                variants.iter().filter_map(|variant| {
+                    if !settings.add_variant(variant.ident.clone()) {
+                        emit_error!(variant.ident, "Multiple variants with the same name");
+                    }
+                    let fields = match &variant.fields {
+                        syn::Fields::Named(fields) => Some(fields),
+                        syn::Fields::Unnamed(fields) => {
+                            emit_error!(fields, "Builder cannot handle unnamed fields");
+                            None
+                        },
+                        syn::Fields::Unit => {
+                            None
+                        },
+                    };
 
-                let info = ContainerInfo {
-                    ident,
-                    vis,
-                    generics,
-                    builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
-                    data_ident: format_ident!("{}{}", ident, settings.data_suffix),
-                    _mandatory_indices: settings.mandatory_indices,
-                    groups: settings.groups,
-                    field_infos,
-                    solve_type: settings.solver_type,
-                };
-                Some(info)
-            }
-            _ => {
-                emit_error!(ast, "Builder is only supported for named structs",);
-                None
-            }
-        }
+                    let field_infos = fields.map(|fields| 
+                        fields.named
+                        .iter()
+                        .enumerate()
+                        .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
+                        .collect::<Option<Vec<_>>>()
+                    ).flatten();
+
+                    field_infos
+                }).flatten().collect()
+            },
+            syn::Data::Union(_) => {
+                emit_call_site_error!("Builder doesn't support unions",);
+                return None;
+            },
+        };
+
+        let info = ContainerInfo {
+            ident: &ast.ident,
+            vis: &ast.vis,
+            generics: &ast.generics,
+            data: &ast.data,
+            builder_ident: format_ident!("{}{}", &ast.ident, settings.builder_suffix),
+            data_ident: format_ident!("{}{}", &ast.ident, settings.data_suffix),
+            _mandatory_indices: settings.mandatory_indices,
+            groups: settings.groups,
+            field_infos,
+            solve_type: settings.solver_type,
+        };
+        Some(info)
+        
     }
 
     /// Retrieves the identifier of the struct.
@@ -139,6 +173,7 @@ impl<'a> ContainerInfo<'a> {
 /// Represents settings for struct generation.
 #[derive(Debug)]
 pub struct ContainerSettings {
+    variants: BTreeSet<syn::Ident>,
     /// The suffix to be added to the generated builder struct name.
     builder_suffix: String,
     /// The suffix to be added to the generated data struct name.
@@ -156,6 +191,7 @@ pub struct ContainerSettings {
 impl Default for ContainerSettings {
     fn default() -> Self {
         ContainerSettings {
+            variants: BTreeSet::new(),
             builder_suffix: "Builder".to_string(),
             data_suffix: "Data".to_string(),
             default_field_settings: FieldSettings::new(),
@@ -170,6 +206,10 @@ impl ContainerSettings {
     /// Creates a new `StructSettings` instance with default values.
     fn new() -> Self {
         ContainerSettings::default()
+    }
+
+    fn add_variant(&mut self, variant: syn::Ident) -> bool {
+        self.variants.insert(variant)
     }
 
     /// Add a field index to the set of mandatory indices
