@@ -14,7 +14,7 @@
 /// Basic example
 /// ```rust
 /// use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,
 ///     baz: String,
@@ -29,7 +29,7 @@
 /// This will not compile without providing 'baz'
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,
 ///     baz: String,
@@ -50,7 +50,7 @@
 /// Valid construction with optional field left unset
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,            // Mandatory
 ///     baz: Option<String>,    // Optional
@@ -67,7 +67,7 @@
 /// Invalid construction with optional field left unset:
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,            // Mandatory
 ///     #[builder(mandatory)]
@@ -83,7 +83,7 @@
 ///
 /// ```
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[builder(assume_mandatory)]
 /// pub struct Foo {
 ///     bar: Option<String>,
@@ -97,7 +97,7 @@
 /// You can also skip fields. This can be used if you still want to deserialize deprecated fields for instance.
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,            // Mandatory
 ///     #[builder(skip)]
@@ -131,7 +131,7 @@
 /// Valid construction only one field in `my_group` is provided
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(my_group = single)]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
@@ -147,7 +147,7 @@
 /// Invalid construction because both fields in `my_group` are provided
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(my_group = single)]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
@@ -164,7 +164,7 @@
 /// Valid construction because at least 2 fields in `my_group` are provided:
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(my_group = at_least(2))]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
@@ -185,7 +185,7 @@
 /// Valid construction because at least 2 fields in 'least' are provided, and 'fred' had to be provided to validate the group 'most':
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(least = at_least(2))]
 /// #[group(most = at_most(3))]
 /// pub struct Foo {
@@ -218,13 +218,13 @@
 /// Valid construction with complex struct 'Bar' created within 'Foo'
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     #[builder(propagate)]
 ///     bar: Bar,
 /// }
 ///
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Bar {
 ///     baz: String,
 /// }
@@ -244,7 +244,7 @@
 /// Valid construction for a generic struct 'Foo' with a default generic parameter
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo<A>
 /// where
 ///     A: Into<u64>,
