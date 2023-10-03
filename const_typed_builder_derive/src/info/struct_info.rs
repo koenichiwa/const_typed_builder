@@ -35,6 +35,7 @@ pub struct StructInfo<'a> {
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
     field_infos: FieldInfos<'a>,
+    /// The solver used to find all possible valid combinations for the groups
     solve_type: SolveType,
 }
 
@@ -47,7 +48,7 @@ impl<'a> StructInfo<'a> {
     ///
     /// # Returns
     ///
-    /// A `syn::Result` containing the `StructInfo` instance if successful,
+    /// An optional `StructInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
         match &ast {
             syn::DeriveInput {
@@ -129,6 +130,7 @@ impl<'a> StructInfo<'a> {
         &self.groups
     }
 
+    /// Retrieves the solver type used to find all possible valid combinations for the groups
     pub fn solve_type(&self) -> SolveType {
         self.solve_type
     }
@@ -145,7 +147,9 @@ pub struct StructSettings {
     default_field_settings: FieldSettings,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
+    /// The indices of the mandatory fields
     mandatory_indices: BTreeSet<usize>,
+    /// The solver used to find all possible valid combinations for the groups
     solver_type: SolveType,
 }
 
@@ -168,10 +172,12 @@ impl StructSettings {
         StructSettings::default()
     }
 
+    /// Add a field index to the set of mandatory indices
     pub fn add_mandatory_index(&mut self, index: usize) -> bool {
         self.mandatory_indices.insert(index)
     }
 
+    /// Get a GroupInfo by its identifier
     pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut GroupInfo> {
         self.groups.get_mut(group_name)
     }
@@ -202,10 +208,6 @@ impl StructSettings {
     /// /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
         let attr_ident = match attr.path().require_ident() {
             Ok(ident) => ident,
@@ -252,10 +254,6 @@ impl StructSettings {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_builder_attribute(&mut self, attr: &syn::Attribute) {
         attr.parse_nested_meta(|meta| {
             let path_ident = match meta.path.require_ident() {
@@ -335,10 +333,6 @@ impl StructSettings {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the group attribute applied to the struct.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_group_attribute(&mut self, attr: &syn::Attribute) {
         attr.parse_nested_meta(|meta| {
             let group_name = match meta.path.require_ident() {
