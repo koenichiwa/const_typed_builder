@@ -6,11 +6,8 @@ use crate::symbol::{
 };
 use proc_macro_error::{emit_error, emit_warning, emit_call_site_error};
 use quote::format_ident;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, BTreeMap};
 use syn::Token;
-
-/// A type alias for a collection of `FieldInfo` instances.
-type FieldInfos<'a> = Vec<FieldInfo<'a>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum SolveType {
@@ -26,7 +23,7 @@ pub struct ContainerInfo<'a> {
     vis: &'a syn::Visibility,
     /// The generics of the struct.
     generics: &'a syn::Generics,
-    data: &'a syn::Data,
+    _data: &'a syn::Data,
     /// The identifier of the generated builder struct.
     builder_ident: syn::Ident,
     /// The identifier of the generated data struct.
@@ -35,7 +32,7 @@ pub struct ContainerInfo<'a> {
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
-    field_infos: FieldInfos<'a>,
+    field_infos: BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>>,
     /// The solver used to find all possible valid combinations for the groups
     solve_type: SolveType,
 }
@@ -52,7 +49,7 @@ impl<'a> ContainerInfo<'a> {
     /// An optional `ContainerInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
         let mut settings = ContainerSettings::new().with_attrs(&ast.attrs);
-        let field_infos = match &ast.data {
+        let field_infos: BTreeMap<Option<syn::Ident>, Vec<FieldInfo>> = match &ast.data {
             syn::Data::Struct(syn::DataStruct {
                 fields,
                 ..
@@ -69,19 +66,21 @@ impl<'a> ContainerInfo<'a> {
                     },
                 };
         
-                fields.map_or( Vec::new(), |fields| 
+                let field_infos = fields.map_or( Vec::new(), |fields| 
                     fields.named
                     .iter()
                     .enumerate()
                     .filter_map(|(index, field)| FieldInfo::new(field, &mut settings, index))
                     .collect::<Vec<_>>()
-                )
+                );
+
+                vec![(None, field_infos)]
             },
             syn::Data::Enum(syn::DataEnum {
                 variants,
                 ..
             }) => {
-                variants.iter().filter_map(|variant| {
+                variants.iter().map(|variant| {
                     if !settings.add_variant(variant.ident.clone()) {
                         emit_error!(variant.ident, "Multiple variants with the same name");
                     }
@@ -96,28 +95,28 @@ impl<'a> ContainerInfo<'a> {
                         },
                     };
 
-                    let field_infos = fields.map(|fields| 
+                    let field_infos = fields.map_or(Vec::new(), |fields| 
                         fields.named
                         .iter()
                         .enumerate()
-                        .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
-                        .collect::<Option<Vec<_>>>()
-                    ).flatten();
+                        .filter_map(|(index, field)| FieldInfo::new(field, &mut settings, index))
+                        .collect::<Vec<_>>()
+                    );
 
-                    field_infos
-                }).flatten().collect()
+                    (Some(variant.ident), field_infos)
+                }).collect()
             },
             syn::Data::Union(_) => {
                 emit_call_site_error!("Builder doesn't support unions",);
                 return None;
             },
-        };
+        }.into_iter().collect();
 
         let info = ContainerInfo {
             ident: &ast.ident,
             vis: &ast.vis,
             generics: &ast.generics,
-            data: &ast.data,
+            _data: &ast.data,
             builder_ident: format_ident!("{}{}", &ast.ident, settings.builder_suffix),
             data_ident: format_ident!("{}{}", &ast.ident, settings.data_suffix),
             _mandatory_indices: settings.mandatory_indices,
@@ -155,7 +154,7 @@ impl<'a> ContainerInfo<'a> {
     }
 
     /// Retrieves a reference to the collection of `FieldInfo` instances representing struct fields.
-    pub fn field_infos(&self) -> &FieldInfos {
+    pub fn field_infos(&self) -> &BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>> {
         &self.field_infos
     }
 
