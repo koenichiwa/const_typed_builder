@@ -14,7 +14,7 @@ pub(super) struct GroupGenerator<'a> {
 }
 
 impl<'a> GroupGenerator<'a> {
-    /// Creates a new `GroupGenerator` instance.
+    /// Creates a new `GroupGenerator` instance, first checking if the groups can be valid.
     ///
     /// # Arguments
     ///

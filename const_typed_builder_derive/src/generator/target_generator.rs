@@ -48,7 +48,6 @@ impl<'a> TargetGenerator<'a> {
         let target_name = self.target_name;
         let builder_name = self.builder_name;
         let const_generics = self.generics_gen.const_generics_valued(false);
-        // let _builder_generics = self.generics_gen.builder_struct_generics();
         let (impl_generics, type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 

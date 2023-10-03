@@ -68,7 +68,7 @@ impl<'a> BuilderGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `StreamResult` representing the generated code for the builder struct and methods.
+    /// A `Tokenstream` representing the generated code for the builder struct and methods.
     pub fn generate(&self) -> TokenStream {
         let builder_struct = self.generate_struct();
         let builder_impl = self.generate_impl();
