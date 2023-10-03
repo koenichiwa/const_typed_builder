@@ -128,7 +128,7 @@ impl<'a> BuilderGenerator<'a> {
         let type_generics = self.generics_gen.const_generics_valued(false);
         let (impl_generics, _, where_clause) = self.generics_gen.target_generics().split_for_impl();
         let documentation = format!(
-            "Creates a new [`{}`] without any fields set",
+            "Creates a new [`{}`] without any fields initialized",
             self.builder_name
         );
 
