@@ -207,10 +207,13 @@ impl StructSettings {
     ///
     /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
-        let path_ident = match attr.path().require_ident() {
+        let attr_ident = match attr.path().require_ident() {
             Ok(ident) => ident,
             Err(err) => {
-                emit_error!(attr.path(), err);
+                emit_error!(
+                    attr.path(), "Can't parse attribute";
+                    note = err
+                );
                 return;
             }
         };
@@ -220,9 +223,13 @@ impl StructSettings {
                     emit_warning!(list, "Empty atrribute list");
                 }
             }
-            Err(err) => emit_error!(attr, err),
-        };
-        match (&path_ident.to_string()).into() {
+            Err(err) => emit_error!(
+                attr, "Attribute expected contain a list of specifiers";
+                help = "Try specifying it like #[{}(specifier)]", attr_ident;
+                note = err
+            ),
+        }
+        match (&attr_ident.to_string()).into() {
             GROUP => self.handle_group_attribute(attr),
             BUILDER => self.handle_builder_attribute(attr),
             _ => emit_error!(&attr, "Unknown attribute"),
@@ -254,7 +261,11 @@ impl StructSettings {
             let path_ident = match meta.path.require_ident() {
                 Ok(ident) => ident,
                 Err(err) => {
-                    emit_error!(&attr.meta, err);
+                    emit_error!(
+                        &attr.meta, "Specifier cannot be parsed";
+                        help = "Try specifying it like #[{}(specifier)]", BUILDER;
+                        note = err
+                    );
                     return Ok(());
                 }
             };
@@ -300,7 +311,12 @@ impl StructSettings {
             }
             Ok(())
         })
-        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
+        .unwrap_or_else(|err| {
+            emit_error!(
+                &attr.meta, "Unknown error";
+                note = err
+            )
+        })
     }
 
     /// Handles the parsing and processing of group attributes applied to a struct.
@@ -328,7 +344,11 @@ impl StructSettings {
             let group_name = match meta.path.require_ident() {
                 Ok(ident) => ident,
                 Err(err) => {
-                    emit_error!(&attr.meta, err);
+                    emit_error!(
+                        &meta.path , "Group name is not specified correctly";
+                        help = "Try to define it like `#[{}(foo = {}(1))]`", GROUP, AT_LEAST;
+                        note = err
+                    );
                     return Ok(());
                 }
             };
@@ -339,12 +359,19 @@ impl StructSettings {
                         syn::Expr::Path(syn::ExprPath { path, .. }) => match path.require_ident() {
                             Ok(ident) => ident,
                             Err(err) => {
-                                emit_error!(&attr.meta, err);
+                                emit_error!(
+                                    &meta.path , "Group type is not specified correctly";
+                                    help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST;
+                                    note = err
+                                );
                                 return Ok(());
                             }
                         },
                         _ => {
-                            emit_error!(&attr.meta, "Can't find group type");
+                            emit_error!(
+                                &attr.meta, "No group type specified";
+                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                            );
                             return Ok(());
                         }
                     };
@@ -359,16 +386,26 @@ impl StructSettings {
                                 AT_LEAST => GroupType::AtLeast(group_args),
                                 AT_MOST => GroupType::AtMost(group_args),
                                 SINGLE => {
-                                    emit_error!(args, "`single` doesn't take any arguments",);
+                                    emit_error!(
+                                        args,
+                                        "`{}` doesn't take any arguments", SINGLE;
+                                        help = "`{}` is shorthand for {}(1)", SINGLE, EXACT
+                                    );
                                     return Ok(());
                                 }
                                 _ => {
-                                    emit_error!(group_type, "Unknown group type");
+                                    emit_error!(
+                                        group_type, "Unknown group type";
+                                        help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                                    );
                                     return Ok(());
                                 }
                             },
                             Err(err) => {
-                                emit_error!(val, err);
+                                emit_error!(
+                                    val, "Couldn't parse group argument";
+                                    note = err
+                                );
                                 return Ok(());
                             }
                         },
@@ -383,24 +420,39 @@ impl StructSettings {
                     let group_type = match path.require_ident() {
                         Ok(ident) => ident,
                         Err(err) => {
-                            emit_error!(path, err);
+                            emit_error!(
+                                &meta.path , "Group type is not specified correctly";
+                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST;
+                                note = err
+                            );
                             return Ok(());
                         }
                     };
                     match (&group_type.to_string()).into() {
                         EXACT | AT_LEAST | AT_MOST => {
-                            emit_error!(&attr.meta, "Missing arguments for group type");
+                            emit_error!(
+                                &attr.meta,
+                                "Missing arguments for group type";
+                                help = "Try `{}(1)`, or any other usize", &group_type
+                            );
                             return Ok(());
                         }
                         SINGLE => GroupType::Exact(1),
                         _ => {
-                            emit_error!(&attr.meta, "Can't parse group");
+                            emit_error!(
+                                group_type,
+                                "Unknown group type";
+                                help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                            );
                             return Ok(());
                         }
                     }
                 }
                 _ => {
-                    emit_error!(&attr.meta, "Can't find group type");
+                    emit_error!(
+                        &attr.meta, "No group type specified";
+                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                    );
                     return Ok(());
                 }
             };
@@ -411,6 +463,9 @@ impl StructSettings {
             );
             Ok(())
         })
-        .unwrap_or_else(|err| emit_error!(&attr.meta, err))
+        .unwrap_or_else(|err| emit_error!(
+            &attr.meta, "Unknown error";
+            note = err
+        ))
     }
 }

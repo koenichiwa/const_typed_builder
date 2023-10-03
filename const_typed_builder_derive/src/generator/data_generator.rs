@@ -67,6 +67,7 @@ impl<'a> DataGenerator<'a> {
 
         let tokens = quote!(
             impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
+                #[doc(hidden)]
                 fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
                     #struct_name {
                         #(#from_fields),*
@@ -75,6 +76,7 @@ impl<'a> DataGenerator<'a> {
             }
 
             impl #impl_generics Default for #data_name #type_generics #where_clause {
+                #[doc(hidden)]
                 fn default() -> Self {
                     #data_name {
                         #def_fields
@@ -94,6 +96,7 @@ impl<'a> DataGenerator<'a> {
             self.generics_gen.target_generics().split_for_impl();
 
         let tokens = quote!(
+            #[doc(hidden)]
             pub struct #data_name #impl_generics #where_clause{
                 #(#fields),*
             }
