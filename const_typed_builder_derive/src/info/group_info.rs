@@ -44,10 +44,12 @@ impl GroupInfo {
         }
     }
 
+    /// Associate a field index with this group
     pub fn associate(&mut self, index: usize) -> bool {
         self.associated_indices.insert(index)
     }
 
+    /// Retrieves all associated indices
     pub fn indices(&self) -> &BTreeSet<usize> {
         &self.associated_indices
     }
@@ -78,6 +80,7 @@ impl GroupInfo {
         }
     }
 
+    /// Check if the group is formed correctly. Will emit errors or warnings if invalid.
     pub fn check(&self) {
         let valid_range = 1..self.indices().len();
         if valid_range.is_empty() {

@@ -42,7 +42,7 @@ impl<'a> DataGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `StreamResult` representing the generated code for the data struct and conversions.
+    /// A `TokenStream` representing the generated code for the data struct and conversions.
     pub fn generate(&self) -> TokenStream {
         let data_struct = self.generate_struct();
         let data_impl = self.generate_impl();

@@ -31,7 +31,7 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `VecStreamResult` representing the generated code for the data struct fields.
+    /// A `Vec<TokenStream>` representing the data struct fields: `pub field_name: field_type`.
     pub fn data_struct_fields(&self) -> Vec<TokenStream> {
         self.fields
             .iter()
@@ -61,7 +61,7 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `VecStreamResult` representing the generated code for the `From` trait implementation.
+    /// A `Vec<TokenStream>` representing the fields for the `From` trait implementation. Either containing `unwrap`, `None` or just the type.
     pub fn data_impl_from_fields(&self) -> Vec<TokenStream> {
         self.fields
             .iter()
@@ -111,7 +111,7 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `TokenStream` representing the generated input type for the builder setter method.
+    /// A `Option<TokenStream>` representing the generated input type for the builder setter method. None if the field is skipped.
     pub fn builder_set_impl_input_type(&self, field: &'a FieldInfo) -> Option<TokenStream> {
         if field.kind() == &FieldKind::Skipped {
             return None;
@@ -141,7 +141,7 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// # Returns
     ///
-    /// A `TokenStream` representing the generated input value for the builder setter method.
+    /// A `Option<TokenStream>` representing the generated input value for the builder setter method. None if the field is skipped.
     pub fn builder_set_impl_input_value(&self, field: &'a FieldInfo) -> Option<TokenStream> {
         if field.kind() == &FieldKind::Skipped {
             return None;

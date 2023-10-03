@@ -64,7 +64,7 @@ impl<'a> Generator<'a> {
     ///
     /// # Returns
     ///
-    /// A `StreamResult` representing the generated token stream.
+    /// A `TokenStream` representing the generated token stream.
     pub fn generate(&self) -> TokenStream {
         let target = self.target_gen.generate();
         let data = self.data_gen.generate();

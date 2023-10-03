@@ -1,6 +1,8 @@
 # `Builder` Derive Macro Documentation
 
-The `Builder` derive macro is used to generate builder methods for structs in Rust, its biggest feature in this crate is that it provides compile-time validation on the struct. The user can employ several configurations that define the validity of of a complex struct, and it is checked before the struct is ever created.
+The `Builder` derive macro is used to generate builder methods for structs in Rust, its biggest feature in this crate is that it provides compile-time validation on the struct. The user can employ several configurations that define the validity of of a complex struct, and it is checked before the struct is ever created. 
+
+The library also checks cases where the struct can never be valid or is always valid, but this is still in a work in progress. Errors are always emitted, but warnings are emitted on the nightly channel only. This is due to a limitation in [proc_macro_error](https://docs.rs/proc-macro-error/latest/proc_macro_error/).
 
 ## Prerequisites
 
@@ -8,10 +10,10 @@ To use the `Builder` derive macro, you should have the `const_typed_builder` cra
 
 ```toml
 [dependencies]
-const_typed_builder = "0.2"
+const_typed_builder = "0.3"
 ```
 
-Also, make sure you have the following import statements in your code:
+Also, make sure you have the following use statement in your code:
 
 ```rust
 use const_typed_builder::Builder;
@@ -24,7 +26,7 @@ Basic usage:
 ```rust
 use const_typed_builder::Builder;
 
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 pub struct Foo {
     bar: String,
 }
@@ -40,12 +42,12 @@ Subset of launchd:
 use const_typed_builder::Builder;
 use std::path::PathBuf;
 
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 pub struct ResourceLimits {
     core: Option<u64>,
     // ...
 }
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 #[group(program = at_least(1))]
 pub struct Launchd {
     #[builder(mandatory)]
@@ -86,6 +88,7 @@ let launchd = Launchd::builder()
 ```
 
 ### Attributes
+This is a quick overview of the features in this library. See [`const_typed_builder_derive::Builder`] for a more in depth explanation of all the features, including examples.
 **Struct**
 - `#[builder(assume_mandatory)]`: Indicates that all fields in the struct should be assumed as mandatory.
   If provided without an equals sign (e.g., `#[builder(assume_mandatory)]`), it sets the `mandatory` flag for fields to true.
@@ -96,25 +99,28 @@ let launchd = Launchd::builder()
     - `exact(N)`: Exactly N fields in the group must be set during the builder construction.
     - `at_least(N)`: At least N fields in the group must be set during the builder construction.
     - `at_most(N)`: At most N fields in the group can be set during the builder construction.
-    - `single`: Only one field in the group can be set during the builder construction.
-- `#[builder(solver = <solve_type>)]`: **Use sparingly, see note at bottom of this file!** Specifies the solver type to be used for building the struct. The `solve_type`
-   should be one of the predefined solver types, such as `brute_force` or `compiler`. If provided with an equals sign (e.g., `#[builder(solver = brute_force)]`),
-   it sets the "solver type" accordingly. This attribute is still tested, and `brute_force` is the default, and only if there are problems in compilation time
-   then you can try `compiler`. `compiler` gives less guarantees though.
+    - `single`: Only one field in the group can be set during the builder construction. This is a shorthand for `exact(1)`.
+  e.g `#[group(foo = at_least(2))]` creates a group where at least 2 of the fields need to be initialized.
+- `#[builder(solver = (brute_force|compiler))]`: **Use sparingly, see note at bottom of this file!** 
+   Specifies the solver type to be used for building the struct. The `solve_type` should be one of the predefined solver types, such as `brute_force` or `compiler`. If provided with an equals sign (e.g., `#[builder(solver = brute_force)]`),
+   it sets the "solver type" accordingly. This attribute is still tested, and `brute_force` is the default, and only if there are problems in compilation time then you can try `compiler`. `compiler` gives less guarantees though.
  
 **Field**
+- `#[builder(group = group_name)]`: The heart of this library. This associates the field with a group named `group_name`.
+  Fields in the same group are treated as a unit, and at least one of them must be set during builder construction. This attribute allows specifying the group name both as an identifier (e.g., `group = my_group`)
+  and as a string (e.g., `group = "my_group"`).
 - `#[builder(mandatory)]`: Marks the field as mandatory, meaning it must be set during the builder
   construction. If provided without an equals sign (e.g., `#[builder(mandatory)]`), it sets the field as mandatory.
   If provided with an equals sign (e.g., `#[builder(mandatory = true)]`), it sets the mandatory flag based on the value.
 - `#[builder(optional)]`: Marks the field as optional, this is the exact opposite of `#[builder(mandatory)]`.
   If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
   If provided with an equals sign (e.g., `#[builder(optional = true)]`), it sets the optional flag based on the value.
-- `#[builder(group = group_name)]`: Associates the field with a group named `group_name`. Fields in the same group
-  are treated as a unit, and at least one of them must be set during builder construction. If the field is marked as mandatory,
-  it cannot be part of a group. This attribute allows specifying the group name both as an identifier (e.g., `group = my_group`)
-  and as a string (e.g., `group = "my_group"`).
-- `#[builder(propagate)]`: Indicates that the field should propagate its value when the builder is constructed. If this attribute
-  is present, the field's value will be copied or moved to the constructed object when the builder is used to build the object.
+- `#[builder(skip)]`: Marks the field as skipped, meaning that the builder will not include it. This can be used for
+  fields that are deprecated, but must still be deserialized. This way you can ensure that new structs will never be created with this field initialized, but that old structs can still be used. The field type has to be `Option<T>` for this to work.
+- `#[builder(propagate)]`: Indicates that the field should propagate its value when the builder is constructed. 
+  If this attribute is present, the field's value will be copied or moved to the constructed object when the builder is used to build the object.
+
+Fields can either be a part of a group, mandatory, optional OR skipped. These attribute properties are mutually exclusive. `propagate` can be used on any field where the type also derives `Builder`.
 
 > [!NOTE]
 > Checking the validity of each field is a problem directly related to [SAT](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem), which is an NP-complete problem. This has effect especially the grouped fields. The current default implementation for checking the validity of grouped fields is `brute_force`, and this implementation currently has a complexity of $`O(2^g)`$ where $`g`$ is the amount of grouped variables. This is not a problem with a couple of fields, but it might impact compile time significantly with more fields. This can be still optimized significantly. Future editions might improve on this complexity.

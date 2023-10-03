@@ -43,7 +43,7 @@ impl<'a> FieldInfo<'a> {
     ///
     /// # Returns
     ///
-    /// A `Result` containing the `FieldInfo` instance or an error if the field is unnamed.
+    /// An otpional `FieldInfo` instance if successful.
     pub fn new(
         field: &'a syn::Field,
         struct_settings: &mut StructSettings,
@@ -193,6 +193,7 @@ impl<'a> Ord for FieldInfo<'a> {
 /// Represents settings for struct field generation.
 #[derive(Debug, Clone)]
 pub struct FieldSettings {
+    /// Indicates that this field is skipped.
     pub skipped: bool,
     /// Indicates if the field is mandatory.
     pub mandatory: bool,
@@ -277,10 +278,6 @@ impl FieldSettings {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the field.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or failure in handling the attribute. Errors are returned for invalid or conflicting attributes.
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
         let attr_ident = match attr.path().require_ident() {
             Ok(ident) if ident == BUILDER => ident,

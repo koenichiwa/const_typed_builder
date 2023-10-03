@@ -14,7 +14,7 @@
 /// Basic example
 /// ```rust
 /// use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,
 ///     baz: String,
@@ -29,7 +29,7 @@
 /// This will not compile without providing 'baz'
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,
 ///     baz: String,
@@ -40,16 +40,17 @@
 ///     .build();
 /// ```
 ///
-/// ## 2. Mandatory and Optional Fields
+/// ## 2. Mandatory, Skipped and Optional Fields
 ///
 /// By default, all fields in the generated builder are considered mandatory, meaning they must be provided during construction.
 /// However, fields with the `Option` type are considered optional and can be left unset, and thus defaulted to `None`.
 ///
+/// Fields can be either Mandatory, Skipped, Optional or Grouped (see next subsection), these are mutually exclusive.
 /// ### Example:
 /// Valid construction with optional field left unset
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,            // Mandatory
 ///     baz: Option<String>,    // Optional
@@ -66,7 +67,7 @@
 /// Invalid construction with optional field left unset:
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     bar: String,            // Mandatory
 ///     #[builder(mandatory)]
@@ -82,7 +83,7 @@
 ///
 /// ```
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[builder(assume_mandatory)]
 /// pub struct Foo {
 ///     bar: Option<String>,
@@ -93,9 +94,25 @@
 /// let foo = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
 /// ```
 ///
-/// ## 3. Grouping Fields
+/// You can also skip fields. This can be used if you still want to deserialize deprecated fields for instance.
+/// ```compile_fail
+/// # use const_typed_builder::Builder;
+/// #[derive(Builder)]
+/// pub struct Foo {
+///     bar: String,            // Mandatory
+///     #[builder(skip)]
+///     baz: Option<String>,    // Skipped. The builder will leave it as `None`.
+/// }
 ///
-/// Fields can be grouped together, and constraints can be applied to these groups. Groups allow you to ensure that a certain combination of fields is provided together.
+/// let foo = Foo::builder()
+///     .bar("Hello".to_string())
+///     .baz("World".to_string()) // This function does not exist
+///     .build();
+/// ```
+/// ## 3. Grouped Fields
+///
+/// Fields can be grouped together, and constraints can be applied to these groups.
+/// Groups allow you to ensure that a certain combination of fields is provided together.
 /// There are four types of groups: `single`, `at_least`, `at_most`, and `exact`.
 ///
 /// **All** fields that are grouped need to be an `Option` type.
@@ -105,12 +122,16 @@
 /// - `at_most(n)`: Allows at most `n` fields in the group to be provided.
 /// - `exact(n)`: Requires exactly `n` fields in the group to be provided.
 ///
+/// The range of n is 1..=k, where k is the amount of fields that are associated with this group.
+/// Errors will be emitted if the group can never be valid, or can be replaced by `skip` or `mandatory`.
+/// Warnings will be emitted if the group is always valid, or can be replaced by `optional`.
+///
 /// ### Examples:
 ///
 /// Valid construction only one field in `my_group` is provided
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(my_group = single)]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
@@ -126,7 +147,7 @@
 /// Invalid construction because both fields in `my_group` are provided
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(my_group = single)]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
@@ -143,7 +164,7 @@
 /// Valid construction because at least 2 fields in `my_group` are provided:
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(my_group = at_least(2))]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
@@ -164,7 +185,7 @@
 /// Valid construction because at least 2 fields in 'least' are provided, and 'fred' had to be provided to validate the group 'most':
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// #[group(least = at_least(2))]
 /// #[group(most = at_most(3))]
 /// pub struct Foo {
@@ -197,13 +218,13 @@
 /// Valid construction with complex struct 'Bar' created within 'Foo'
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo {
 ///     #[builder(propagate)]
 ///     bar: Bar,
 /// }
 ///
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Bar {
 ///     baz: String,
 /// }
@@ -223,7 +244,7 @@
 /// Valid construction for a generic struct 'Foo' with a default generic parameter
 /// ```rust
 /// # use const_typed_builder::Builder;
-/// #[derive(Debug, Builder)]
+/// #[derive(Builder)]
 /// pub struct Foo<A>
 /// where
 ///     A: Into<u64>,
