@@ -26,7 +26,7 @@ Basic usage:
 ```rust
 use const_typed_builder::Builder;
 
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 pub struct Foo {
     bar: String,
 }
@@ -42,12 +42,12 @@ Subset of launchd:
 use const_typed_builder::Builder;
 use std::path::PathBuf;
 
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 pub struct ResourceLimits {
     core: Option<u64>,
     // ...
 }
-#[derive(Debug, Builder)]
+#[derive(Builder)]
 #[group(program = at_least(1))]
 pub struct Launchd {
     #[builder(mandatory)]
