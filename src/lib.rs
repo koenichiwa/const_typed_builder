@@ -93,7 +93,7 @@
 /// }
 /// let foo = Foo::builder().bar("Hello world!".to_string()).baz("Hello world!".to_string()).build();
 /// ```
-/// 
+///
 /// You can also skip fields. This can be used if you still want to deserialize deprecated fields for instance.
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
@@ -111,7 +111,7 @@
 /// ```
 /// ## 3. Grouped Fields
 ///
-/// Fields can be grouped together, and constraints can be applied to these groups. 
+/// Fields can be grouped together, and constraints can be applied to these groups.
 /// Groups allow you to ensure that a certain combination of fields is provided together.
 /// There are four types of groups: `single`, `at_least`, `at_most`, and `exact`.
 ///
@@ -121,9 +121,9 @@
 /// - `at_least(n)`: Requires at least `n` fields in the group to be provided.
 /// - `at_most(n)`: Allows at most `n` fields in the group to be provided.
 /// - `exact(n)`: Requires exactly `n` fields in the group to be provided.
-/// 
-/// The range of n is 1..=k, where k is the amount of fields that are associated with this group. 
-/// Errors will be emitted if the group can never be valid, or can be replaced by `skip` or `mandatory`. 
+///
+/// The range of n is 1..=k, where k is the amount of fields that are associated with this group.
+/// Errors will be emitted if the group can never be valid, or can be replaced by `skip` or `mandatory`.
 /// Warnings will be emitted if the group is always valid, or can be replaced by `optional`.
 ///
 /// ### Examples:
