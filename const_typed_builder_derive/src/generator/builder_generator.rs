@@ -92,7 +92,13 @@ impl<'a> BuilderGenerator<'a> {
 
         let vis = self.target_vis;
 
+        let documentation = format!(
+            "Builder for [`{}`] derived using the `const_typed_builder` crate",
+            self.target_name
+        );
+
         quote!(
+            #[doc = #documentation]
             #vis struct #builder_name #impl_generics #where_clause {
                 #data_field: #data_name #type_generics
             }
@@ -121,9 +127,14 @@ impl<'a> BuilderGenerator<'a> {
 
         let type_generics = self.generics_gen.const_generics_valued(false);
         let (impl_generics, _, where_clause) = self.generics_gen.target_generics().split_for_impl();
+        let documentation = format!(
+            "Creates a new [`{}`] without any fields set",
+            self.builder_name
+        );
 
         quote!(
             impl #impl_generics #builder_name #type_generics #where_clause{
+                #[doc = #documentation]
                 pub fn new() -> #builder_name #type_generics {
                     Self::default()
                 }
@@ -131,6 +142,7 @@ impl<'a> BuilderGenerator<'a> {
 
             impl #impl_generics Default for #builder_name #type_generics #where_clause {
                 fn default() -> Self {
+                    #[doc = #documentation]
                     #builder_name {
                         #data_field: #data_name::default(),
                     }
@@ -144,6 +156,10 @@ impl<'a> BuilderGenerator<'a> {
         let builder_name = self.builder_name;
         let target_name = self.target_name;
         let data_field = self.data_field_ident();
+        let documentation = format!(
+            "Build an instance of [`{}`], consuming the [`{}`]",
+            self.target_name, self.builder_name
+        );
         let (impl_generics, target_type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
@@ -159,7 +175,7 @@ impl<'a> BuilderGenerator<'a> {
 
                             quote!(
                                 impl #impl_generics #builder_name #type_generics #where_clause{
-
+                                    #[doc = #documentation]
                                     pub fn build(self) -> #target_name #target_type_generics {
                                         self.#data_field.into()
                                     }
@@ -194,6 +210,7 @@ impl<'a> BuilderGenerator<'a> {
                         #correctness_verifier
                         #correctness_helper_fns
 
+                        #[doc = #documentation]
                         pub fn build(self) -> #target_name #target_type_generics {
                             #correctness_check
                             self.#data_field.into()
@@ -223,8 +240,20 @@ impl<'a> BuilderGenerator<'a> {
                 let input_type = self.field_gen.builder_set_impl_input_type(field);
                 let input_value = self.field_gen.builder_set_impl_input_value(field);
 
+                let documentation = format!(r#"
+Setter for the [`{}::{field_name}`] field.
+
+# Arguments
+
+- `{field_name}`: field to be set
+
+# Returns
+
+`Self` with `{field_name}` initialized"#, self.target_name);
+
                 let tokens = quote!(
                     impl #const_idents_impl #builder_name #const_idents_type_input #where_clause {
+                        #[doc = #documentation]
                         pub fn #field_name (self, #input_type) -> #builder_name #const_idents_type_output {
                             let mut #data_field = self.#data_field;
                             #data_field.#field_name = #input_value;
