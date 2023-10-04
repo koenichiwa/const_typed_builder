@@ -65,7 +65,7 @@ impl<'a> DataGenerator<'a> {
         let (impl_generics, type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
-        let tokens =  match from_fields {
+        let tokens = match from_fields {
             either::Either::Left(field_tokens) => {
                 quote!(
                     impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
@@ -76,7 +76,7 @@ impl<'a> DataGenerator<'a> {
                             }
                         }
                     }
-        
+
                     impl #impl_generics Default for #data_name #type_generics #where_clause {
                         #[doc(hidden)]
                         fn default() -> Self {
@@ -86,7 +86,7 @@ impl<'a> DataGenerator<'a> {
                         }
                     }
                 )
-            },
+            }
             either::Either::Right(indexed_field_tokens) => {
                 let all = indexed_field_tokens.iter().map(|(variant_index, variant, field_tokens)| {
                     quote!(
@@ -110,10 +110,9 @@ impl<'a> DataGenerator<'a> {
                     )
                 });
                 quote!(#(#all)*)
-            },
+            }
         };
 
-        
         tokens
     }
 

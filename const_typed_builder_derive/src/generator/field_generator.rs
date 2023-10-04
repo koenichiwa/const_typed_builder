@@ -1,4 +1,4 @@
-use crate::info::{FieldInfo, FieldKind, FieldInfoCollection};
+use crate::info::{FieldInfo, FieldInfoCollection, FieldKind};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
@@ -19,7 +19,9 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// A `FieldGenerator` instance initialized with the provided fields.
     pub fn new(fields: &'a FieldInfoCollection) -> Self {
-        Self { field_infos: fields }
+        Self {
+            field_infos: fields,
+        }
     }
 
     /// Returns a reference to the fields of the struct.
@@ -33,26 +35,29 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// A `Vec<TokenStream>` representing the data struct fields: `pub field_name: field_type`.
     pub fn data_struct_fields(&self) -> Vec<TokenStream> {
-        self.field_infos.all_fields().iter().filter_map(|field| {
-            let field_name = field.ident();
+        self.field_infos
+            .all_fields()
+            .iter()
+            .filter_map(|field| {
+                let field_name = field.ident();
 
-            let data_field_type = match field.kind() {
-                FieldKind::Skipped => return None,
-                FieldKind::Optional => field.ty().to_token_stream(),
-                FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
-                FieldKind::Mandatory => {
-                    let ty = field.ty();
-                    quote!(Option<#ty>)
-                }
-                FieldKind::Grouped => field.ty().to_token_stream(),
-            };
+                let data_field_type = match field.kind() {
+                    FieldKind::Skipped => return None,
+                    FieldKind::Optional => field.ty().to_token_stream(),
+                    FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
+                    FieldKind::Mandatory => {
+                        let ty = field.ty();
+                        quote!(Option<#ty>)
+                    }
+                    FieldKind::Grouped => field.ty().to_token_stream(),
+                };
 
-            let tokens = quote!(
-                pub #field_name: #data_field_type
-            );
-            Some(tokens)
-        })
-        .collect()
+                let tokens = quote!(
+                    pub #field_name: #data_field_type
+                );
+                Some(tokens)
+            })
+            .collect()
     }
 
     // Generates code for the `From` trait implementation for converting data struct fields to target struct fields and returns a token stream.
@@ -60,30 +65,14 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `Vec<TokenStream>` representing the fields for the `From` trait implementation. Either containing `unwrap`, `None` or just the type.
-    pub fn data_impl_from_fields(&self) -> either::Either<Vec<TokenStream>, Vec<(usize, &syn::Ident, Vec<TokenStream>)>>{
+    pub fn data_impl_from_fields(
+        &self,
+    ) -> either::Either<Vec<TokenStream>, Vec<(usize, &syn::Ident, Vec<TokenStream>)>> {
         match self.field_infos {
             FieldInfoCollection::StructFields { fields } => {
-                let typed_fields = fields.iter().map(|field| {
-                    let field_name = field.ident();
-                    let tokens = match field.kind() {
-                        FieldKind::Skipped => quote!(#field_name: None),
-                        FieldKind::Mandatory if field.is_option_type() => {
-                            quote!(#field_name: data.#field_name)
-                        }
-                        FieldKind::Optional | FieldKind::Grouped => {
-                            quote!(#field_name: data.#field_name)
-                        }
-                        FieldKind::Mandatory => {
-                            quote!(#field_name: data.#field_name.unwrap())
-                        }
-                    };
-                    tokens
-                }).collect();
-                either::Left(typed_fields)
-            },
-            FieldInfoCollection::EnumFields { variant_fields } => {
-                let indexed_typed_fields = variant_fields.iter().enumerate().map(|(index, (variant, fields))| {
-                    let typed_fields = fields.iter().map(|field| {
+                let typed_fields = fields
+                    .iter()
+                    .map(|field| {
                         let field_name = field.ident();
                         let tokens = match field.kind() {
                             FieldKind::Skipped => quote!(#field_name: None),
@@ -98,11 +87,36 @@ impl<'a> FieldGenerator<'a> {
                             }
                         };
                         tokens
-                    });
-                    (index, variant, typed_fields.collect())
-                });
+                    })
+                    .collect();
+                either::Left(typed_fields)
+            }
+            FieldInfoCollection::EnumFields { variant_fields } => {
+                let indexed_typed_fields =
+                    variant_fields
+                        .iter()
+                        .enumerate()
+                        .map(|(index, (variant, fields))| {
+                            let typed_fields = fields.iter().map(|field| {
+                                let field_name = field.ident();
+                                let tokens = match field.kind() {
+                                    FieldKind::Skipped => quote!(#field_name: None),
+                                    FieldKind::Mandatory if field.is_option_type() => {
+                                        quote!(#field_name: data.#field_name)
+                                    }
+                                    FieldKind::Optional | FieldKind::Grouped => {
+                                        quote!(#field_name: data.#field_name)
+                                    }
+                                    FieldKind::Mandatory => {
+                                        quote!(#field_name: data.#field_name.unwrap())
+                                    }
+                                };
+                                tokens
+                            });
+                            (index, variant, typed_fields.collect())
+                        });
                 either::Right(indexed_typed_fields.collect())
-            },
+            }
         }
     }
 

@@ -267,7 +267,6 @@ Setter for the [`{}::{field_name}`] field.
                     );
                     tokens
             });
-            
 
         let tokens = quote!(
             #(#setters)*
