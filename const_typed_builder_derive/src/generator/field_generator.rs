@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::info::{FieldInfo, FieldKind};
+use crate::info::{FieldInfo, FieldKind, FieldInfos};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 /// The `FieldGenerator` struct is responsible for generating code related to fields of the target and data structs.
 #[derive(Debug, Clone)]
 pub(super) struct FieldGenerator<'a> {
-    fields: &'a BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>>,
+    fields: &'a FieldInfos<'a>,
 }
 
 impl<'a> FieldGenerator<'a> {

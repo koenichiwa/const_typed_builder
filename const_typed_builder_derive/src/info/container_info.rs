@@ -9,6 +9,8 @@ use quote::format_ident;
 use std::collections::{BTreeSet, HashMap, BTreeMap};
 use syn::Token;
 
+pub type FieldInfos<'a> = BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>>;
+
 #[derive(Debug, Clone, Copy)]
 pub enum SolveType {
     BruteForce,
@@ -32,7 +34,7 @@ pub struct ContainerInfo<'a> {
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
-    field_infos: BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>>,
+    field_infos: FieldInfos<'a>,
     /// The solver used to find all possible valid combinations for the groups
     solve_type: SolveType,
 }
@@ -49,7 +51,7 @@ impl<'a> ContainerInfo<'a> {
     /// An optional `ContainerInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
         let mut settings = ContainerSettings::new().with_attrs(&ast.attrs);
-        let field_infos: BTreeMap<Option<syn::Ident>, Vec<FieldInfo>> = match &ast.data {
+        let field_infos: FieldInfos = match &ast.data {
             syn::Data::Struct(syn::DataStruct {
                 fields,
                 ..
@@ -103,7 +105,7 @@ impl<'a> ContainerInfo<'a> {
                         .collect::<Vec<_>>()
                     );
 
-                    (Some(variant.ident), field_infos)
+                    (Some(variant.ident.clone()), field_infos)
                 }).collect()
             },
             syn::Data::Union(_) => {
@@ -154,7 +156,7 @@ impl<'a> ContainerInfo<'a> {
     }
 
     /// Retrieves a reference to the collection of `FieldInfo` instances representing struct fields.
-    pub fn field_infos(&self) -> &BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>> {
+    pub fn field_infos(&self) -> &FieldInfos {
         &self.field_infos
     }
 
