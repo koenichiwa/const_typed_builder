@@ -679,9 +679,7 @@ mod test {
     fn simple_enum() {
         #[derive(Debug, Builder, PartialEq)]
         pub enum Foo {
-            Bar {
-                baz: String
-            }
+            Bar { baz: String },
         }
         let expected = Foo::Bar {
             baz: "Hello world!".to_string(),
@@ -694,12 +692,8 @@ mod test {
     fn enum_two_variants() {
         #[derive(Debug, Builder, PartialEq)]
         pub enum Foo {
-            Bar {
-                baz: String
-            },
-            Quz {
-                qux: String
-            }
+            Bar { baz: String },
+            Quz { qux: String },
         }
         let expected = Foo::Bar {
             baz: "Hello world!".to_string(),
