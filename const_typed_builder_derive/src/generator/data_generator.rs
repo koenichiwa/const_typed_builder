@@ -59,31 +59,61 @@ impl<'a> DataGenerator<'a> {
     fn generate_impl(&self) -> TokenStream {
         let data_name = self.data_name;
         let struct_name = self.target_name;
-        let from_fields: Vec<_> = self.field_gen.data_impl_from_fields();
+        let from_fields = self.field_gen.data_impl_from_fields();
         let def_fields = self.field_gen.data_impl_default_fields();
 
         let (impl_generics, type_generics, where_clause) =
             self.generics_gen.target_generics().split_for_impl();
 
-        let tokens = quote!(
-            impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
-                #[doc(hidden)]
-                fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
-                    #struct_name {
-                        #(#from_fields),*
+        let tokens =  match from_fields {
+            either::Either::Left(field_tokens) => {
+                quote!(
+                    impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
+                        #[doc(hidden)]
+                        fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
+                            #struct_name {
+                                #(#field_tokens),*
+                            }
+                        }
                     }
-                }
-            }
+        
+                    impl #impl_generics Default for #data_name #type_generics #where_clause {
+                        #[doc(hidden)]
+                        fn default() -> Self {
+                            #data_name {
+                                #def_fields
+                            }
+                        }
+                    }
+                )
+            },
+            either::Either::Right(indexed_field_tokens) => {
+                let all = indexed_field_tokens.iter().map(|(variant_index, variant, field_tokens)| {
+                    quote!(
+                        impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
+                            #[doc(hidden)]
+                            fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
+                                #struct_name::#variant {
+                                    #(#field_tokens),*
+                                }
+                            }
+                        }
+            
+                        impl #impl_generics Default for #data_name #type_generics #where_clause {
+                            #[doc(hidden)]
+                            fn default() -> Self {
+                                #data_name {
+                                    #def_fields
+                                }
+                            }
+                        }
+                    )
+                });
+                quote!(#(#all)*)
+            },
+        };
 
-            impl #impl_generics Default for #data_name #type_generics #where_clause {
-                #[doc(hidden)]
-                fn default() -> Self {
-                    #data_name {
-                        #def_fields
-                    }
-                }
-            }
-        );
+        
         tokens
     }
 

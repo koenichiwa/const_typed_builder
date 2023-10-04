@@ -675,19 +675,18 @@ mod test {
         assert_eq!(foo, expected);
     }
 
-    // #[test]
-    // fn simple_enum() {
-    //     #[derive(Builder)]
-    //     pub enum Foo {
-    //         Bar {
-    //             baz: String
-    //         }
-    //     }
-    //     // let expected = Foo {
-    //     //     bar: "Hello world!".to_string(),
-    //     //     baz: None,
-    //     // };
-    //     // let foo = Foo::builder().bar("Hello world!".to_string()).build();
-    //     // assert_eq!(foo, expected);
-    // }
+    #[test]
+    fn simple_enum() {
+        #[derive(Debug, Builder, PartialEq)]
+        pub enum Foo {
+            Bar {
+                baz: String
+            }
+        }
+        let expected = Foo::Bar {
+            baz: "Hello world!".to_string(),
+        };
+        let foo = Foo::builder().baz("Hello world!".to_string()).build();
+        assert_eq!(foo, expected);
+    }
 }

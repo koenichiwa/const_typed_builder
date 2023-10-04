@@ -60,10 +60,10 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `Vec<TokenStream>` representing the fields for the `From` trait implementation. Either containing `unwrap`, `None` or just the type.
-    pub fn data_impl_from_fields(&self) -> Vec<TokenStream> {
+    pub fn data_impl_from_fields(&self) -> either::Either<Vec<TokenStream>, Vec<(usize, &syn::Ident, Vec<TokenStream>)>>{
         match self.field_infos {
             FieldInfoCollection::StructFields { fields } => {
-                fields.iter().map(|field| {
+                let typed_fields = fields.iter().map(|field| {
                     let field_name = field.ident();
                     let tokens = match field.kind() {
                         FieldKind::Skipped => quote!(#field_name: None),
@@ -78,9 +78,31 @@ impl<'a> FieldGenerator<'a> {
                         }
                     };
                     tokens
-                }).collect()
+                }).collect();
+                either::Left(typed_fields)
             },
-            FieldInfoCollection::EnumFields { variant_fields } => todo!(),
+            FieldInfoCollection::EnumFields { variant_fields } => {
+                let indexed_typed_fields = variant_fields.iter().enumerate().map(|(index, (variant, fields))| {
+                    let typed_fields = fields.iter().map(|field| {
+                        let field_name = field.ident();
+                        let tokens = match field.kind() {
+                            FieldKind::Skipped => quote!(#field_name: None),
+                            FieldKind::Mandatory if field.is_option_type() => {
+                                quote!(#field_name: data.#field_name)
+                            }
+                            FieldKind::Optional | FieldKind::Grouped => {
+                                quote!(#field_name: data.#field_name)
+                            }
+                            FieldKind::Mandatory => {
+                                quote!(#field_name: data.#field_name.unwrap())
+                            }
+                        };
+                        tokens
+                    });
+                    (index, variant, typed_fields.collect())
+                });
+                either::Right(indexed_typed_fields.collect())
+            },
         }
     }
 
