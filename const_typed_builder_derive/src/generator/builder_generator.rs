@@ -2,7 +2,7 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::info::{FieldKind, SolveType};
+use crate::info::{FieldInfoCollection, FieldKind, SolveType};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -165,9 +165,10 @@ impl<'a> BuilderGenerator<'a> {
 
         match self.solve_type {
             SolveType::BruteForce => {
-                let build_impls =
-                    self.group_gen
-                        .valid_groupident_combinations()
+                let build_impls = match self.field_gen.fields() {
+                    FieldInfoCollection::StructFields { fields } => self
+                        .group_gen
+                        .valid_groupident_combinations(0)
                         .map(|group_indices| {
                             let type_generics = self
                                 .generics_gen
@@ -181,7 +182,9 @@ impl<'a> BuilderGenerator<'a> {
                                     }
                                 }
                             )
-                        });
+                        }),
+                    FieldInfoCollection::EnumFields { variant_fields } => todo!(),
+                };
 
                 quote!(
                     #(#build_impls)*
@@ -236,11 +239,9 @@ impl<'a> BuilderGenerator<'a> {
                     let const_idents_type_input = self.generics_gen.builder_const_generic_idents_set_type(field, false);
                     let const_idents_type_output = self.generics_gen.builder_const_generic_idents_set_type(field, true);
                     let where_clause = &self.generics_gen.target_generics().where_clause;
-    
                     let field_name = field.ident();
                     let input_type = self.field_gen.builder_set_impl_input_type(field);
                     let input_value = self.field_gen.builder_set_impl_input_value(field);
-    
                     let documentation = format!(r#"
 Setter for the [`{}::{field_name}`] field.
 

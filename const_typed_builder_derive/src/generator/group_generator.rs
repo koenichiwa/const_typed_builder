@@ -33,7 +33,10 @@ impl<'a> GroupGenerator<'a> {
     /// # Returns
     ///
     /// An `Iterator<Item = Vec<usize>>` that holds each vector of field indices
-    pub fn valid_groupident_combinations(&self) -> impl Iterator<Item = Vec<usize>> + '_ {
+    pub fn valid_groupident_combinations(
+        &self,
+        variant_index: usize,
+    ) -> impl Iterator<Item = Vec<usize>> + '_ {
         let group_indices: BTreeSet<usize> = self
             .groups
             .iter()

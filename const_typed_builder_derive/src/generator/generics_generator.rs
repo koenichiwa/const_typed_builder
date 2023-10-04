@@ -56,8 +56,7 @@ impl<'a> GenericsGenerator<'a> {
                 FieldKind::Mandatory | FieldKind::Grouped => {
                     Some(syn::LitBool::new(value, field.ident().span()).to_token_stream())
                 }
-            }
-        );
+            });
 
         if let FieldInfoCollection::EnumFields { .. } = self.field_infos {
             self.add_const_generics_valued_for_type(&mut std::iter::once(quote!(0usize)).chain(all))
@@ -230,7 +229,8 @@ impl<'a> GenericsGenerator<'a> {
             });
         let mut res = self.add_const_generics_for_impl(&mut all);
         if let FieldInfoCollection::EnumFields { .. } = self.field_infos {
-            res.params.insert(0, parse_quote!(const __BUILDER_CONST_VARIANT: usize));
+            res.params
+                .insert(0, parse_quote!(const __BUILDER_CONST_VARIANT: usize));
         }
         res
     }

@@ -98,7 +98,6 @@ impl<'a> DataGenerator<'a> {
                                 }
                             }
                         }
-            
                         impl #impl_generics Default for #data_name #type_generics #where_clause {
                             #[doc(hidden)]
                             fn default() -> Self {
