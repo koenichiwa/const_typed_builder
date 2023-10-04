@@ -59,7 +59,7 @@ impl<'a> DataGenerator<'a> {
     fn generate_impl(&self) -> TokenStream {
         let data_name = self.data_name;
         let struct_name = self.target_name;
-        let from_fields = self.field_gen.data_impl_from_fields();
+        let from_fields: Vec<_> = self.field_gen.data_impl_from_fields().into_iter().flat_map(|(variant_index, fields, tokens)| {tokens}).collect();
         let def_fields = self.field_gen.data_impl_default_fields();
 
         let (impl_generics, type_generics, where_clause) =

@@ -229,18 +229,19 @@ impl<'a> BuilderGenerator<'a> {
             .field_gen
             .fields()
             .iter()
-            .filter(|field| field.kind() != &FieldKind::Skipped)
-            .map(|field| {
-                let const_idents_impl = self.generics_gen.builder_const_generic_idents_set_impl(field);
-                let const_idents_type_input = self.generics_gen.builder_const_generic_idents_set_type(field, false);
-                let const_idents_type_output = self.generics_gen.builder_const_generic_idents_set_type(field, true);
-                let where_clause = &self.generics_gen.target_generics().where_clause;
-
-                let field_name = field.ident();
-                let input_type = self.field_gen.builder_set_impl_input_type(field);
-                let input_value = self.field_gen.builder_set_impl_input_value(field);
-
-                let documentation = format!(r#"
+            .flat_map(|(variant, fields)|{
+                fields.iter().filter(|field| field.kind() != &FieldKind::Skipped)
+                .map(|field| {
+                    let const_idents_impl = self.generics_gen.builder_const_generic_idents_set_impl(field);
+                    let const_idents_type_input = self.generics_gen.builder_const_generic_idents_set_type(field, false);
+                    let const_idents_type_output = self.generics_gen.builder_const_generic_idents_set_type(field, true);
+                    let where_clause = &self.generics_gen.target_generics().where_clause;
+    
+                    let field_name = field.ident();
+                    let input_type = self.field_gen.builder_set_impl_input_type(field);
+                    let input_value = self.field_gen.builder_set_impl_input_value(field);
+    
+                    let documentation = format!(r#"
 Setter for the [`{}::{field_name}`] field.
 
 # Arguments
@@ -249,22 +250,25 @@ Setter for the [`{}::{field_name}`] field.
 
 # Returns
 
-`Self` with `{field_name}` initialized"#, self.target_name);
-
-                let tokens = quote!(
-                    impl #const_idents_impl #builder_name #const_idents_type_input #where_clause {
-                        #[doc = #documentation]
-                        pub fn #field_name (self, #input_type) -> #builder_name #const_idents_type_output {
-                            let mut #data_field = self.#data_field;
-                            #data_field.#field_name = #input_value;
-                            #builder_name {
-                                #data_field,
+`Self` with `{field_name}` initialized"#, 
+                        self.target_name
+                    );
+                    let tokens = quote!(
+                        impl #const_idents_impl #builder_name #const_idents_type_input #where_clause {
+                            #[doc = #documentation]
+                            pub fn #field_name (self, #input_type) -> #builder_name #const_idents_type_output {
+                                let mut #data_field = self.#data_field;
+                                #data_field.#field_name = #input_value;
+                                #builder_name {
+                                    #data_field,
+                                }
                             }
                         }
-                    }
-                );
-                tokens
+                    );
+                    tokens
+                })
             });
+            
 
         let tokens = quote!(
             #(#setters)*
