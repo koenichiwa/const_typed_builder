@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use syn::{ExprPath, Token};
 
 /// Represents the information about a struct field used for code generation.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FieldInfo<'a> {
     field: &'a syn::Field,
     ident: &'a syn::Ident,

@@ -1,13 +1,11 @@
-use std::collections::BTreeMap;
-
-use crate::info::{FieldInfo, FieldKind, FieldInfos};
+use crate::info::{FieldInfo, FieldKind, FieldInfoCollection};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 /// The `FieldGenerator` struct is responsible for generating code related to fields of the target and data structs.
 #[derive(Debug, Clone)]
 pub(super) struct FieldGenerator<'a> {
-    fields: &'a FieldInfos<'a>,
+    field_infos: &'a FieldInfoCollection<'a>,
 }
 
 impl<'a> FieldGenerator<'a> {
@@ -20,13 +18,13 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `FieldGenerator` instance initialized with the provided fields.
-    pub fn new(fields: &'a BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>>) -> Self {
-        Self { fields }
+    pub fn new(fields: &'a FieldInfoCollection) -> Self {
+        Self { field_infos: fields }
     }
 
     /// Returns a reference to the fields of the struct.
-    pub fn fields(&self) -> &'a BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>> {
-        self.fields
+    pub fn fields(&self) -> &'a FieldInfoCollection {
+        self.field_infos
     }
 
     /// Generates code for the fields of the data struct and returns a token stream.
@@ -35,30 +33,26 @@ impl<'a> FieldGenerator<'a> {
     ///
     /// A `Vec<TokenStream>` representing the data struct fields: `pub field_name: field_type`.
     pub fn data_struct_fields(&self) -> Vec<TokenStream> {
-        self.fields
-            .iter()
-            .flat_map(|(variant, fields)|{
-                fields.iter().filter_map(|field| {
-                    let field_name = field.ident();
-    
-                    let data_field_type = match field.kind() {
-                        FieldKind::Skipped => return None,
-                        FieldKind::Optional => field.ty().to_token_stream(),
-                        FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
-                        FieldKind::Mandatory => {
-                            let ty = field.ty();
-                            quote!(Option<#ty>)
-                        }
-                        FieldKind::Grouped => field.ty().to_token_stream(),
-                    };
-    
-                    let tokens = quote!(
-                        pub #field_name: #data_field_type
-                    );
-                    Some(tokens)
-                })
-            })
-            .collect()
+        self.field_infos.all_fields().iter().filter_map(|field| {
+            let field_name = field.ident();
+
+            let data_field_type = match field.kind() {
+                FieldKind::Skipped => return None,
+                FieldKind::Optional => field.ty().to_token_stream(),
+                FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
+                FieldKind::Mandatory => {
+                    let ty = field.ty();
+                    quote!(Option<#ty>)
+                }
+                FieldKind::Grouped => field.ty().to_token_stream(),
+            };
+
+            let tokens = quote!(
+                pub #field_name: #data_field_type
+            );
+            Some(tokens)
+        })
+        .collect()
     }
 
     // Generates code for the `From` trait implementation for converting data struct fields to target struct fields and returns a token stream.
@@ -66,12 +60,10 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `Vec<TokenStream>` representing the fields for the `From` trait implementation. Either containing `unwrap`, `None` or just the type.
-    pub fn data_impl_from_fields(&self) -> Vec<(usize, Option::<&syn::Ident>, Vec<TokenStream>)> {
-        self.fields
-            .iter()
-            .enumerate()
-            .map(|(index, (variant, fields))| {
-                let fields: Vec<_> = fields.iter().map(|field|{
+    pub fn data_impl_from_fields(&self) -> Vec<TokenStream> {
+        match self.field_infos {
+            FieldInfoCollection::StructFields { fields } => {
+                fields.iter().map(|field| {
                     let field_name = field.ident();
                     let tokens = match field.kind() {
                         FieldKind::Skipped => quote!(#field_name: None),
@@ -86,9 +78,10 @@ impl<'a> FieldGenerator<'a> {
                         }
                     };
                     tokens
-                }).collect();
-                (index, variant.as_ref(), fields)
-            }).collect()
+                }).collect()
+            },
+            FieldInfoCollection::EnumFields { variant_fields } => todo!(),
+        }
     }
 
     /// Generates default field values for the data struct and returns a token stream.
@@ -98,15 +91,13 @@ impl<'a> FieldGenerator<'a> {
     /// A `TokenStream` representing the generated default field values.
     pub fn data_impl_default_fields(&self) -> TokenStream {
         let fields_none = self
-            .fields
-            .iter()
-            .flat_map(|(variant, fields)| {
-                fields.iter()
-                .filter(|field| field.kind() != &FieldKind::Skipped)
-                .map(|field| {
-                    let field_name = field.ident();
-                    quote!(#field_name: None)
-                })
+            .field_infos
+            .all_fields()
+            .into_iter()
+            .filter(|field| field.kind() != &FieldKind::Skipped)
+            .map(|field| {
+                let field_name = field.ident();
+                quote!(#field_name: None)
             });
         quote!(
             #(#fields_none),*

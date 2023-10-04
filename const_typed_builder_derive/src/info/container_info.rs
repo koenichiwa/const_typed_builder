@@ -1,3 +1,4 @@
+use super::FieldInfoCollection;
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
 use crate::symbol::{
@@ -6,10 +7,8 @@ use crate::symbol::{
 };
 use proc_macro_error::{emit_error, emit_warning, emit_call_site_error};
 use quote::format_ident;
-use std::collections::{BTreeSet, HashMap, BTreeMap};
+use std::collections::{BTreeSet, HashMap};
 use syn::Token;
-
-pub type FieldInfos<'a> = BTreeMap<Option<syn::Ident>, Vec<FieldInfo<'a>>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum SolveType {
@@ -34,7 +33,7 @@ pub struct ContainerInfo<'a> {
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// A collection of `FieldInfo` instances representing struct fields.
-    field_infos: FieldInfos<'a>,
+    field_infos: FieldInfoCollection<'a>,
     /// The solver used to find all possible valid combinations for the groups
     solve_type: SolveType,
 }
@@ -51,7 +50,7 @@ impl<'a> ContainerInfo<'a> {
     /// An optional `ContainerInfo` instance if successful,
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
         let mut settings = ContainerSettings::new().with_attrs(&ast.attrs);
-        let field_infos: FieldInfos = match &ast.data {
+        let field_infos: FieldInfoCollection = match &ast.data {
             syn::Data::Struct(syn::DataStruct {
                 fields,
                 ..
@@ -76,13 +75,13 @@ impl<'a> ContainerInfo<'a> {
                     .collect::<Vec<_>>()
                 );
 
-                vec![(None, field_infos)]
+                FieldInfoCollection::StructFields { fields: field_infos }
             },
             syn::Data::Enum(syn::DataEnum {
                 variants,
                 ..
             }) => {
-                variants.iter().map(|variant| {
+                let variant_fields = variants.iter().map(|variant| {
                     if !settings.add_variant(variant.ident.clone()) {
                         emit_error!(variant.ident, "Multiple variants with the same name");
                     }
@@ -105,14 +104,15 @@ impl<'a> ContainerInfo<'a> {
                         .collect::<Vec<_>>()
                     );
 
-                    (Some(variant.ident.clone()), field_infos)
-                }).collect()
+                    (variant.ident.clone(), field_infos)
+                }).collect();
+                FieldInfoCollection::EnumFields { variant_fields }
             },
             syn::Data::Union(_) => {
                 emit_call_site_error!("Builder doesn't support unions",);
                 return None;
             },
-        }.into_iter().collect();
+        };
 
         let info = ContainerInfo {
             ident: &ast.ident,
@@ -156,7 +156,7 @@ impl<'a> ContainerInfo<'a> {
     }
 
     /// Retrieves a reference to the collection of `FieldInfo` instances representing struct fields.
-    pub fn field_infos(&self) -> &FieldInfos {
+    pub fn field_infos(&self) -> &FieldInfoCollection {
         &self.field_infos
     }
 

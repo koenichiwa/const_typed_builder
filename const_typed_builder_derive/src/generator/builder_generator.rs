@@ -228,9 +228,9 @@ impl<'a> BuilderGenerator<'a> {
         let setters = self
             .field_gen
             .fields()
-            .iter()
-            .flat_map(|(variant, fields)|{
-                fields.iter().filter(|field| field.kind() != &FieldKind::Skipped)
+            .all_fields()
+            .into_iter()
+            .filter(|field| field.kind() != &FieldKind::Skipped)
                 .map(|field| {
                     let const_idents_impl = self.generics_gen.builder_const_generic_idents_set_impl(field);
                     let const_idents_type_input = self.generics_gen.builder_const_generic_idents_set_type(field, false);
@@ -266,7 +266,6 @@ Setter for the [`{}::{field_name}`] field.
                         }
                     );
                     tokens
-                })
             });
             
 
