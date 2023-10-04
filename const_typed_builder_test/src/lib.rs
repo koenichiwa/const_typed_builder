@@ -689,4 +689,22 @@ mod test {
         let foo = Foo::builder().baz("Hello world!".to_string()).build();
         assert_eq!(foo, expected);
     }
+
+    #[test]
+    fn enum_two_variants() {
+        #[derive(Debug, Builder, PartialEq)]
+        pub enum Foo {
+            Bar {
+                baz: String
+            },
+            Quz {
+                qux: String
+            }
+        }
+        let expected = Foo::Bar {
+            baz: "Hello world!".to_string(),
+        };
+        let foo = Foo::builder().baz("Hello world!".to_string()).build();
+        assert_eq!(foo, expected);
+    }
 }
