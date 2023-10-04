@@ -1,11 +1,11 @@
-use super::FieldInfoCollection;
 use super::field_info::{FieldInfo, FieldSettings};
 use super::group_info::{GroupInfo, GroupType};
+use super::FieldInfoCollection;
 use crate::symbol::{
     ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
     SOLVER,
 };
-use proc_macro_error::{emit_error, emit_warning, emit_call_site_error};
+use proc_macro_error::{emit_call_site_error, emit_error, emit_warning};
 use quote::format_ident;
 use std::collections::{BTreeSet, HashMap};
 use syn::Token;
@@ -51,67 +51,70 @@ impl<'a> ContainerInfo<'a> {
     pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
         let mut settings = ContainerSettings::new().with_attrs(&ast.attrs);
         let field_infos: FieldInfoCollection = match &ast.data {
-            syn::Data::Struct(syn::DataStruct {
-                fields,
-                ..
-            }) => {
+            syn::Data::Struct(syn::DataStruct { fields, .. }) => {
                 let fields = match fields {
                     syn::Fields::Named(fields) => Some(fields),
                     syn::Fields::Unnamed(fields) => {
                         emit_error!(fields, "Builder cannot handle unnamed fields");
                         None
-                    },
+                    }
                     syn::Fields::Unit => {
                         emit_error!(fields, "Cannot creat builder for empty struct");
                         None
-                    },
-                };
-        
-                let field_infos = fields.map_or( Vec::new(), |fields| 
-                    fields.named
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, field)| FieldInfo::new(field, &mut settings, index))
-                    .collect::<Vec<_>>()
-                );
-
-                FieldInfoCollection::StructFields { fields: field_infos }
-            },
-            syn::Data::Enum(syn::DataEnum {
-                variants,
-                ..
-            }) => {
-                let variant_fields = variants.iter().map(|variant| {
-                    if !settings.add_variant(variant.ident.clone()) {
-                        emit_error!(variant.ident, "Multiple variants with the same name");
                     }
-                    let fields = match &variant.fields {
-                        syn::Fields::Named(fields) => Some(fields),
-                        syn::Fields::Unnamed(fields) => {
-                            emit_error!(fields, "Builder cannot handle unnamed fields");
-                            None
-                        },
-                        syn::Fields::Unit => {
-                            None
-                        },
-                    };
+                };
 
-                    let field_infos = fields.map_or(Vec::new(), |fields| 
-                        fields.named
+                let field_infos = fields.map_or(Vec::new(), |fields| {
+                    fields
+                        .named
                         .iter()
                         .enumerate()
                         .filter_map(|(index, field)| FieldInfo::new(field, &mut settings, index))
                         .collect::<Vec<_>>()
-                    );
+                });
 
-                    (variant.ident.clone(), field_infos)
-                }).collect();
+                FieldInfoCollection::StructFields {
+                    fields: field_infos,
+                }
+            }
+            syn::Data::Enum(syn::DataEnum { variants, .. }) => {
+                let mut index = 0;
+                let variant_fields = variants
+                    .iter()
+                    .map(|variant| {
+                        if !settings.add_variant(variant.ident.clone()) {
+                            emit_error!(variant.ident, "Multiple variants with the same name");
+                        }
+                        let fields = match &variant.fields {
+                            syn::Fields::Named(fields) => Some(fields),
+                            syn::Fields::Unnamed(fields) => {
+                                emit_error!(fields, "Builder cannot handle unnamed fields");
+                                None
+                            }
+                            syn::Fields::Unit => None,
+                        };
+
+                        let field_infos = fields.map_or(Vec::new(), |fields| {
+                            fields
+                                .named
+                                .iter()
+                                .filter_map(|field| {
+                                    let res = FieldInfo::new(field, &mut settings, index);
+                                    index += 1;
+                                    res
+                                })
+                                .collect::<Vec<_>>()
+                        });
+
+                        (variant.ident.clone(), field_infos)
+                    })
+                    .collect();
                 FieldInfoCollection::EnumFields { variant_fields }
-            },
+            }
             syn::Data::Union(_) => {
                 emit_call_site_error!("Builder doesn't support unions",);
                 return None;
-            },
+            }
         };
 
         let info = ContainerInfo {
@@ -127,7 +130,6 @@ impl<'a> ContainerInfo<'a> {
             solve_type: settings.solver_type,
         };
         Some(info)
-        
     }
 
     /// Retrieves the identifier of the struct.
