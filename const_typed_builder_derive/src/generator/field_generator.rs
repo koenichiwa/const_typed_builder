@@ -1,11 +1,14 @@
-use crate::{field_kind::FieldKind, info::Field};
+use crate::{
+    field_kind::FieldKind,
+    info::{Field, FieldCollection},
+};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 /// The `FieldGenerator` struct is responsible for generating code related to fields of the target and data structs.
 #[derive(Debug, Clone)]
 pub(super) struct FieldGenerator<'a> {
-    fields: &'a [Field<'a>],
+    fields: &'a FieldCollection<'a>,
 }
 
 impl<'a> FieldGenerator<'a> {
@@ -18,7 +21,7 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `FieldGenerator` instance initialized with the provided fields.
-    pub fn new(fields: &'a [Field]) -> Self {
+    pub fn new(fields: &'a FieldCollection<'a>) -> Self {
         Self { fields }
     }
 

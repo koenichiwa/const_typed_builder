@@ -1,5 +1,5 @@
 use crate::{
-    info::{GroupInfo, GroupType},
+    info::{Group, GroupType},
     CONST_IDENT_PREFIX,
 };
 use itertools::{Itertools, Powerset};
@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
 pub(super) struct GroupGenerator<'a> {
-    groups: Vec<&'a GroupInfo>,
+    groups: Vec<&'a Group>,
 }
 
 impl<'a> GroupGenerator<'a> {
@@ -23,7 +23,7 @@ impl<'a> GroupGenerator<'a> {
     /// # Returns
     ///
     /// A `GroupGenerator` instance initialized with the provided groups.
-    pub fn new(groups: Vec<&'a GroupInfo>) -> Self {
+    pub fn new(groups: Vec<&'a Group>) -> Self {
         groups.iter().for_each(|group| group.check());
         Self { groups }
     }

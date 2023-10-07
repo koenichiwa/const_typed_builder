@@ -1,17 +1,23 @@
 use proc_macro_error::{emit_error, emit_warning};
 
 use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
-use std::{cmp::Ordering, collections::BTreeSet, hash::Hash};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeSet, HashMap},
+    hash::Hash,
+};
+
+pub type GroupCollection = HashMap<String, Group>;
 
 /// Represents information about a group, including its name, member count, and group type.
 #[derive(Debug, Clone)]
-pub struct GroupInfo {
+pub struct Group {
     name: syn::Ident,
     associated_indices: BTreeSet<usize>,
     group_type: GroupType,
 }
 
-impl GroupInfo {
+impl Group {
     /// Creates a new `GroupInfo` instance.
     ///
     /// # Arguments
@@ -23,7 +29,7 @@ impl GroupInfo {
     ///
     /// A `GroupInfo` instance with the provided name and group type.
     pub fn new(name: syn::Ident, group_type: GroupType) -> Self {
-        GroupInfo {
+        Group {
             name,
             associated_indices: BTreeSet::new(),
             group_type,
@@ -160,15 +166,15 @@ impl GroupInfo {
     }
 }
 
-impl Eq for GroupInfo {}
+impl Eq for Group {}
 
-impl PartialEq for GroupInfo {
+impl PartialEq for Group {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
 }
 
-impl Hash for GroupInfo {
+impl Hash for Group {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.to_string().hash(state);
     }

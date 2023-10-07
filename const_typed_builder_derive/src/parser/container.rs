@@ -1,64 +1,23 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 use proc_macro_error::{emit_error, emit_warning};
 use syn::Token;
 
-use crate::{
-    info::{GroupInfo, GroupType},
-    solver_kind::SolverKind,
-    symbol,
-};
+use crate::{info, solver_kind::SolverKind, symbol};
+
+use super::{group::Group, Field};
 
 /// Represents the parser for struct generation.
 #[derive(Debug)]
 pub struct Container {
     assume_mandatory: bool,
     /// A map of group names to their respective `GroupInfo`.
-    groups: HashMap<String, GroupInfo>,
-    /// The indices of the mandatory fields
-    mandatory_indices: BTreeSet<usize>,
+    groups: info::GroupCollection,
     /// The solver used to find all possible valid combinations for the groups
     solver_kind: SolverKind,
 }
 
-impl Default for Container {
-    fn default() -> Self {
-        Container {
-            assume_mandatory: false,
-            groups: HashMap::new(),
-            mandatory_indices: BTreeSet::new(),
-            solver_kind: SolverKind::BruteForce,
-        }
-    }
-}
-
 impl Container {
-    pub fn assume_mandatory(&self) -> bool {
-        self.assume_mandatory
-    }
-
-    pub fn groups(&self) -> &HashMap<String, GroupInfo> {
-        &self.groups
-    }
-
-    pub fn mandatory_indices(&self) -> &BTreeSet<usize> {
-        &self.mandatory_indices
-    }
-
-    pub fn solver_kind(&self) -> SolverKind {
-        self.solver_kind
-    }
-
-    /// Add a field index to the set of mandatory indices
-    pub fn add_mandatory_index(&mut self, index: usize) -> bool {
-        self.mandatory_indices.insert(index)
-    }
-
-    /// Get a GroupInfo by its identifier
-    pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut GroupInfo> {
-        self.groups.get_mut(group_name)
-    }
-
     /// Updates struct settings based on provided attributes.
     ///
     /// # Arguments
@@ -68,9 +27,68 @@ impl Container {
     /// # Returns
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
-    pub fn with_attrs(mut self, attrs: &[syn::Attribute]) -> Self {
-        attrs.iter().for_each(|attr| self.handle_attribute(attr));
-        self
+    pub fn parse(ast: &syn::DeriveInput) -> Option<info::Container> {
+        match &ast {
+            syn::DeriveInput {
+                attrs,
+                vis,
+                ident,
+                generics,
+                data:
+                    syn::Data::Struct(syn::DataStruct {
+                        fields: syn::Fields::Named(fields),
+                        ..
+                    }),
+            } => {
+                let mut result = Container {
+                    assume_mandatory: false,
+                    groups: HashMap::new(),
+                    solver_kind: SolverKind::BruteForce,
+                };
+
+                attrs.iter().for_each(|attr| result.handle_attribute(attr));
+
+                let fields = fields
+                    .named
+                    .iter()
+                    .enumerate()
+                    .map(|(index, field)| {
+                        assert!(field.ident.is_some());
+                        Field::parse(
+                            field
+                                .ident
+                                .as_ref()
+                                .expect("FieldsNamed should have a named field"),
+                            field,
+                            &mut result,
+                            index,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                Some(info::Container::new(
+                    vis,
+                    generics,
+                    ident,
+                    result.groups,
+                    fields,
+                    result.solver_kind,
+                ))
+            }
+            _ => {
+                emit_error!(ast, "Builder is only supported for named structs",);
+                None
+            }
+        }
+    }
+
+    pub fn assume_mandatory(&self) -> bool {
+        self.assume_mandatory
+    }
+
+    /// Get a GroupInfo by its identifier
+    pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut info::Group> {
+        self.groups.get_mut(group_name)
     }
 
     /// Handles the parsing and processing of attributes applied to a struct.
@@ -104,7 +122,11 @@ impl Container {
             ),
         }
         match (&attr_ident.to_string()).into() {
-            symbol::GROUP => self.handle_group_attribute(attr),
+            symbol::GROUP => {
+                if let Some(group) = Group::parse(attr) {
+                    self.groups.insert(group.name().to_string(), group);
+                }
+            }
             symbol::BUILDER => self.handle_builder_attribute(attr),
             _ => emit_error!(&attr, "Unknown attribute"),
         }
@@ -178,151 +200,5 @@ impl Container {
                 note = err
             )
         })
-    }
-
-    /// Handles the parsing and processing of group attributes applied to a struct.
-    ///
-    /// This method is responsible for interpreting the meaning of group attributes applied to the struct and
-    /// updating the `StructSettings` accordingly. It supports the following group attributes:
-    ///
-    /// - `#[group(group_name = (exact(N)|at_least(N)|at_most(N)|single)]`:
-    ///   Associates fields of the struct with a group named "group_name" and specifies the group's behavior.
-    ///   The `group_name` should be a string identifier. The group can have one of the following behaviors:
-    ///     - `exact(N)`: Exactly N fields in the group must be set during the builder construction.
-    ///     - `at_least(N)`: At least N fields in the group must be set during the builder construction.
-    ///     - `at_most(N)`: At most N fields in the group can be set during the builder construction.
-    ///     - `single`: Only one field in the group can be set during the builder construction.
-    ///
-    /// # Arguments
-    ///
-    /// - `attr`: A reference to the `syn::Attribute` representing the group attribute applied to the struct.
-    fn handle_group_attribute(&mut self, attr: &syn::Attribute) {
-        attr.parse_nested_meta(|meta| {
-            let group_name = match meta.path.require_ident() {
-                Ok(ident) => ident,
-                Err(err) => {
-                    emit_error!(
-                        &meta.path , "Group name is not specified correctly";
-                        help = "Try to define it like `#[{}(foo = {}(1))]`", symbol::GROUP, symbol::AT_LEAST;
-                        note = err
-                    );
-                    return Ok(());
-                }
-            };
-
-            let group_type = match meta.value()?.parse()? {
-                syn::Expr::Call(syn::ExprCall { func, args, .. }) => {
-                    let group_type = match func.as_ref() {
-                        syn::Expr::Path(syn::ExprPath { path, .. }) => match path.require_ident() {
-                            Ok(ident) => ident,
-                            Err(err) => {
-                                emit_error!(
-                                    &meta.path , "Group type is not specified correctly";
-                                    help = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST;
-                                    note = err
-                                );
-                                return Ok(());
-                            }
-                        },
-                        _ => {
-                            emit_error!(
-                                &attr.meta, "No group type specified";
-                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST
-                            );
-                            return Ok(());
-                        }
-                    };
-
-                    match args.first() {
-                        Some(syn::Expr::Lit(syn::ExprLit {
-                            attrs: _,
-                            lit: syn::Lit::Int(val),
-                        })) => match val.base10_parse::<usize>() {
-                            Ok(group_args) => match (&group_type.to_string()).into() {
-                                symbol::EXACT => GroupType::Exact(group_args),
-                                symbol::AT_LEAST => GroupType::AtLeast(group_args),
-                                symbol::AT_MOST => GroupType::AtMost(group_args),
-                                symbol::SINGLE => {
-                                    emit_error!(
-                                        args,
-                                        "`{}` doesn't take any arguments", symbol::SINGLE;
-                                        help = "`{}` is shorthand for {}(1)", symbol::SINGLE, symbol::EXACT
-                                    );
-                                    return Ok(());
-                                }
-                                _ => {
-                                    emit_error!(
-                                        group_type, "Unknown group type";
-                                        help = "Known group types are {}, {} and {}", symbol::EXACT, symbol::AT_LEAST, symbol::AT_MOST
-                                    );
-                                    return Ok(());
-                                }
-                            },
-                            Err(err) => {
-                                emit_error!(
-                                    val, "Couldn't parse group argument";
-                                    note = err
-                                );
-                                return Ok(());
-                            }
-                        },
-
-                        _ => {
-                            emit_error!(func, "Can't parse group argument");
-                            return Ok(());
-                        }
-                    }
-                }
-                syn::Expr::Path(syn::ExprPath { path, .. }) => {
-                    let group_type = match path.require_ident() {
-                        Ok(ident) => ident,
-                        Err(err) => {
-                            emit_error!(
-                                &meta.path , "Group type is not specified correctly";
-                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST;
-                                note = err
-                            );
-                            return Ok(());
-                        }
-                    };
-                    match (&group_type.to_string()).into() {
-                        symbol::EXACT | symbol::AT_LEAST | symbol::AT_MOST => {
-                            emit_error!(
-                                &attr.meta,
-                                "Missing arguments for group type";
-                                help = "Try `{}(1)`, or any other usize", &group_type
-                            );
-                            return Ok(());
-                        }
-                        symbol::SINGLE => GroupType::Exact(1),
-                        _ => {
-                            emit_error!(
-                                group_type,
-                                "Unknown group type";
-                                help = "Known group types are {}, {} and {}", symbol::EXACT, symbol::AT_LEAST, symbol::AT_MOST
-                            );
-                            return Ok(());
-                        }
-                    }
-                }
-                _ => {
-                    emit_error!(
-                        &attr.meta, "No group type specified";
-                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST
-                    );
-                    return Ok(());
-                }
-            };
-
-            self.groups.insert(
-                group_name.to_string(),
-                GroupInfo::new(group_name.clone(), group_type),
-            );
-            Ok(())
-        })
-        .unwrap_or_else(|err| emit_error!(
-            &attr.meta, "Unknown error";
-            note = err
-        ))
     }
 }

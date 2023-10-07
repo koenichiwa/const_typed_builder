@@ -1,7 +1,7 @@
 mod container;
 mod field;
-mod group_info;
+mod group;
 
 pub use container::Container;
-pub use field::Field;
-pub use group_info::{GroupInfo, GroupType};
+pub use field::{Field, FieldCollection};
+pub use group::{Group, GroupCollection, GroupType};

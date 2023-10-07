@@ -1,4 +1,7 @@
-use crate::{field_kind::FieldKind, info::Field};
+use crate::{
+    field_kind::FieldKind,
+    info::{Field, FieldCollection},
+};
 use either::Either;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -7,7 +10,7 @@ use syn::parse_quote;
 /// The `GenericsGenerator` struct is responsible for generating code related to generics in the target struct, builder, and data types.
 #[derive(Debug, Clone)]
 pub(super) struct GenericsGenerator<'a> {
-    pub fields: &'a [Field<'a>],
+    pub fields: &'a FieldCollection<'a>,
     target_generics: &'a syn::Generics,
 }
 
@@ -22,7 +25,7 @@ pub(super) struct GenericsGenerator<'a> {
 ///
 /// A `GenericsGenerator` instance initialized with the provided fields and target generics.
 impl<'a> GenericsGenerator<'a> {
-    pub fn new(fields: &'a [Field], target_generics: &'a syn::Generics) -> Self {
+    pub fn new(fields: &'a FieldCollection<'a>, target_generics: &'a syn::Generics) -> Self {
         Self {
             fields,
             target_generics,

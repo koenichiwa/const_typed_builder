@@ -1,0 +1,21 @@
+error: Can't define field as as part of a group as its already defined as mandatory
+
+         = help: Remove either types of attribute from this field
+
+ --> ./compile_fail/group_and_mandatory_3.rs:9:30
+  |
+9 |         #[builder(mandatory, group = quz)]
+  |                              ^^^^^
+
+error[E0599]: no function or associated item named `builder` found for struct `Foo` in the current scope
+  --> ./compile_fail/group_and_mandatory_3.rs:14:18
+   |
+6  |     pub struct Foo {
+   |     -------------- function or associated item `builder` not found for this struct
+...
+14 |     let _ = Foo::builder().bar("Hello".to_string()).baz("Hello".to_string()).qux("world!".to_string()).build();
+   |                  ^^^^^^^ function or associated item not found in `Foo`
+   |
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following trait defines an item `builder`, perhaps you need to implement it:
+           candidate #1: `const_typed_builder::Builder`
