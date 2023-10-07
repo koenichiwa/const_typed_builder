@@ -165,10 +165,11 @@ impl<'a> BuilderGenerator<'a> {
 
         match self.solve_type {
             SolveType::BruteForce => {
-                let build_impls = match self.field_gen.fields() {
+                let build_impls: Vec<TokenStream> = match self.field_gen.fields() {
                     FieldInfoCollection::StructFields { fields } => self
                         .group_gen
                         .valid_groupident_combinations(0)
+                        .iter()
                         .map(|group_indices| {
                             let type_generics = self
                                 .generics_gen
@@ -182,8 +183,26 @@ impl<'a> BuilderGenerator<'a> {
                                     }
                                 }
                             )
-                        }),
-                    FieldInfoCollection::EnumFields { variant_fields } => todo!(),
+                        }).collect(),
+                    FieldInfoCollection::EnumFields { variant_fields } => variant_fields.iter().enumerate().flat_map(|(variant_index,(variant, field))| {
+                        self.group_gen
+                        .valid_groupident_combinations(variant_index + 1)
+                        .into_iter()
+                        .map(|group_indices| {
+                            let type_generics = self
+                                .generics_gen
+                                .builder_const_generic_idents_build(&group_indices);
+
+                            quote!(
+                                impl #impl_generics #builder_name #type_generics #where_clause{
+                                    #[doc = #documentation]
+                                    pub fn build(self) -> #target_name #target_type_generics {
+                                        self.#data_field.into()
+                                    }
+                                }
+                            )
+                        })
+                    }).collect()
                 };
 
                 quote!(

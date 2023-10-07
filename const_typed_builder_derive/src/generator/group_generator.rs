@@ -1,5 +1,5 @@
 use crate::{
-    info::{GroupInfo, GroupType},
+    info::{GroupInfo, GroupType, FieldInfoCollection},
     CONST_IDENT_PREFIX,
 };
 use itertools::{Itertools, Powerset};
@@ -10,6 +10,7 @@ use std::collections::BTreeSet;
 /// The `GroupGenerator` struct is responsible for generating code related to groups within the builder, including correctness checks and verifications.
 #[derive(Debug)]
 pub(super) struct GroupGenerator<'a> {
+    field_infos: &'a FieldInfoCollection<'a>,
     groups: Vec<&'a GroupInfo>,
 }
 
@@ -23,9 +24,12 @@ impl<'a> GroupGenerator<'a> {
     /// # Returns
     ///
     /// A `GroupGenerator` instance initialized with the provided groups.
-    pub fn new(groups: Vec<&'a GroupInfo>) -> Self {
+    pub fn new(field_infos: &'a FieldInfoCollection<'a>, groups: Vec<&'a GroupInfo>) -> Self {
         groups.iter().for_each(|group| group.check());
-        Self { groups }
+        Self { 
+            field_infos,
+            groups,
+        }
     }
 
     /// Returns all valid combinations of the const generics for the grouped fields
@@ -36,21 +40,45 @@ impl<'a> GroupGenerator<'a> {
     pub fn valid_groupident_combinations(
         &self,
         variant_index: usize,
-    ) -> impl Iterator<Item = Vec<usize>> + '_ {
-        let group_indices: BTreeSet<usize> = self
-            .groups
-            .iter()
-            .flat_map(|group| group.indices().clone())
-            .collect();
-        let powerset: Powerset<std::collections::btree_set::IntoIter<usize>> =
-            group_indices.into_iter().powerset();
-        powerset.filter_map(|set| {
-            if self.groups.iter().all(|group| group.is_valid_with(&set)) {
-                Some(set)
-            } else {
-                None
-            }
-        })
+    ) -> Vec<Vec<usize>> {
+        match self.field_infos {
+            FieldInfoCollection::StructFields { fields } => {
+                assert!(variant_index == 0);
+                let group_indices: BTreeSet<usize> = self
+                    .groups
+                    .iter()
+                    .flat_map(|group| group.indices().clone())
+                    .collect();
+                let powerset: Powerset<std::collections::btree_set::IntoIter<usize>> =
+                    group_indices.into_iter().powerset();
+                powerset.filter_map(|set| {
+                    if self.groups.iter().all(|group| group.is_valid_with(&set)) {
+                        Some(set)
+                    } else {
+                        None
+                    }
+                }).collect()
+            },
+            FieldInfoCollection::EnumFields { variant_fields } => {
+                assert!(variant_index != 0);
+                let fields =variant_fields.get(variant_fields.keys().collect_vec().get(variant_index - 1).unwrap()).unwrap();
+                
+                let group_indices: BTreeSet<usize> = self
+                    .groups
+                    .iter()
+                    .flat_map(|group| group.indices().clone())
+                    .collect();
+                let powerset: Powerset<_> = group_indices.intersection(&fields.iter().map(|field|field.index()).collect()).powerset();
+                powerset.filter_map(|set| {
+                    if self.groups.iter().all(|group| group.is_valid_with(&set.into_iter().copied().collect())) {
+                        Some(set.into_iter())
+                    } else {
+                        None
+                    }
+                }).collect()
+            },
+        }
+        
     }
 
     /// Generates correctness helper functions for group validation and returns a `TokenStream`.

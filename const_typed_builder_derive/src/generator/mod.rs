@@ -34,7 +34,7 @@ impl<'a> Generator<'a> {
     pub fn new(info: &'a ContainerInfo<'a>) -> Self {
         let generics_gen = GenericsGenerator::new(info.field_infos(), info.generics());
         let field_gen = FieldGenerator::new(info.field_infos());
-        let group_gen = GroupGenerator::new(info.groups().values().collect());
+        let group_gen = GroupGenerator::new(info.field_infos(), info.groups().values().collect());
         Generator {
             data_gen: DataGenerator::new(
                 field_gen.clone(),

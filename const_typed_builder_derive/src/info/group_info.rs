@@ -68,7 +68,7 @@ impl GroupInfo {
         &self.group_type
     }
 
-    pub fn is_valid_with(&self, indices: &[usize]) -> bool {
+    pub fn is_valid_with(&self, indices: &Vec<usize>) -> bool {
         let applicable_indices_count = self
             .associated_indices
             .intersection(&indices.iter().copied().collect())
