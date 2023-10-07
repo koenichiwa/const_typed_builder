@@ -1,4 +1,4 @@
-use crate::{info::FieldInfo, info::FieldKind};
+use crate::{field_kind::FieldKind, info::Field};
 use either::Either;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -7,7 +7,7 @@ use syn::parse_quote;
 /// The `GenericsGenerator` struct is responsible for generating code related to generics in the target struct, builder, and data types.
 #[derive(Debug, Clone)]
 pub(super) struct GenericsGenerator<'a> {
-    pub fields: &'a [FieldInfo<'a>],
+    pub fields: &'a [Field<'a>],
     target_generics: &'a syn::Generics,
 }
 
@@ -22,7 +22,7 @@ pub(super) struct GenericsGenerator<'a> {
 ///
 /// A `GenericsGenerator` instance initialized with the provided fields and target generics.
 impl<'a> GenericsGenerator<'a> {
-    pub fn new(fields: &'a [FieldInfo], target_generics: &'a syn::Generics) -> Self {
+    pub fn new(fields: &'a [Field], target_generics: &'a syn::Generics) -> Self {
         Self {
             fields,
             target_generics,
@@ -66,7 +66,7 @@ impl<'a> GenericsGenerator<'a> {
     /// A `TokenStream` representing the generated const generics for the setter method input type.
     pub fn builder_const_generic_idents_set_type(
         &self,
-        field_info: &FieldInfo,
+        field_info: &Field,
         value: bool,
     ) -> TokenStream {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
@@ -89,7 +89,7 @@ impl<'a> GenericsGenerator<'a> {
     /// # Returns
     ///
     /// A `syn::Generics` instance representing the generated const generics for the setter method input type.
-    pub fn builder_const_generic_idents_set_impl(&self, field_info: &FieldInfo) -> syn::Generics {
+    pub fn builder_const_generic_idents_set_impl(&self, field_info: &Field) -> syn::Generics {
         let mut all = self.fields.iter().filter_map(|field| match field.kind() {
             FieldKind::Skipped | FieldKind::Optional => None,
             _ if field == field_info => None,

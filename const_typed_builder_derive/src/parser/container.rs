@@ -1,175 +1,52 @@
-use super::field_info::{FieldInfo, FieldSettings};
-use super::group_info::{GroupInfo, GroupType};
-use crate::symbol::{
-    ASSUME_MANDATORY, AT_LEAST, AT_MOST, BRUTE_FORCE, BUILDER, COMPILER, EXACT, GROUP, SINGLE,
-    SOLVER,
-};
-use proc_macro_error::{emit_error, emit_warning};
-use quote::format_ident;
 use std::collections::{BTreeSet, HashMap};
+
+use proc_macro_error::{emit_error, emit_warning};
 use syn::Token;
 
-/// A type alias for a collection of `FieldInfo` instances.
-type FieldInfos<'a> = Vec<FieldInfo<'a>>;
+use crate::{
+    info::{GroupInfo, GroupType},
+    solver_kind::SolverKind,
+    symbol,
+};
 
-#[derive(Debug, Clone, Copy)]
-pub enum SolveType {
-    BruteForce,
-    Compiler,
-}
-/// Represents the information about a struct used for code generation.
+/// Represents the parser for struct generation.
 #[derive(Debug)]
-pub struct StructInfo<'a> {
-    /// The identifier of the struct.
-    ident: &'a syn::Ident,
-    /// The visibility of the struct.
-    vis: &'a syn::Visibility,
-    /// The generics of the struct.
-    generics: &'a syn::Generics,
-    /// The identifier of the generated builder struct.
-    builder_ident: syn::Ident,
-    /// The identifier of the generated data struct.
-    data_ident: syn::Ident,
-    _mandatory_indices: BTreeSet<usize>,
-    /// A map of group names to their respective `GroupInfo`.
-    groups: HashMap<String, GroupInfo>,
-    /// A collection of `FieldInfo` instances representing struct fields.
-    field_infos: FieldInfos<'a>,
-    /// The solver used to find all possible valid combinations for the groups
-    solve_type: SolveType,
-}
-
-impl<'a> StructInfo<'a> {
-    /// Creates a new `StructInfo` instance from a `syn::DeriveInput`.
-    ///
-    /// # Arguments
-    ///
-    /// - `ast`: A `syn::DeriveInput` representing the input struct.
-    ///
-    /// # Returns
-    ///
-    /// An optional `StructInfo` instance if successful,
-    pub fn new(ast: &'a syn::DeriveInput) -> Option<Self> {
-        match &ast {
-            syn::DeriveInput {
-                attrs,
-                vis,
-                ident,
-                generics,
-                data:
-                    syn::Data::Struct(syn::DataStruct {
-                        fields: syn::Fields::Named(fields),
-                        ..
-                    }),
-            } => {
-                if fields.named.is_empty() {
-                    emit_error!(fields, "No fields found");
-                }
-
-                let mut settings = StructSettings::new().with_attrs(attrs);
-
-                let field_infos = fields
-                    .named
-                    .iter()
-                    .enumerate()
-                    .map(|(index, field)| FieldInfo::new(field, &mut settings, index))
-                    .collect::<Option<Vec<_>>>()?;
-
-                let info = StructInfo {
-                    ident,
-                    vis,
-                    generics,
-                    builder_ident: format_ident!("{}{}", ident, settings.builder_suffix),
-                    data_ident: format_ident!("{}{}", ident, settings.data_suffix),
-                    _mandatory_indices: settings.mandatory_indices,
-                    groups: settings.groups,
-                    field_infos,
-                    solve_type: settings.solver_type,
-                };
-                Some(info)
-            }
-            _ => {
-                emit_error!(ast, "Builder is only supported for named structs",);
-                None
-            }
-        }
-    }
-
-    /// Retrieves the identifier of the struct.
-    pub fn name(&self) -> &syn::Ident {
-        self.ident
-    }
-
-    /// Retrieves the visibility of the struct.
-    pub fn vis(&self) -> &syn::Visibility {
-        self.vis
-    }
-
-    /// Retrieves the generics of the struct.
-    pub fn generics(&self) -> &syn::Generics {
-        self.generics
-    }
-
-    /// Retrieves the identifier of the generated builder struct.
-    pub fn builder_name(&self) -> &syn::Ident {
-        &self.builder_ident
-    }
-
-    /// Retrieves the identifier of the generated data struct.
-    pub fn data_name(&self) -> &syn::Ident {
-        &self.data_ident
-    }
-
-    /// Retrieves a reference to the collection of `FieldInfo` instances representing struct fields.
-    pub fn field_infos(&self) -> &FieldInfos {
-        &self.field_infos
-    }
-
-    /// Retrieves a reference to the map of group names to their respective `GroupInfo`.
-    pub fn groups(&self) -> &HashMap<String, GroupInfo> {
-        &self.groups
-    }
-
-    /// Retrieves the solver type used to find all possible valid combinations for the groups
-    pub fn solve_type(&self) -> SolveType {
-        self.solve_type
-    }
-}
-
-/// Represents settings for struct generation.
-#[derive(Debug)]
-pub struct StructSettings {
-    /// The suffix to be added to the generated builder struct name.
-    builder_suffix: String,
-    /// The suffix to be added to the generated data struct name.
-    data_suffix: String,
-    /// Default field settings.
-    default_field_settings: FieldSettings,
+pub struct Container {
+    assume_mandatory: bool,
     /// A map of group names to their respective `GroupInfo`.
     groups: HashMap<String, GroupInfo>,
     /// The indices of the mandatory fields
     mandatory_indices: BTreeSet<usize>,
     /// The solver used to find all possible valid combinations for the groups
-    solver_type: SolveType,
+    solver_kind: SolverKind,
 }
 
-impl Default for StructSettings {
+impl Default for Container {
     fn default() -> Self {
-        StructSettings {
-            builder_suffix: "Builder".to_string(),
-            data_suffix: "Data".to_string(),
-            default_field_settings: FieldSettings::new(),
+        Container {
+            assume_mandatory: false,
             groups: HashMap::new(),
             mandatory_indices: BTreeSet::new(),
-            solver_type: SolveType::BruteForce,
+            solver_kind: SolverKind::BruteForce,
         }
     }
 }
 
-impl StructSettings {
-    /// Creates a new `StructSettings` instance with default values.
-    fn new() -> Self {
-        StructSettings::default()
+impl Container {
+    pub fn assume_mandatory(&self) -> bool {
+        self.assume_mandatory
+    }
+
+    pub fn groups(&self) -> &HashMap<String, GroupInfo> {
+        &self.groups
+    }
+
+    pub fn mandatory_indices(&self) -> &BTreeSet<usize> {
+        &self.mandatory_indices
+    }
+
+    pub fn solver_kind(&self) -> SolverKind {
+        self.solver_kind
     }
 
     /// Add a field index to the set of mandatory indices
@@ -180,11 +57,6 @@ impl StructSettings {
     /// Get a GroupInfo by its identifier
     pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut GroupInfo> {
         self.groups.get_mut(group_name)
-    }
-
-    /// Retrieves the default field settings.
-    pub fn default_field_settings(&self) -> &FieldSettings {
-        &self.default_field_settings
     }
 
     /// Updates struct settings based on provided attributes.
@@ -232,8 +104,8 @@ impl StructSettings {
             ),
         }
         match (&attr_ident.to_string()).into() {
-            GROUP => self.handle_group_attribute(attr),
-            BUILDER => self.handle_builder_attribute(attr),
+            symbol::GROUP => self.handle_group_attribute(attr),
+            symbol::BUILDER => self.handle_builder_attribute(attr),
             _ => emit_error!(&attr, "Unknown attribute"),
         }
     }
@@ -261,7 +133,7 @@ impl StructSettings {
                 Err(err) => {
                     emit_error!(
                         &attr.meta, "Specifier cannot be parsed";
-                        help = "Try specifying it like #[{}(specifier)]", BUILDER;
+                        help = "Try specifying it like #[{}(specifier)]", symbol::BUILDER;
                         note = err
                     );
                     return Ok(());
@@ -269,28 +141,19 @@ impl StructSettings {
             };
 
             match (&path_ident.to_string()).into() {
-                ASSUME_MANDATORY => {
-                    if meta.input.peek(Token![=]) {
-                        let expr: syn::Expr = meta.value()?.parse()?;
-                        match &expr {
-                            syn::Expr::Lit(syn::ExprLit {
-                                lit: syn::Lit::Bool(syn::LitBool { value, .. }),
-                                ..
-                            }) => self.default_field_settings.mandatory = *value,
-                            expr => emit_error!(expr, "Can't parse expression"),
-                        }
-                    } else {
-                        self.default_field_settings.mandatory = true;
-                    }
+                symbol::ASSUME_MANDATORY => {
+                    self.assume_mandatory = true;
                 }
-                SOLVER => {
+                symbol::SOLVER => {
                     if meta.input.peek(Token![=]) {
                         let expr: syn::Expr = meta.value()?.parse()?;
                         if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
                             if let Some(solve_type) = path.get_ident() {
                                 match (&solve_type.to_string()).into() {
-                                    BRUTE_FORCE => self.solver_type = SolveType::BruteForce,
-                                    COMPILER => self.solver_type = SolveType::Compiler,
+                                    symbol::BRUTE_FORCE => {
+                                        self.solver_kind = SolverKind::BruteForce
+                                    }
+                                    symbol::COMPILER => self.solver_kind = SolverKind::Compiler,
                                     _ => emit_error!(&path, "Unknown solver type"),
                                 }
                             } else {
@@ -340,7 +203,7 @@ impl StructSettings {
                 Err(err) => {
                     emit_error!(
                         &meta.path , "Group name is not specified correctly";
-                        help = "Try to define it like `#[{}(foo = {}(1))]`", GROUP, AT_LEAST;
+                        help = "Try to define it like `#[{}(foo = {}(1))]`", symbol::GROUP, symbol::AT_LEAST;
                         note = err
                     );
                     return Ok(());
@@ -355,7 +218,7 @@ impl StructSettings {
                             Err(err) => {
                                 emit_error!(
                                     &meta.path , "Group type is not specified correctly";
-                                    help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST;
+                                    help = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST;
                                     note = err
                                 );
                                 return Ok(());
@@ -364,7 +227,7 @@ impl StructSettings {
                         _ => {
                             emit_error!(
                                 &attr.meta, "No group type specified";
-                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST
                             );
                             return Ok(());
                         }
@@ -376,21 +239,21 @@ impl StructSettings {
                             lit: syn::Lit::Int(val),
                         })) => match val.base10_parse::<usize>() {
                             Ok(group_args) => match (&group_type.to_string()).into() {
-                                EXACT => GroupType::Exact(group_args),
-                                AT_LEAST => GroupType::AtLeast(group_args),
-                                AT_MOST => GroupType::AtMost(group_args),
-                                SINGLE => {
+                                symbol::EXACT => GroupType::Exact(group_args),
+                                symbol::AT_LEAST => GroupType::AtLeast(group_args),
+                                symbol::AT_MOST => GroupType::AtMost(group_args),
+                                symbol::SINGLE => {
                                     emit_error!(
                                         args,
-                                        "`{}` doesn't take any arguments", SINGLE;
-                                        help = "`{}` is shorthand for {}(1)", SINGLE, EXACT
+                                        "`{}` doesn't take any arguments", symbol::SINGLE;
+                                        help = "`{}` is shorthand for {}(1)", symbol::SINGLE, symbol::EXACT
                                     );
                                     return Ok(());
                                 }
                                 _ => {
                                     emit_error!(
                                         group_type, "Unknown group type";
-                                        help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                                        help = "Known group types are {}, {} and {}", symbol::EXACT, symbol::AT_LEAST, symbol::AT_MOST
                                     );
                                     return Ok(());
                                 }
@@ -416,14 +279,14 @@ impl StructSettings {
                         Err(err) => {
                             emit_error!(
                                 &meta.path , "Group type is not specified correctly";
-                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST;
+                                help = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST;
                                 note = err
                             );
                             return Ok(());
                         }
                     };
                     match (&group_type.to_string()).into() {
-                        EXACT | AT_LEAST | AT_MOST => {
+                        symbol::EXACT | symbol::AT_LEAST | symbol::AT_MOST => {
                             emit_error!(
                                 &attr.meta,
                                 "Missing arguments for group type";
@@ -431,12 +294,12 @@ impl StructSettings {
                             );
                             return Ok(());
                         }
-                        SINGLE => GroupType::Exact(1),
+                        symbol::SINGLE => GroupType::Exact(1),
                         _ => {
                             emit_error!(
                                 group_type,
                                 "Unknown group type";
-                                help = "Known group types are {}, {} and {}", EXACT, AT_LEAST, AT_MOST
+                                help = "Known group types are {}, {} and {}", symbol::EXACT, symbol::AT_LEAST, symbol::AT_MOST
                             );
                             return Ok(());
                         }
@@ -445,7 +308,7 @@ impl StructSettings {
                 _ => {
                     emit_error!(
                         &attr.meta, "No group type specified";
-                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, AT_LEAST
+                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST
                     );
                     return Ok(());
                 }

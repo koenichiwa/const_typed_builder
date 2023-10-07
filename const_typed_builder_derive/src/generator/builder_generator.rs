@@ -2,7 +2,7 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::info::{FieldKind, SolveType};
+use crate::{field_kind::FieldKind, solver_kind::SolverKind};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -17,7 +17,7 @@ pub(super) struct BuilderGenerator<'a> {
     target_vis: &'a syn::Visibility,
     builder_name: &'a syn::Ident,
     data_name: &'a syn::Ident,
-    solve_type: SolveType,
+    solve_type: SolverKind,
 }
 
 impl<'a> BuilderGenerator<'a> {
@@ -46,7 +46,7 @@ impl<'a> BuilderGenerator<'a> {
         target_vis: &'a syn::Visibility,
         builder_name: &'a syn::Ident,
         data_name: &'a syn::Ident,
-        solve_type: SolveType,
+        solve_type: SolverKind,
     ) -> Self {
         Self {
             group_gen,
@@ -164,7 +164,7 @@ impl<'a> BuilderGenerator<'a> {
             self.generics_gen.target_generics().split_for_impl();
 
         match self.solve_type {
-            SolveType::BruteForce => {
+            SolverKind::BruteForce => {
                 let build_impls =
                     self.group_gen
                         .valid_groupident_combinations()
@@ -187,7 +187,7 @@ impl<'a> BuilderGenerator<'a> {
                     #(#build_impls)*
                 )
             }
-            SolveType::Compiler => {
+            SolverKind::Compiler => {
                 let builder_name = self.builder_name;
                 let impl_generics = self
                     .generics_gen

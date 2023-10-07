@@ -1,11 +1,11 @@
-use crate::info::{FieldInfo, FieldKind};
+use crate::{field_kind::FieldKind, info::Field};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 /// The `FieldGenerator` struct is responsible for generating code related to fields of the target and data structs.
 #[derive(Debug, Clone)]
 pub(super) struct FieldGenerator<'a> {
-    fields: &'a [FieldInfo<'a>],
+    fields: &'a [Field<'a>],
 }
 
 impl<'a> FieldGenerator<'a> {
@@ -18,12 +18,12 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `FieldGenerator` instance initialized with the provided fields.
-    pub fn new(fields: &'a [FieldInfo]) -> Self {
+    pub fn new(fields: &'a [Field]) -> Self {
         Self { fields }
     }
 
     /// Returns a reference to the fields of the struct.
-    pub fn fields(&self) -> &[FieldInfo] {
+    pub fn fields(&self) -> &[Field] {
         self.fields
     }
 
@@ -112,7 +112,7 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `Option<TokenStream>` representing the generated input type for the builder setter method. None if the field is skipped.
-    pub fn builder_set_impl_input_type(&self, field: &'a FieldInfo) -> Option<TokenStream> {
+    pub fn builder_set_impl_input_type(&self, field: &'a Field) -> Option<TokenStream> {
         if field.kind() == &FieldKind::Skipped {
             return None;
         }
@@ -142,7 +142,7 @@ impl<'a> FieldGenerator<'a> {
     /// # Returns
     ///
     /// A `Option<TokenStream>` representing the generated input value for the builder setter method. None if the field is skipped.
-    pub fn builder_set_impl_input_value(&self, field: &'a FieldInfo) -> Option<TokenStream> {
+    pub fn builder_set_impl_input_value(&self, field: &'a Field) -> Option<TokenStream> {
         if field.kind() == &FieldKind::Skipped {
             return None;
         }

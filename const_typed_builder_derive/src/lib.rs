@@ -1,9 +1,13 @@
+mod field_kind;
 mod generator;
 mod info;
+mod parser;
+mod solver_kind;
 mod symbol;
+mod util;
 
 use generator::Generator;
-use info::StructInfo;
+use info::Container;
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
@@ -50,7 +54,7 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 ///
 /// An optional `TokenStream` representing the generated token stream.
 fn impl_my_derive(ast: &syn::DeriveInput) -> Option<TokenStream> {
-    let struct_info = StructInfo::new(ast)?;
+    let struct_info = Container::new(ast)?;
     let generator = Generator::new(&struct_info);
     Some(generator.generate())
 }

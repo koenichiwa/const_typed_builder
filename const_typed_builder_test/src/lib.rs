@@ -188,7 +188,7 @@ mod test {
     fn optional_mandatory_set() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
         pub struct Foo {
-            #[builder(mandatory = true)]
+            #[builder(mandatory)]
             bar: Option<String>,
         }
 
