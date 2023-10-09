@@ -15,6 +15,14 @@ pub enum FieldKind {
     Grouped,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum SetterKind {
+    Standard,
+    Into,
+    RefMut,
+    AsRef
+}
+
 /// Represents the information about a struct field used for code generation.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Field<'a> {
