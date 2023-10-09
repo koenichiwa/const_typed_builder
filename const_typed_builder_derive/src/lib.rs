@@ -10,8 +10,6 @@ use proc_macro_error::proc_macro_error;
 use quote::quote;
 use syn::DeriveInput;
 
-const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST";
-
 /// The `derive_builder` macro is used to automatically generate builder
 /// code for a struct. It takes a struct as input and generates a builder
 /// pattern implementation for that struct.

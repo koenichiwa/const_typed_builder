@@ -1,12 +1,11 @@
-use crate::{
-    util::{inner_type, is_option},
-    CONST_IDENT_PREFIX,
-};
+use crate::util::{inner_type, is_option};
 use quote::format_ident;
 use std::ops::Deref;
 
 /// A type alias for a collection of `FieldInfo` instances.
 pub type FieldCollection<'a> = Vec<Field<'a>>;
+
+const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST_";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum FieldKind {
