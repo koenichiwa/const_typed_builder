@@ -14,9 +14,7 @@ impl<'info> TargetGenerator<'info> {
     ///
     /// # Arguments
     ///
-    /// - `generics_gen`: The `GenericsGenerator` responsible for generating generics information.
-    /// - `target_name`: A reference to the identifier representing the target struct's name.
-    /// - `builder_name`: A reference to the identifier representing the builder struct's name.
+    /// - `info`: The `info::Container` containing all the information of the data container.
     ///
     /// # Returns
     ///
@@ -46,7 +44,11 @@ impl<'info> TargetGenerator<'info> {
             builder_ident.to_token_stream()
         };
 
-        let const_generics = util::const_generics_all_valued(false, self.info.field_collection(), self.info.generics());
+        let const_generics = util::const_generics_all_valued(
+            false,
+            self.info.field_collection(),
+            self.info.generics(),
+        );
         let (impl_generics, type_generics, where_clause) = self.info.generics().split_for_impl();
 
         let documentation = format!("Creates an instance of [`{}`]", self.info.builder_ident());

@@ -4,7 +4,7 @@ use quote::{quote, ToTokens};
 
 /// The `DataGenerator` struct is responsible for generating code related to the data struct
 /// that corresponds to the target struct and the conversion implementations.
-pub(super) struct DataGenerator<'a> {
+pub struct DataGenerator<'a> {
     info: &'a info::Container<'a>,
 }
 
@@ -13,15 +13,12 @@ impl<'a> DataGenerator<'a> {
     ///
     /// # Arguments
     ///
-    /// - `field_gen`: The `FieldGenerator` responsible for generating field-related code.
-    /// - `generics_gen`: The `GenericsGenerator` responsible for generating generics information.
-    /// - `target_ident`: A reference to the identifier representing the target struct's ident.
-    /// - `data_ident`: A reference to the identifier representing the data struct's ident.
+    /// - `info`: The `info::Container` containing all the information of the data container.
     ///
     /// # Returns
     ///
     /// A `DataGenerator` instance initialized with the provided information.
-    pub(super) fn new(info: &'a info::Container<'a>) -> Self {
+    pub fn new(info: &'a info::Container<'a>) -> Self {
         Self { info }
     }
 
