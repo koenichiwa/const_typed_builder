@@ -19,8 +19,8 @@ pub enum FieldKind {
 pub enum SetterKind {
     Standard,
     Into,
-    RefMut,
-    AsRef
+    AsMut,
+    AsRef,
 }
 
 /// Represents the information about a struct field used for code generation.
@@ -31,7 +31,7 @@ pub struct Field<'a> {
     index: usize,
     propagate: bool,
     kind: FieldKind,
-    setter_kind: SetterKind
+    setter_kind: SetterKind,
 }
 
 impl<'a> Field<'a> {

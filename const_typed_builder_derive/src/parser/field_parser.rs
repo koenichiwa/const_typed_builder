@@ -9,6 +9,7 @@ use proc_macro_error::{emit_error, emit_warning};
 #[derive(Debug)]
 pub struct FieldParser<'parser> {
     kind: Option<FieldKind>,
+    setter_kind: Option<SetterKind>,
     propagate: bool,
     index: usize,
     assume_mandatory: bool,
@@ -23,6 +24,7 @@ impl<'parser> FieldParser<'parser> {
     ) -> Self {
         Self {
             kind: None,
+            setter_kind: None,
             propagate: false,
             index,
             assume_mandatory,
@@ -46,10 +48,21 @@ impl<'parser> FieldParser<'parser> {
                 Some(FieldKind::Mandatory)
             } else {
                 Some(FieldKind::Optional)
-            }
+            };
         }
 
-        Field::new(ident, ty, self.index, self.kind.unwrap(), self.propagate, SetterKind::Standard)
+        if self.setter_kind.is_none() {
+            self.setter_kind = Some(SetterKind::Standard);
+        }
+
+        Field::new(
+            ident,
+            ty,
+            self.index,
+            self.kind.unwrap(),
+            self.propagate,
+            self.setter_kind.unwrap(),
+        )
     }
 
     /// Handles the parsing and processing of a builder attribute applied to a field.
@@ -124,18 +137,37 @@ impl<'parser> FieldParser<'parser> {
                 symbol::SKIP => self.handle_attribute_skip(path_ident),
                 symbol::MANDATORY => self.handle_attribute_mandatory(path_ident),
                 symbol::OPTIONAL => self.handle_attribute_optional(path_ident),
-                symbol::GROUP => self.handle_attribute_group(path_ident, &meta),
+                symbol::GROUP => self.handle_attribute_group(&meta),
                 symbol::PROPAGATE => self.propagate = true,
+                symbol::SETTER => self.handle_attribute_setter(&meta)?,
                 _ => emit_error!(&attr.meta, "Unknown attribute"),
             }
             Ok(())
         })
         .unwrap_or_else(|err| {
             emit_error!(
-                &attr.meta, "Unknown error";
+                &attr.meta, "An error occured while parsing this attribute";
                 note = err
             )
         })
+    }
+
+    fn handle_attribute_setter(&mut self, meta: &syn::meta::ParseNestedMeta) -> syn::Result<()> {
+        let setter_ident: syn::Ident = meta.value()?.parse()?;
+        if self.setter_kind.is_some() {
+            emit_error!(setter_ident, "Setter type defined multiple times");
+            return Ok(());
+        }
+        match (&setter_ident.to_string()).into() {
+            symbol::ASREF => self.setter_kind = Some(SetterKind::AsRef),
+            symbol::ASMUT => self.setter_kind = Some(SetterKind::AsMut),
+            symbol::INTO => self.setter_kind = Some(SetterKind::Into),
+            symbol::STANDARD => self.setter_kind = Some(SetterKind::Standard),
+            _ => {
+                emit_error!(setter_ident, "Unknown setter type");
+            }
+        }
+        Ok(())
     }
 
     fn handle_attribute_skip(&mut self, ident: &syn::Ident) {
@@ -201,19 +233,19 @@ impl<'parser> FieldParser<'parser> {
         }
     }
 
-    fn handle_attribute_group(&mut self, ident: &syn::Ident, meta: &syn::meta::ParseNestedMeta) {
+    fn handle_attribute_group(&mut self, meta: &syn::meta::ParseNestedMeta) {
         match self.kind {
             None => self.kind = Some(FieldKind::Grouped),
             Some(FieldKind::Optional) => emit_error!(
-                ident, "Can't define field as part of a group as its already defined as optional";
+                meta.path, "Can't define field as part of a group as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
             Some(FieldKind::Skipped) => emit_error!(
-                ident, "Can't define field as as part of a group as its already defined as skipped";
+                meta.path, "Can't define field as as part of a group as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
             Some(FieldKind::Mandatory) => emit_error!(
-                ident, "Can't define field as as part of a group as its already defined as mandatory";
+                meta.path, "Can't define field as as part of a group as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
             Some(FieldKind::Grouped) => {}
@@ -233,7 +265,7 @@ impl<'parser> FieldParser<'parser> {
             }
             Err(err) => {
                 emit_error!(
-                    ident, "Group name not specified correctly";
+                    meta.path, "Group name not specified correctly";
                     help = "Try defining it like #[{}(foo)]", symbol::BUILDER;
                     note = err
                 );
