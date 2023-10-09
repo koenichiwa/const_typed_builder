@@ -85,12 +85,12 @@ impl<'a> Container<'a> {
     }
 
     /// Retrieves a reference to the map of group names to their respective `GroupInfo`.
-    pub fn groups(&self) -> &GroupCollection {
+    pub fn group_collection(&self) -> &GroupCollection {
         &self.groups
     }
 
     /// Retrieves the solver type used to find all possible valid combinations for the groups
-    pub fn solve_type(&self) -> SolverKind {
+    pub fn solver_kind(&self) -> SolverKind {
         self.solver_kind
     }
 

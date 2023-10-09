@@ -6,7 +6,7 @@ use self::{
     builder_generator::BuilderGenerator, data_generator::DataGenerator,
     target_generator::TargetGenerator,
 };
-use crate::info::{Container, self};
+use crate::info;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -23,13 +23,15 @@ impl<'info> Generator<'info> {
     ///
     /// # Arguments
     ///
-    /// - `info`: A reference to the `StructInfo` representing the input struct.
+    /// - `info`: The `info::Container` containing all the information of the data container.
     ///
     /// # Returns
     ///
     /// A `Generator` instance initialized with the provided `StructInfo`.
-    pub fn new(info: &'info Container<'info>) -> Self {
-        info.groups().values().for_each(|group| group.check());
+    pub fn new(info: &'info info::Container<'info>) -> Self {
+        info.group_collection()
+            .values()
+            .for_each(|group| group.check());
 
         Generator {
             info,
@@ -71,9 +73,8 @@ impl<'info> Generator<'info> {
 }
 
 mod util {
-    use either::Either;
     use proc_macro2::TokenStream;
-    use quote::{quote, ToTokens};
+    use quote::quote;
 
     use crate::info;
     /// Generates const generics with boolean values and returns a token stream.
@@ -85,15 +86,15 @@ mod util {
     /// # Returns
     ///
     /// A `TokenStream` representing the generated const generics.
-    pub fn const_generics_all_valued(value: bool, fields: &info::FieldCollection, generics: &syn::Generics) -> TokenStream {
+    pub fn const_generics_all_valued(
+        value: bool,
+        fields: &info::FieldCollection,
+        generics: &syn::Generics,
+    ) -> TokenStream {
         let mut all = fields
             .iter()
-            .filter_map(|field| match field.kind() {
-                info::FieldKind::Skipped | info::FieldKind::Optional => None,
-                info::FieldKind::Mandatory | info::FieldKind::Grouped => Some(Either::Right(
-                    syn::LitBool::new(value, field.ident().span()),
-                )),
-            });
+            .filter_map(info::TrackedField::new)
+            .map(|_| quote!(#value));
         add_const_valued_generics_for_type(&mut all, generics)
     }
 
@@ -103,20 +104,16 @@ mod util {
     ///
     /// A `Tokenstream` instance representing the generics for the builder struct.
     pub fn add_const_valued_generics_for_type(
-        constants: &mut dyn Iterator<Item = Either<syn::Ident, syn::LitBool>>,
+        constants: &mut impl Iterator<Item = TokenStream>,
         generics: &syn::Generics,
     ) -> TokenStream {
-        let type_generics = generics.params.iter().map(|param| match param {
+        dbg!(generics.type_params().collect::<Vec<_>>());
+        let generic_idents = generics.params.iter().map(|param| match param {
             syn::GenericParam::Lifetime(lt) => &lt.lifetime.ident,
             syn::GenericParam::Type(ty) => &ty.ident,
             syn::GenericParam::Const(cnst) => &cnst.ident,
         });
 
-        let tokens = constants.map(|constant| {
-            constant
-                .map_either(|iden| iden.to_token_stream(), |lit| lit.to_token_stream())
-                .into_inner()
-        });
-        quote!(< #(#type_generics,)* #(#tokens),* >)
+        quote!(< #(#generic_idents,)* #(#constants),* >)
     }
 }

@@ -3,11 +3,12 @@ use crate::{
     CONST_IDENT_PREFIX,
 };
 use quote::format_ident;
+use std::ops::Deref;
 
 /// A type alias for a collection of `FieldInfo` instances.
 pub type FieldCollection<'a> = Vec<Field<'a>>;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FieldKind {
     Optional,
     Skipped,
@@ -78,7 +79,7 @@ impl<'a> Field<'a> {
         inner_type(self.ty)
     }
 
-    /// Retrieves the kind of the field, which can be Optional, Mandatory, or Grouped.
+    /// Retrieves the kind of the field, which can be Optional, Mandatory, Skipped or Grouped.
     pub fn kind(&self) -> &FieldKind {
         &self.kind
     }
@@ -120,5 +121,42 @@ impl<'a> PartialOrd for Field<'a> {
 impl<'a> Ord for Field<'a> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.index.cmp(&other.index)
+    }
+}
+pub enum TrackedFieldKind {
+    Mandatory,
+    Grouped,
+}
+pub struct TrackedField<'a> {
+    field: &'a Field<'a>,
+    kind: TrackedFieldKind,
+}
+
+impl<'a> TrackedField<'a> {
+    /// Creates a [`TrackedField`] if the input [`Field`] is Mandatory or Grouped.
+    pub fn new(field: &'a Field) -> Option<Self> {
+        match field.kind() {
+            FieldKind::Optional | FieldKind::Skipped => None,
+            FieldKind::Mandatory => Some(Self {
+                field,
+                kind: TrackedFieldKind::Mandatory,
+            }),
+            FieldKind::Grouped => Some(Self {
+                field,
+                kind: TrackedFieldKind::Grouped,
+            }),
+        }
+    }
+    /// Retrieves the kind of the field, which can be Mandatory, or Grouped.
+    pub fn kind(&self) -> &TrackedFieldKind {
+        &self.kind
+    }
+}
+
+impl<'a> Deref for TrackedField<'a> {
+    type Target = Field<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.field
     }
 }
