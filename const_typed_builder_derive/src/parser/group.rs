@@ -1,12 +1,15 @@
-use crate::{info, symbol};
+use crate::{
+    info::{Group, GroupCollection, GroupType},
+    symbol,
+};
 use proc_macro_error::emit_error;
 
-pub struct Group<'a> {
-    groups: &'a mut info::GroupCollection,
+pub struct GroupParser<'a> {
+    groups: &'a mut GroupCollection,
 }
 
-impl<'a> Group<'a> {
-    pub fn new(groups: &'a mut info::GroupCollection) -> Self {
+impl<'a> GroupParser<'a> {
+    pub fn new(groups: &'a mut GroupCollection) -> Self {
         Self { groups }
     }
 
@@ -37,7 +40,7 @@ impl<'a> Group<'a> {
             };
 
             if let Some(group_type) = group_type {
-                if let Some(earlier_definition) = self.groups.insert(group_name.to_string(), info::Group::new(group_name.clone(), group_type)) {
+                if let Some(earlier_definition) = self.groups.insert(group_name.to_string(), Group::new(group_name.clone(), group_type)) {
                     let earlier_span = earlier_definition.ident().span();
                     emit_error!(
                         &group_name, "Group defined multiple times";
@@ -54,7 +57,7 @@ impl<'a> Group<'a> {
         ));
     }
 
-    fn handle_group_call(&self, expr: &syn::ExprCall) -> Option<info::GroupType> {
+    fn handle_group_call(&self, expr: &syn::ExprCall) -> Option<GroupType> {
         let syn::ExprCall { func, args, .. } = expr;
 
         let type_ident = match func.as_ref() {
@@ -100,9 +103,9 @@ impl<'a> Group<'a> {
         };
 
         let group_type = match (&type_ident.to_string()).into() {
-            symbol::EXACT => info::GroupType::Exact(group_argument),
-            symbol::AT_LEAST => info::GroupType::AtLeast(group_argument),
-            symbol::AT_MOST => info::GroupType::AtMost(group_argument),
+            symbol::EXACT => GroupType::Exact(group_argument),
+            symbol::AT_LEAST => GroupType::AtLeast(group_argument),
+            symbol::AT_MOST => GroupType::AtMost(group_argument),
             symbol::SINGLE => {
                 emit_error!(
                     args,
@@ -122,7 +125,7 @@ impl<'a> Group<'a> {
         Some(group_type)
     }
 
-    fn handle_group_path(&self, expr: &syn::ExprPath) -> Option<info::GroupType> {
+    fn handle_group_path(&self, expr: &syn::ExprPath) -> Option<GroupType> {
         let syn::ExprPath { path, .. } = expr;
         let type_ident = match path.require_ident() {
             Ok(ident) => ident,
@@ -137,7 +140,7 @@ impl<'a> Group<'a> {
         };
 
         match (&type_ident.to_string()).into() {
-            symbol::SINGLE => Some(info::GroupType::Exact(1)),
+            symbol::SINGLE => Some(GroupType::Exact(1)),
             symbol::EXACT | symbol::AT_LEAST | symbol::AT_MOST => {
                 emit_error!(
                     &expr,

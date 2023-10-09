@@ -1,21 +1,25 @@
-use crate::{info, symbol, util::is_option};
+use crate::{
+    info::{Field, FieldKind, GroupCollection},
+    symbol,
+    util::is_option,
+};
 use proc_macro_error::{emit_error, emit_warning};
 
 /// Represents settings for struct field generation.
 #[derive(Debug)]
-pub struct Field<'parser> {
-    kind: Option<info::FieldKind>,
+pub struct FieldParser<'parser> {
+    kind: Option<FieldKind>,
     propagate: bool,
     index: usize,
     assume_mandatory: bool,
-    group_collection: &'parser mut info::GroupCollection,
+    group_collection: &'parser mut GroupCollection,
 }
 
-impl<'parser> Field<'parser> {
+impl<'parser> FieldParser<'parser> {
     pub fn new(
         index: usize,
         assume_mandatory: bool,
-        group_collection: &'parser mut info::GroupCollection,
+        group_collection: &'parser mut GroupCollection,
     ) -> Self {
         Self {
             kind: None,
@@ -26,15 +30,11 @@ impl<'parser> Field<'parser> {
         }
     }
 
-    pub fn parse<'ast>(
-        mut self,
-        ident: &'ast syn::Ident,
-        field: &'ast syn::Field,
-    ) -> info::Field<'ast> {
+    pub fn parse<'ast>(mut self, ident: &'ast syn::Ident, field: &'ast syn::Field) -> Field<'ast> {
         let syn::Field { ty, attrs, .. } = field;
 
         if !is_option(ty) {
-            self.kind = Some(info::FieldKind::Mandatory); // If its not an option type it MUST always be mandatory
+            self.kind = Some(FieldKind::Mandatory); // If its not an option type it MUST always be mandatory
         }
 
         attrs
@@ -43,13 +43,13 @@ impl<'parser> Field<'parser> {
 
         if self.kind.is_none() {
             self.kind = if self.assume_mandatory {
-                Some(info::FieldKind::Mandatory)
+                Some(FieldKind::Mandatory)
             } else {
-                Some(info::FieldKind::Optional)
+                Some(FieldKind::Optional)
             }
         }
 
-        info::Field::new(ident, ty, self.index, self.kind.unwrap(), self.propagate)
+        Field::new(ident, ty, self.index, self.kind.unwrap(), self.propagate)
     }
 
     /// Handles the parsing and processing of a builder attribute applied to a field.
@@ -140,19 +140,19 @@ impl<'parser> Field<'parser> {
 
     fn handle_attribute_skip(&mut self, ident: &syn::Ident) {
         match self.kind {
-            None => self.kind = Some(info::FieldKind::Skipped),
-            Some(info::FieldKind::Optional) => emit_error!(
+            None => self.kind = Some(FieldKind::Skipped),
+            Some(FieldKind::Optional) => emit_error!(
                 ident, "Can't define field as skipped as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Skipped) => {
+            Some(FieldKind::Skipped) => {
                 emit_warning!(ident, "Defined field as skipped multiple times")
             }
-            Some(info::FieldKind::Mandatory) => emit_error!(
+            Some(FieldKind::Mandatory) => emit_error!(
                 ident, "Can't define field as skipped as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Grouped) => emit_error!(
+            Some(FieldKind::Grouped) => emit_error!(
                 ident, "Can't define field as skipped when its also part of a group";
                 hint = "Remove either types of attribute from this field"
             ),
@@ -161,19 +161,19 @@ impl<'parser> Field<'parser> {
 
     fn handle_attribute_mandatory(&mut self, ident: &syn::Ident) {
         match self.kind {
-            None => self.kind = Some(info::FieldKind::Mandatory),
-            Some(info::FieldKind::Optional) => emit_error!(
+            None => self.kind = Some(FieldKind::Mandatory),
+            Some(FieldKind::Optional) => emit_error!(
                 ident, "Can't define field as mandatory as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Skipped) => emit_error!(
+            Some(FieldKind::Skipped) => emit_error!(
                 ident, "Can't define field as mandatory as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Mandatory) => {
+            Some(FieldKind::Mandatory) => {
                 emit_warning!(ident, "Defined field as mandatory multiple times")
             }
-            Some(info::FieldKind::Grouped) => emit_error!(
+            Some(FieldKind::Grouped) => emit_error!(
                 ident, "Can't define field as mandatory when its also part of a group";
                 hint = "Remove either types of attribute from this field"
             ),
@@ -182,19 +182,19 @@ impl<'parser> Field<'parser> {
 
     fn handle_attribute_optional(&mut self, ident: &syn::Ident) {
         match self.kind {
-            None => self.kind = Some(info::FieldKind::Optional),
-            Some(info::FieldKind::Optional) => {
+            None => self.kind = Some(FieldKind::Optional),
+            Some(FieldKind::Optional) => {
                 emit_warning!(ident, "Defined field as optional multiple times")
             }
-            Some(info::FieldKind::Skipped) => emit_error!(
+            Some(FieldKind::Skipped) => emit_error!(
                 ident, "Can't define field as optional as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Mandatory) => emit_error!(
+            Some(FieldKind::Mandatory) => emit_error!(
                 ident, "Can't define field as optional as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Grouped) => emit_error!(
+            Some(FieldKind::Grouped) => emit_error!(
                 ident, "Can't define field as optional when its also part of a group";
                 hint = "Remove either types of attribute from this field"
             ),
@@ -203,20 +203,20 @@ impl<'parser> Field<'parser> {
 
     fn handle_attribute_group(&mut self, ident: &syn::Ident, meta: &syn::meta::ParseNestedMeta) {
         match self.kind {
-            None => self.kind = Some(info::FieldKind::Grouped),
-            Some(info::FieldKind::Optional) => emit_error!(
+            None => self.kind = Some(FieldKind::Grouped),
+            Some(FieldKind::Optional) => emit_error!(
                 ident, "Can't define field as part of a group as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Skipped) => emit_error!(
+            Some(FieldKind::Skipped) => emit_error!(
                 ident, "Can't define field as as part of a group as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Mandatory) => emit_error!(
+            Some(FieldKind::Mandatory) => emit_error!(
                 ident, "Can't define field as as part of a group as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(info::FieldKind::Grouped) => {}
+            Some(FieldKind::Grouped) => {}
         }
         match self.extract_group_name(meta) {
             Ok(group_name) => {

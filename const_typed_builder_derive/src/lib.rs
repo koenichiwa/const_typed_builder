@@ -49,7 +49,7 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 ///
 /// An optional `TokenStream` representing the generated token stream.
 fn impl_my_derive(ast: &syn::DeriveInput) -> Option<TokenStream> {
-    let container_info = parser::Container::new().parse(ast)?;
+    let container_info = parser::ContainerParser::new().parse(ast)?;
     let generator = Generator::new(&container_info);
     Some(generator.generate())
 }
