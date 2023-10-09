@@ -270,7 +270,7 @@ Setter for the [`{}::{field_ident}`] field.
                 if field.deref() == field_info {
                     quote!(#value)
                 } else {
-                    let ident = field.ident();
+                    let ident = field.const_ident();
                     quote!(#ident)
                 }
             });
