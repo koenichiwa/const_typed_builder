@@ -3,4 +3,5 @@ mod field;
 mod group;
 
 pub use container::Container;
-pub use field::Field;
+use field::Field;
+use group::Group;

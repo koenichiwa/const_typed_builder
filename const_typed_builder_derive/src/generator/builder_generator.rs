@@ -2,7 +2,7 @@ use super::{
     field_generator::FieldGenerator, generics_generator::GenericsGenerator,
     group_generator::GroupGenerator,
 };
-use crate::{field_kind::FieldKind, solver_kind::SolverKind};
+use crate::{info::FieldKind, info::SolverKind};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};

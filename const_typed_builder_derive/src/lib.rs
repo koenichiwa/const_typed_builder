@@ -1,8 +1,6 @@
-mod field_kind;
 mod generator;
 mod info;
 mod parser;
-mod solver_kind;
 mod symbol;
 mod util;
 
@@ -53,7 +51,7 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 ///
 /// An optional `TokenStream` representing the generated token stream.
 fn impl_my_derive(ast: &syn::DeriveInput) -> Option<TokenStream> {
-    let container_info = &parser::Container::parse(ast)?;
-    let generator = Generator::new(container_info);
+    let container_info = parser::Container::new().parse(ast)?;
+    let generator = Generator::new(&container_info);
     Some(generator.generate())
 }

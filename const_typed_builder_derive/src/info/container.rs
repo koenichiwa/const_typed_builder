@@ -1,8 +1,13 @@
 use super::field::FieldCollection;
 use super::group::GroupCollection;
-use crate::solver_kind::SolverKind;
 
 use quote::format_ident;
+
+#[derive(Debug, Clone, Copy)]
+pub enum SolverKind {
+    BruteForce,
+    Compiler,
+}
 
 /// Represents the information about a struct used for code generation.
 #[derive(Debug)]

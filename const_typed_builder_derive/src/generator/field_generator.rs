@@ -1,7 +1,4 @@
-use crate::{
-    field_kind::FieldKind,
-    info::{Field, FieldCollection},
-};
+use crate::info::{Field, FieldCollection, FieldKind};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 

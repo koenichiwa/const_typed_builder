@@ -1,5 +1,4 @@
 use crate::{
-    field_kind::FieldKind,
     util::{inner_type, is_option},
     CONST_IDENT_PREFIX,
 };
@@ -7,6 +6,14 @@ use quote::format_ident;
 
 /// A type alias for a collection of `FieldInfo` instances.
 pub type FieldCollection<'a> = Vec<Field<'a>>;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum FieldKind {
+    Optional,
+    Skipped,
+    Mandatory,
+    Grouped,
+}
 
 /// Represents the information about a struct field used for code generation.
 #[derive(Debug, PartialEq, Eq)]

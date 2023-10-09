@@ -1,79 +1,55 @@
-use crate::{field_kind::FieldKind, symbol, util::is_option};
+use crate::{info, symbol, util::is_option};
 use proc_macro_error::{emit_error, emit_warning};
-use std::collections::HashSet;
-
-use super::Container;
-use crate::info;
 
 /// Represents settings for struct field generation.
-#[derive(Debug, Clone)]
-pub struct Field {
-    kind: Option<FieldKind>,
-    /// Indicates if the field should propagate values.
+#[derive(Debug)]
+pub struct Field<'parser> {
+    kind: Option<info::FieldKind>,
     propagate: bool,
-    /// The groups this field belongs to.
-    groups: HashSet<syn::Ident>,
+    index: usize,
+    assume_mandatory: bool,
+    group_collection: &'parser mut info::GroupCollection,
 }
 
-// impl Default for Field {
-//     fn default() -> Field {
-//         Field {
-//             index: 0,
-//             ident: syn::Ident::new("", )
-//             kind: None,
-//             propagate: false,
-//             groups: HashSet::new(),
-//         }
-//     }
-// }
-
-impl Field {
-    /// Creates a new `FieldSettings` instance with default values.
-    pub fn parse<'a>(
-        ident: &'a syn::Ident,
-        field: &'a syn::Field,
-        container_parser: &mut Container,
+impl<'parser> Field<'parser> {
+    pub fn new(
         index: usize,
-    ) -> info::Field<'a> {
-        // let mut result = Self::default();
-        let syn::Field { ty, attrs, .. } = field;
-
-        let mut result = Self {
+        assume_mandatory: bool,
+        group_collection: &'parser mut info::GroupCollection,
+    ) -> Self {
+        Self {
             kind: None,
             propagate: false,
-            groups: HashSet::new(),
-        };
+            index,
+            assume_mandatory,
+            group_collection,
+        }
+    }
 
-        if result.kind.is_none() && !is_option(ty) {
-            result.kind = Some(FieldKind::Mandatory); // If its not an option type it MUST always be mandatory
+    pub fn parse<'ast>(
+        mut self,
+        ident: &'ast syn::Ident,
+        field: &'ast syn::Field,
+    ) -> info::Field<'ast> {
+        let syn::Field { ty, attrs, .. } = field;
+
+        if !is_option(ty) {
+            self.kind = Some(info::FieldKind::Mandatory); // If its not an option type it MUST always be mandatory
         }
 
         attrs
             .iter()
-            .for_each(|attr: &syn::Attribute| result.handle_attribute(attr));
+            .for_each(|attr: &syn::Attribute| self.handle_attribute(attr));
 
-        match result.kind {
-            Some(FieldKind::Grouped) => result.groups.iter().for_each(|group_name| {
-                if let Some(group) = container_parser.group_by_name_mut(&group_name.to_string())
-                {
-                    group.associate(index);
-                } else {
-                    emit_error!(
-                        group_name,
-                        "No group called {} is available", group_name;
-                        hint = "You might want to add a #[{}(...)] attribute to the container", symbol::GROUP
-                    );
-                }
-            }),
-            Some(_) => {}
-            None => if container_parser.assume_mandatory() {
-                result.kind = Some(FieldKind::Mandatory)
+        if self.kind.is_none() {
+            self.kind = if self.assume_mandatory {
+                Some(info::FieldKind::Mandatory)
             } else {
-                result.kind = Some(FieldKind::Optional)
-            },
+                Some(info::FieldKind::Optional)
+            }
         }
 
-        info::Field::new(ident, ty, index, result.kind.unwrap(), result.propagate)
+        info::Field::new(ident, ty, self.index, self.kind.unwrap(), self.propagate)
     }
 
     /// Handles the parsing and processing of a builder attribute applied to a field.
@@ -82,12 +58,13 @@ impl Field {
     /// `FieldSettings` accordingly. It supports the following builder attributes:
     ///
     /// - `#[builder(mandatory)]`: Marks the field as mandatory, meaning it must be set during the builder
-    ///   construction. If provided without an equals sign (e.g., `#[builder(mandatory)]`), it sets the field as mandatory.
-    ///   If provided with an equals sign (e.g., `#[builder(mandatory = true)]`), it sets the mandatory flag based on the value.
+    ///   construction.
     ///
     /// - `#[builder(optional)]`: Marks the field as optional, meaning it does not have to be set during
-    ///   the builder construction. If provided without an equals sign (e.g., `#[builder(optional)]`), it sets the field as optional.
-    ///   If provided with an equals sign (e.g., `#[builder(optional = true)]`), it sets the optional flag based on the value.
+    ///   the builder construction.
+    ///
+    /// - `#[builder(skipped)]`: Marks the field as skipped, meaning it can't be set during
+    ///   the builder construction.
     ///
     /// - `#[builder(group = group_name)]`: Associates the field with a group named `group_name`. Fields in the same group
     ///   are treated as a unit, and at least one of them must be set during builder construction. If the field is marked as mandatory,
@@ -144,10 +121,10 @@ impl Field {
             };
 
             match (&path_ident.to_string()).into() {
-                symbol::SKIP => self.handle_skip(path_ident),
-                symbol::MANDATORY => self.handle_mandatory(path_ident),
-                symbol::OPTIONAL => self.handle_optional(path_ident),
-                symbol::GROUP => self.handle_group(path_ident, &meta),
+                symbol::SKIP => self.handle_attribute_skip(path_ident),
+                symbol::MANDATORY => self.handle_attribute_mandatory(path_ident),
+                symbol::OPTIONAL => self.handle_attribute_optional(path_ident),
+                symbol::GROUP => self.handle_attribute_group(path_ident, &meta),
                 symbol::PROPAGATE => self.propagate = true,
                 _ => emit_error!(&attr.meta, "Unknown attribute"),
             }
@@ -161,95 +138,97 @@ impl Field {
         })
     }
 
-    fn handle_skip(&mut self, ident: &syn::Ident) {
+    fn handle_attribute_skip(&mut self, ident: &syn::Ident) {
         match self.kind {
-            None => self.kind = Some(FieldKind::Skipped),
-            Some(FieldKind::Optional) => emit_error!(
+            None => self.kind = Some(info::FieldKind::Skipped),
+            Some(info::FieldKind::Optional) => emit_error!(
                 ident, "Can't define field as skipped as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Skipped) => {
+            Some(info::FieldKind::Skipped) => {
                 emit_warning!(ident, "Defined field as skipped multiple times")
             }
-            Some(FieldKind::Mandatory) => emit_error!(
+            Some(info::FieldKind::Mandatory) => emit_error!(
                 ident, "Can't define field as skipped as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Grouped) => emit_error!(
+            Some(info::FieldKind::Grouped) => emit_error!(
                 ident, "Can't define field as skipped when its also part of a group";
                 hint = "Remove either types of attribute from this field"
             ),
         }
     }
 
-    fn handle_mandatory(&mut self, ident: &syn::Ident) {
+    fn handle_attribute_mandatory(&mut self, ident: &syn::Ident) {
         match self.kind {
-            None => self.kind = Some(FieldKind::Mandatory),
-            Some(FieldKind::Optional) => emit_error!(
+            None => self.kind = Some(info::FieldKind::Mandatory),
+            Some(info::FieldKind::Optional) => emit_error!(
                 ident, "Can't define field as mandatory as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Skipped) => emit_error!(
+            Some(info::FieldKind::Skipped) => emit_error!(
                 ident, "Can't define field as mandatory as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Mandatory) => {
+            Some(info::FieldKind::Mandatory) => {
                 emit_warning!(ident, "Defined field as mandatory multiple times")
             }
-            Some(FieldKind::Grouped) => emit_error!(
+            Some(info::FieldKind::Grouped) => emit_error!(
                 ident, "Can't define field as mandatory when its also part of a group";
                 hint = "Remove either types of attribute from this field"
             ),
         }
     }
 
-    fn handle_optional(&mut self, ident: &syn::Ident) {
+    fn handle_attribute_optional(&mut self, ident: &syn::Ident) {
         match self.kind {
-            None => self.kind = Some(FieldKind::Optional),
-            Some(FieldKind::Optional) => {
+            None => self.kind = Some(info::FieldKind::Optional),
+            Some(info::FieldKind::Optional) => {
                 emit_warning!(ident, "Defined field as optional multiple times")
             }
-            Some(FieldKind::Skipped) => emit_error!(
+            Some(info::FieldKind::Skipped) => emit_error!(
                 ident, "Can't define field as optional as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Mandatory) => emit_error!(
+            Some(info::FieldKind::Mandatory) => emit_error!(
                 ident, "Can't define field as optional as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Grouped) => emit_error!(
+            Some(info::FieldKind::Grouped) => emit_error!(
                 ident, "Can't define field as optional when its also part of a group";
                 hint = "Remove either types of attribute from this field"
             ),
         }
     }
 
-    fn handle_group(&mut self, ident: &syn::Ident, meta: &syn::meta::ParseNestedMeta) {
+    fn handle_attribute_group(&mut self, ident: &syn::Ident, meta: &syn::meta::ParseNestedMeta) {
         match self.kind {
-            None => self.kind = Some(FieldKind::Grouped),
-            Some(FieldKind::Optional) => emit_error!(
+            None => self.kind = Some(info::FieldKind::Grouped),
+            Some(info::FieldKind::Optional) => emit_error!(
                 ident, "Can't define field as part of a group as its already defined as optional";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Skipped) => emit_error!(
+            Some(info::FieldKind::Skipped) => emit_error!(
                 ident, "Can't define field as as part of a group as its already defined as skipped";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Mandatory) => emit_error!(
+            Some(info::FieldKind::Mandatory) => emit_error!(
                 ident, "Can't define field as as part of a group as its already defined as mandatory";
                 hint = "Remove either types of attribute from this field"
             ),
-            Some(FieldKind::Grouped) => {}
+            Some(info::FieldKind::Grouped) => {}
         }
         match self.extract_group_name(meta) {
             Ok(group_name) => {
-                if self.groups.contains(&group_name) {
-                    emit_error!(
-                        group_name.span(), "Multiple adds to the same group";
-                        help = self.groups.get(&group_name).unwrap().span() => "Remove this attribute"
-                    );
-                } else {
-                    self.groups.insert(group_name);
+                if let Some(group) = self.group_collection.get_mut(&group_name.to_string()) {
+                    if group.indices().contains(&self.index) {
+                        emit_warning!(
+                            group_name.span(), "Multiple adds to the same group";
+                            help = "Remove this attribute"
+                        )
+                    } else {
+                        group.associate(self.index);
+                    }
                 }
             }
             Err(err) => {

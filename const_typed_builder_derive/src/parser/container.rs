@@ -1,11 +1,6 @@
-use std::collections::HashMap;
-
-use proc_macro_error::{emit_error, emit_warning};
-use syn::Token;
-
-use crate::{info, solver_kind::SolverKind, symbol};
-
-use super::{group::Group, Field};
+use super::{Field, Group};
+use crate::{info, symbol};
+use proc_macro_error::{emit_call_site_error, emit_error, emit_warning};
 
 /// Represents the parser for struct generation.
 #[derive(Debug)]
@@ -14,10 +9,13 @@ pub struct Container {
     /// A map of group names to their respective `GroupInfo`.
     groups: info::GroupCollection,
     /// The solver used to find all possible valid combinations for the groups
-    solver_kind: SolverKind,
+    solver_kind: info::SolverKind,
 }
 
 impl Container {
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Updates struct settings based on provided attributes.
     ///
     /// # Arguments
@@ -27,73 +25,32 @@ impl Container {
     /// # Returns
     ///
     /// A `syn::Result` indicating success or failure of attribute handling.
-    pub fn parse(ast: &syn::DeriveInput) -> Option<info::Container> {
-        match &ast {
-            syn::DeriveInput {
-                attrs,
-                vis,
-                ident,
-                generics,
-                data:
-                    syn::Data::Struct(syn::DataStruct {
-                        fields: syn::Fields::Named(fields),
-                        ..
-                    }),
-            } => {
-                let mut result = Container {
-                    assume_mandatory: false,
-                    groups: HashMap::new(),
-                    solver_kind: SolverKind::BruteForce,
-                };
+    pub fn parse(mut self, ast: &syn::DeriveInput) -> Option<info::Container> {
+        let syn::DeriveInput {
+            attrs,
+            vis,
+            ident,
+            generics,
+            data,
+        } = ast;
 
-                attrs.iter().for_each(|attr| result.handle_attribute(attr));
+        attrs.iter().for_each(|attr| self.handle_attribute(attr));
 
-                let fields = fields
-                    .named
-                    .iter()
-                    .enumerate()
-                    .map(|(index, field)| {
-                        assert!(field.ident.is_some());
-                        Field::parse(
-                            field
-                                .ident
-                                .as_ref()
-                                .expect("FieldsNamed should have a named field"),
-                            field,
-                            &mut result,
-                            index,
-                        )
-                    })
-                    .collect::<Vec<_>>();
+        let fields = self.handle_data(data)?;
 
-                Some(info::Container::new(
-                    vis,
-                    generics,
-                    ident,
-                    result.groups,
-                    fields,
-                    result.solver_kind,
-                ))
-            }
-            _ => {
-                emit_error!(ast, "Builder is only supported for named structs",);
-                None
-            }
-        }
-    }
-
-    pub fn assume_mandatory(&self) -> bool {
-        self.assume_mandatory
-    }
-
-    /// Get a GroupInfo by its identifier
-    pub fn group_by_name_mut(&mut self, group_name: &String) -> Option<&mut info::Group> {
-        self.groups.get_mut(group_name)
+        Some(info::Container::new(
+            vis,
+            generics,
+            ident,
+            self.groups,
+            fields,
+            self.solver_kind,
+        ))
     }
 
     /// Handles the parsing and processing of attributes applied to a struct.
     ///
-    /// See the specific functions [`handle_builder_attribute`] and [`handle_group_attribute`] for more information.
+    /// See the specific functions [`handle_attribute_builder`] and [`handle_attribute_group`] for more information.
     ///
     /// /// # Arguments
     ///
@@ -122,12 +79,8 @@ impl Container {
             ),
         }
         match (&attr_ident.to_string()).into() {
-            symbol::GROUP => {
-                if let Some(group) = Group::parse(attr) {
-                    self.groups.insert(group.name().to_string(), group);
-                }
-            }
-            symbol::BUILDER => self.handle_builder_attribute(attr),
+            symbol::GROUP => Group::new(&mut self.groups).parse(attr),
+            symbol::BUILDER => self.handle_attribute_builder(attr),
             _ => emit_error!(&attr, "Unknown attribute"),
         }
     }
@@ -138,8 +91,6 @@ impl Container {
     /// updating the `StructSettings` accordingly. It supports the following builder attributes:
     ///
     /// - `#[builder(assume_mandatory)]`: Indicates that all fields in the struct should be assumed as mandatory.
-    ///   If provided without an equals sign (e.g., `#[builder(assume_mandatory)]`), it sets the `mandatory` flag for fields to true.
-    ///   If provided with an equals sign (e.g., `#[builder(assume_mandatory = true)]`), it sets the `mandatory` flag for fields based on the value.
     ///
     /// - `#[builder(solver = `solve_type`)]`: Specifies the solver type to be used for building the struct. The `solve_type` should be one of
     ///   the predefined solver types, such as `brute_force` or `compiler`. If provided with an equals sign (e.g., `#[builder(solver = brute_force)]`),
@@ -148,7 +99,7 @@ impl Container {
     /// # Arguments
     ///
     /// - `attr`: A reference to the `syn::Attribute` representing the builder attribute applied to the struct.
-    fn handle_builder_attribute(&mut self, attr: &syn::Attribute) {
+    fn handle_attribute_builder(&mut self, attr: &syn::Attribute) {
         attr.parse_nested_meta(|meta| {
             let path_ident = match meta.path.require_ident() {
                 Ok(ident) => ident,
@@ -167,25 +118,11 @@ impl Container {
                     self.assume_mandatory = true;
                 }
                 symbol::SOLVER => {
-                    if meta.input.peek(Token![=]) {
-                        let expr: syn::Expr = meta.value()?.parse()?;
-                        if let syn::Expr::Path(syn::ExprPath { path, .. }) = expr {
-                            if let Some(solve_type) = path.get_ident() {
-                                match (&solve_type.to_string()).into() {
-                                    symbol::BRUTE_FORCE => {
-                                        self.solver_kind = SolverKind::BruteForce
-                                    }
-                                    symbol::COMPILER => self.solver_kind = SolverKind::Compiler,
-                                    _ => emit_error!(&path, "Unknown solver type"),
-                                }
-                            } else {
-                                emit_error!(meta.path, "Can't parse solver specification");
-                            }
-                        } else {
-                            emit_error!(meta.path, "Can't parse solver specification");
-                        }
-                    } else {
-                        emit_error!(meta.path, "Solver type needs to be specified");
+                    let syn::ExprPath { path, .. } = meta.value()?.parse()?;
+                    match (&path.require_ident()?.to_string()).into() {
+                        symbol::BRUTE_FORCE => self.solver_kind = info::SolverKind::BruteForce,
+                        symbol::COMPILER => self.solver_kind = info::SolverKind::Compiler,
+                        _ => emit_error!(&path, "Unknown solver type"),
                     }
                 }
                 _ => {
@@ -200,5 +137,58 @@ impl Container {
                 note = err
             )
         })
+    }
+
+    fn handle_data<'a>(&mut self, data: &'a syn::Data) -> Option<info::FieldCollection<'a>> {
+        match data {
+            syn::Data::Struct(syn::DataStruct { fields, .. }) => self.handle_fields(fields),
+            syn::Data::Enum(syn::DataEnum { variants, .. }) => {
+                let _ = variants
+                    .iter()
+                    .map(|variant| self.handle_fields(&variant.fields));
+                emit_call_site_error!("Builder does not *yet* support enums",);
+                None
+            }
+            syn::Data::Union(_) => {
+                emit_call_site_error!("Builder does not support unions",);
+                None
+            }
+        }
+    }
+
+    fn handle_fields<'a>(&mut self, fields: &'a syn::Fields) -> Option<Vec<info::Field<'a>>> {
+        match fields {
+            syn::Fields::Named(fields) => Some(self.handle_named_fields(fields)),
+            syn::Fields::Unnamed(fields) => {
+                emit_error!(fields, "Builder does not support unnamed fields");
+                None
+            }
+            syn::Fields::Unit => Some(Vec::new()),
+        }
+    }
+
+    fn handle_named_fields<'a>(&mut self, fields: &'a syn::FieldsNamed) -> Vec<info::Field<'a>> {
+        fields
+            .named
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                let ident = field
+                    .ident
+                    .as_ref()
+                    .expect("FieldsNamed should have an ident");
+                Field::new(index, self.assume_mandatory, &mut self.groups).parse(ident, field)
+            })
+            .collect::<Vec<_>>()
+    }
+}
+
+impl Default for Container {
+    fn default() -> Self {
+        Container {
+            assume_mandatory: false,
+            groups: info::GroupCollection::new(),
+            solver_kind: info::SolverKind::BruteForce,
+        }
     }
 }
