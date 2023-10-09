@@ -31,6 +31,7 @@ pub struct Field<'a> {
     index: usize,
     propagate: bool,
     kind: FieldKind,
+    setter_kind: SetterKind
 }
 
 impl<'a> Field<'a> {
@@ -51,6 +52,7 @@ impl<'a> Field<'a> {
         index: usize,
         kind: FieldKind,
         propagate: bool,
+        setter_kind: SetterKind,
     ) -> Self {
         Self {
             ident,
@@ -58,6 +60,7 @@ impl<'a> Field<'a> {
             ty,
             propagate,
             kind,
+            setter_kind,
         }
     }
 

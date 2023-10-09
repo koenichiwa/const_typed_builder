@@ -1,5 +1,5 @@
 use crate::{
-    info::{Field, FieldKind, GroupCollection},
+    info::{Field, FieldKind, GroupCollection, SetterKind},
     symbol,
     util::is_option,
 };
@@ -49,7 +49,7 @@ impl<'parser> FieldParser<'parser> {
             }
         }
 
-        Field::new(ident, ty, self.index, self.kind.unwrap(), self.propagate)
+        Field::new(ident, ty, self.index, self.kind.unwrap(), self.propagate, SetterKind::Standard)
     }
 
     /// Handles the parsing and processing of a builder attribute applied to a field.
