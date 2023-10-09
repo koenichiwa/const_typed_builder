@@ -1,4 +1,4 @@
-error: Can't use both mandatory and group attributes
+error: Can't define field as as part of a group as its already defined as mandatory
 
          = help: Remove either types of attribute from this field
 

@@ -1,15 +1,14 @@
 mod generator;
 mod info;
+mod parser;
 mod symbol;
+mod util;
 
 use generator::Generator;
-use info::StructInfo;
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
 use syn::DeriveInput;
-
-const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST";
 
 /// The `derive_builder` macro is used to automatically generate builder
 /// code for a struct. It takes a struct as input and generates a builder
@@ -50,7 +49,7 @@ pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 ///
 /// An optional `TokenStream` representing the generated token stream.
 fn impl_my_derive(ast: &syn::DeriveInput) -> Option<TokenStream> {
-    let struct_info = StructInfo::new(ast)?;
-    let generator = Generator::new(&struct_info);
+    let container_info = parser::ContainerParser::new().parse(ast)?;
+    let generator = Generator::new(&container_info);
     Some(generator.generate())
 }
