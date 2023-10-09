@@ -179,7 +179,7 @@ impl<'info> BuilderGenerator<'info> {
             .info
             .field_collection()
             .iter()
-            .filter(|field| field.kind() != &FieldKind::Skipped)
+            .filter(|field| field.kind() != FieldKind::Skipped)
             .map(|field| {
                 let const_idents_impl = self.const_generic_idents_set_impl(field);
                 let const_idents_type_input = self.const_generic_idents_set_type(field, false);
@@ -418,28 +418,35 @@ Setter for the [`{}::{field_ident}`] field.
     }
 
     fn impl_set_input_type(&self, field: &'info Field) -> Option<TokenStream> {
-        if field.kind() == &FieldKind::Skipped {
-            return None;
+        match field.setter_kind() {
+            crate::info::SetterKind::Standard => {
+                if field.kind() == FieldKind::Skipped {
+                    return None;
+                }
+                let field_ident = field.ident();
+                let field_ty = field.setter_input_type();
+                let bottom_ty = if field.is_option_type() {
+                    field.inner_type().unwrap()
+                } else {
+                    field_ty.unwrap()
+                };
+        
+                let field_ty = if field.propagate() {
+                    quote!(fn(<#bottom_ty as Builder>:: BuilderImpl) -> #field_ty)
+                } else {
+                    quote!(#field_ty)
+                };
+        
+                Some(quote!(#field_ident: #field_ty))
+            },
+            crate::info::SetterKind::Into => todo!(),
+            crate::info::SetterKind::AsMut => todo!(),
+            crate::info::SetterKind::AsRef => todo!(),
         }
-        let field_ident = field.ident();
-        let field_ty = field.setter_input_type();
-        let bottom_ty = if field.is_option_type() {
-            field.inner_type().unwrap()
-        } else {
-            field_ty.unwrap()
-        };
-
-        let field_ty = if field.propagate() {
-            quote!(fn(<#bottom_ty as Builder>:: BuilderImpl) -> #field_ty)
-        } else {
-            quote!(#field_ty)
-        };
-
-        Some(quote!(#field_ident: #field_ty))
     }
 
     fn impl_set_input_value(&self, field: &'info Field) -> Option<TokenStream> {
-        if field.kind() == &FieldKind::Skipped {
+        if field.kind() == FieldKind::Skipped {
             return None;
         }
 
@@ -457,7 +464,7 @@ Setter for the [`{}::{field_ident}`] field.
             quote!(#field_ident)
         };
 
-        if field.kind() == &FieldKind::Optional {
+        if field.kind() == FieldKind::Optional {
             Some(quote!(#field_value))
         } else {
             Some(quote!(Some(#field_value)))

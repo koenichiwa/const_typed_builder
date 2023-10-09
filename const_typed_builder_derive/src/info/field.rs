@@ -7,7 +7,7 @@ pub type FieldCollection<'a> = Vec<Field<'a>>;
 
 const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST_";
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FieldKind {
     Optional,
     Skipped,
@@ -15,7 +15,7 @@ pub enum FieldKind {
     Grouped,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SetterKind {
     Standard,
     Into,
@@ -90,8 +90,8 @@ impl<'a> Field<'a> {
     }
 
     /// Retrieves the kind of the field, which can be Optional, Mandatory, Skipped or Grouped.
-    pub fn kind(&self) -> &FieldKind {
-        &self.kind
+    pub fn kind(&self) -> FieldKind {
+        self.kind
     }
 
     /// Retrieves the index of the field within the struct.
@@ -102,6 +102,10 @@ impl<'a> Field<'a> {
     /// Generates a constant identifier based on the field's index.
     pub fn const_ident(&self) -> syn::Ident {
         format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
+    }
+
+    pub fn setter_kind(&self) -> SetterKind{
+        self.setter_kind
     }
 
     /// Retrieves the input type for the builder's setter method.

@@ -155,7 +155,7 @@ impl<'a> DataGenerator<'a> {
             .info
             .field_collection()
             .iter()
-            .filter(|field| field.kind() != &FieldKind::Skipped)
+            .filter(|field| field.kind() != FieldKind::Skipped)
             .map(|field| {
                 let field_ident = field.ident();
                 quote!(#field_ident: None)
