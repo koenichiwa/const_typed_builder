@@ -1,6 +1,6 @@
 use super::field::FieldCollection;
 use super::group::GroupCollection;
-
+use convert_case::{Case, Casing};
 use quote::format_ident;
 
 #[derive(Debug, Clone, Copy)]
@@ -18,10 +18,6 @@ pub struct Container<'a> {
     vis: &'a syn::Visibility,
     /// The generics of the struct.
     generics: &'a syn::Generics,
-    /// The identifier of the generated builder struct.
-    builder_ident: syn::Ident,
-    /// The identifier of the generated data struct.
-    data_ident: syn::Ident,
     /// A map of group names to their respective `GroupInfo`.
     groups: GroupCollection,
     /// A collection of `FieldInfo` instances representing struct fields.
@@ -52,8 +48,6 @@ impl<'a> Container<'a> {
             ident,
             vis,
             generics,
-            builder_ident: format_ident!("{}{}", ident, "Builder"),
-            data_ident: format_ident!("{}{}", ident, "Data"),
             groups: group_collection,
             field_collection,
             solver_kind,
@@ -61,7 +55,7 @@ impl<'a> Container<'a> {
     }
 
     /// Retrieves the identifier of the struct.
-    pub fn name(&self) -> &syn::Ident {
+    pub fn ident(&self) -> &syn::Ident {
         self.ident
     }
 
@@ -76,13 +70,13 @@ impl<'a> Container<'a> {
     }
 
     /// Retrieves the identifier of the generated builder struct.
-    pub fn builder_name(&self) -> &syn::Ident {
-        &self.builder_ident
+    pub fn builder_ident(&self) -> syn::Ident {
+        format_ident!("{}{}", self.ident, "Builder")
     }
 
     /// Retrieves the identifier of the generated data struct.
-    pub fn data_name(&self) -> &syn::Ident {
-        &self.data_ident
+    pub fn data_ident(&self) -> syn::Ident {
+        format_ident!("{}{}", self.ident, "Data")
     }
 
     /// Retrieves a reference to the collection of `FieldInfo` instances representing struct fields.
@@ -98,5 +92,17 @@ impl<'a> Container<'a> {
     /// Retrieves the solver type used to find all possible valid combinations for the groups
     pub fn solve_type(&self) -> SolverKind {
         self.solver_kind
+    }
+
+    pub fn data_field_ident(&self) -> syn::Ident {
+        format_ident!("__{}", self.data_ident().to_string().to_case(Case::Snake))
+    }
+
+    pub fn mod_ident(&self) -> syn::Ident {
+        format_ident!("{}", self.builder_ident().to_string().to_case(Case::Snake))
+    }
+
+    pub fn generate_module(&self) -> bool {
+        false
     }
 }

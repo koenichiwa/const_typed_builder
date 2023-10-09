@@ -38,7 +38,7 @@ impl<'a> Group<'a> {
 
             if let Some(group_type) = group_type {
                 if let Some(earlier_definition) = self.groups.insert(group_name.to_string(), info::Group::new(group_name.clone(), group_type)) {
-                    let earlier_span = earlier_definition.name().span();
+                    let earlier_span = earlier_definition.ident().span();
                     emit_error!(
                         &group_name, "Group defined multiple times";
                         help = earlier_span => "Also defined here"

@@ -13,6 +13,6 @@ publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dev-dependencies]
+[dependencies]
 const_typed_builder = { path = "../../const_typed_builder", version = "=0.3.0" }
 trybuild = "1.0.84"

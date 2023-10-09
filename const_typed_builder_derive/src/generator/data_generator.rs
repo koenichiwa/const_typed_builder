@@ -1,14 +1,11 @@
-use super::{field_generator::FieldGenerator, generics_generator::GenericsGenerator};
+use crate::info;
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 
 /// The `DataGenerator` struct is responsible for generating code related to the data struct
 /// that corresponds to the target struct and the conversion implementations.
 pub(super) struct DataGenerator<'a> {
-    field_gen: FieldGenerator<'a>,
-    generics_gen: GenericsGenerator<'a>,
-    target_name: &'a syn::Ident,
-    data_name: &'a syn::Ident,
+    info: &'a info::Container<'a>,
 }
 
 impl<'a> DataGenerator<'a> {
@@ -18,24 +15,14 @@ impl<'a> DataGenerator<'a> {
     ///
     /// - `field_gen`: The `FieldGenerator` responsible for generating field-related code.
     /// - `generics_gen`: The `GenericsGenerator` responsible for generating generics information.
-    /// - `target_name`: A reference to the identifier representing the target struct's name.
-    /// - `data_name`: A reference to the identifier representing the data struct's name.
+    /// - `target_ident`: A reference to the identifier representing the target struct's ident.
+    /// - `data_ident`: A reference to the identifier representing the data struct's ident.
     ///
     /// # Returns
     ///
     /// A `DataGenerator` instance initialized with the provided information.
-    pub(super) fn new(
-        field_gen: FieldGenerator<'a>,
-        generics_gen: GenericsGenerator<'a>,
-        target_name: &'a syn::Ident,
-        data_name: &'a syn::Ident,
-    ) -> Self {
-        Self {
-            field_gen,
-            generics_gen,
-            target_name,
-            data_name,
-        }
+    pub(super) fn new(info: &'a info::Container<'a>) -> Self {
+        Self { info }
     }
 
     /// Generates the code for the data struct and the conversion implementations and returns a token stream.
@@ -57,28 +44,27 @@ impl<'a> DataGenerator<'a> {
 
     /// Generates the implementation code for conversions between the data struct and the target struct.
     fn generate_impl(&self) -> TokenStream {
-        let data_name = self.data_name;
-        let struct_name = self.target_name;
-        let from_fields = self.field_gen.data_impl_from_fields();
-        let def_fields = self.field_gen.data_impl_default_fields();
+        let data_ident = self.info.data_ident();
+        let struct_ident = self.info.ident();
+        let from_fields = self.impl_from_fields();
+        let def_fields = self.impl_default_fields();
 
-        let (impl_generics, type_generics, where_clause) =
-            self.generics_gen.target_generics().split_for_impl();
+        let (impl_generics, type_generics, where_clause) = self.info.generics().split_for_impl();
 
         let tokens = quote!(
-            impl #impl_generics From<#data_name #type_generics> for #struct_name #type_generics #where_clause {
+            impl #impl_generics From<#data_ident #type_generics> for #struct_ident #type_generics #where_clause {
                 #[doc(hidden)]
-                fn from(data: #data_name #type_generics) -> #struct_name #type_generics {
-                    #struct_name {
+                fn from(data: #data_ident #type_generics) -> #struct_ident #type_generics {
+                    #struct_ident {
                         #(#from_fields),*
                     }
                 }
             }
 
-            impl #impl_generics Default for #data_name #type_generics #where_clause {
+            impl #impl_generics Default for #data_ident #type_generics #where_clause {
                 #[doc(hidden)]
                 fn default() -> Self {
-                    #data_name {
+                    #data_ident {
                         #def_fields
                     }
                 }
@@ -89,18 +75,98 @@ impl<'a> DataGenerator<'a> {
 
     /// Generates the code for the data struct itself.
     fn generate_struct(&self) -> TokenStream {
-        let data_name = self.data_name;
+        let data_ident = self.info.data_ident();
 
-        let fields = self.field_gen.data_struct_fields();
-        let (impl_generics, _type_generics, where_clause) =
-            self.generics_gen.target_generics().split_for_impl();
+        let fields = self.struct_fields();
+        let (impl_generics, _type_generics, where_clause) = self.info.generics().split_for_impl();
 
         let tokens = quote!(
             #[doc(hidden)]
-            pub struct #data_name #impl_generics #where_clause{
+            pub struct #data_ident #impl_generics #where_clause{
                 #(#fields),*
             }
         );
         tokens
+    }
+
+    /// Generates code for the fields of the data struct and returns a token stream.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<TokenStream>` representing the data struct fields: `pub field_ident: field_type`.
+    fn struct_fields(&self) -> Vec<TokenStream> {
+        self.info
+            .field_collection()
+            .iter()
+            .filter_map(|field| {
+                let field_ident = field.ident();
+
+                let data_field_type = match field.kind() {
+                    info::FieldKind::Skipped => return None,
+                    info::FieldKind::Optional => field.ty().to_token_stream(),
+                    info::FieldKind::Mandatory if field.is_option_type() => {
+                        field.ty().to_token_stream()
+                    }
+                    info::FieldKind::Mandatory => {
+                        let ty = field.ty();
+                        quote!(Option<#ty>)
+                    }
+                    info::FieldKind::Grouped => field.ty().to_token_stream(),
+                };
+
+                let tokens = quote!(
+                    pub #field_ident: #data_field_type
+                );
+                Some(tokens)
+            })
+            .collect()
+    }
+
+    // Generates code for the `From` trait implementation for converting data struct fields to target struct fields and returns a token stream.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<TokenStream>` representing the fields for the `From` trait implementation. Either containing `unwrap`, `None` or just the type.
+    fn impl_from_fields(&self) -> Vec<TokenStream> {
+        self.info
+            .field_collection()
+            .iter()
+            .map(|field| {
+                let field_ident = field.ident();
+                let tokens = match field.kind() {
+                    info::FieldKind::Skipped => quote!(#field_ident: None),
+                    info::FieldKind::Mandatory if field.is_option_type() => {
+                        quote!(#field_ident: data.#field_ident)
+                    }
+                    info::FieldKind::Optional | info::FieldKind::Grouped => {
+                        quote!(#field_ident: data.#field_ident)
+                    }
+                    info::FieldKind::Mandatory => {
+                        quote!(#field_ident: data.#field_ident.unwrap())
+                    }
+                };
+                tokens
+            })
+            .collect()
+    }
+
+    /// Generates default field values for the data struct and returns a token stream.
+    ///
+    /// # Returns
+    ///
+    /// A `TokenStream` representing the generated default field values.
+    fn impl_default_fields(&self) -> TokenStream {
+        let fields_none = self
+            .info
+            .field_collection()
+            .iter()
+            .filter(|field| field.kind() != &info::FieldKind::Skipped)
+            .map(|field| {
+                let field_ident = field.ident();
+                quote!(#field_ident: None)
+            });
+        quote!(
+            #(#fields_none),*
+        )
     }
 }
