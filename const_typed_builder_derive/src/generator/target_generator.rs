@@ -1,12 +1,12 @@
 use super::util;
-use crate::info;
+use crate::info::Container;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 /// The `TargetGenerator` struct is responsible for generating code for the target struct implementation
-/// of the builder pattern based on the provided `info::Container`.
+/// of the builder pattern based on the provided `Container`.
 pub struct TargetGenerator<'info> {
-    info: &'info info::Container<'info>,
+    info: &'info Container<'info>,
 }
 
 impl<'info> TargetGenerator<'info> {
@@ -14,12 +14,12 @@ impl<'info> TargetGenerator<'info> {
     ///
     /// # Arguments
     ///
-    /// - `info`: The `info::Container` containing all the information of the data container.
+    /// - `info`: The `Container` containing all the information of the data container.
     ///
     /// # Returns
     ///
     /// A `TargetGenerator` instance initialized with the provided information.
-    pub fn new(info: &'info info::Container<'info>) -> Self {
+    pub fn new(info: &'info Container<'info>) -> Self {
         Self { info }
     }
 

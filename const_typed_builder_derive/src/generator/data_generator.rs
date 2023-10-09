@@ -1,11 +1,11 @@
-use crate::info;
+use crate::info::{Container, FieldKind};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
 /// The `DataGenerator` struct is responsible for generating code related to the data struct
 /// that corresponds to the target struct and the conversion implementations.
 pub struct DataGenerator<'a> {
-    info: &'a info::Container<'a>,
+    info: &'a Container<'a>,
 }
 
 impl<'a> DataGenerator<'a> {
@@ -13,12 +13,12 @@ impl<'a> DataGenerator<'a> {
     ///
     /// # Arguments
     ///
-    /// - `info`: The `info::Container` containing all the information of the data container.
+    /// - `info`: The `Container` containing all the information of the data container.
     ///
     /// # Returns
     ///
     /// A `DataGenerator` instance initialized with the provided information.
-    pub fn new(info: &'a info::Container<'a>) -> Self {
+    pub fn new(info: &'a Container<'a>) -> Self {
         Self { info }
     }
 
@@ -99,16 +99,14 @@ impl<'a> DataGenerator<'a> {
                 let field_ident = field.ident();
 
                 let data_field_type = match field.kind() {
-                    info::FieldKind::Skipped => return None,
-                    info::FieldKind::Optional => field.ty().to_token_stream(),
-                    info::FieldKind::Mandatory if field.is_option_type() => {
-                        field.ty().to_token_stream()
-                    }
-                    info::FieldKind::Mandatory => {
+                    FieldKind::Skipped => return None,
+                    FieldKind::Optional => field.ty().to_token_stream(),
+                    FieldKind::Mandatory if field.is_option_type() => field.ty().to_token_stream(),
+                    FieldKind::Mandatory => {
                         let ty = field.ty();
                         quote!(Option<#ty>)
                     }
-                    info::FieldKind::Grouped => field.ty().to_token_stream(),
+                    FieldKind::Grouped => field.ty().to_token_stream(),
                 };
 
                 let tokens = quote!(
@@ -131,14 +129,14 @@ impl<'a> DataGenerator<'a> {
             .map(|field| {
                 let field_ident = field.ident();
                 let tokens = match field.kind() {
-                    info::FieldKind::Skipped => quote!(#field_ident: None),
-                    info::FieldKind::Mandatory if field.is_option_type() => {
+                    FieldKind::Skipped => quote!(#field_ident: None),
+                    FieldKind::Mandatory if field.is_option_type() => {
                         quote!(#field_ident: data.#field_ident)
                     }
-                    info::FieldKind::Optional | info::FieldKind::Grouped => {
+                    FieldKind::Optional | FieldKind::Grouped => {
                         quote!(#field_ident: data.#field_ident)
                     }
-                    info::FieldKind::Mandatory => {
+                    FieldKind::Mandatory => {
                         quote!(#field_ident: data.#field_ident.unwrap())
                     }
                 };
@@ -157,7 +155,7 @@ impl<'a> DataGenerator<'a> {
             .info
             .field_collection()
             .iter()
-            .filter(|field| field.kind() != &info::FieldKind::Skipped)
+            .filter(|field| field.kind() != &FieldKind::Skipped)
             .map(|field| {
                 let field_ident = field.ident();
                 quote!(#field_ident: None)

@@ -1,5 +1,7 @@
 use super::util;
-use crate::info;
+use crate::info::{
+    Container, Field, FieldKind, GroupType, SolverKind, TrackedField, TrackedFieldKind,
+};
 use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -7,7 +9,7 @@ use std::{collections::BTreeSet, ops::Deref};
 use syn::{parse_quote, GenericParam};
 
 pub struct BuilderGenerator<'info> {
-    info: &'info info::Container<'info>,
+    info: &'info Container<'info>,
 }
 
 impl<'info> BuilderGenerator<'info> {
@@ -15,12 +17,12 @@ impl<'info> BuilderGenerator<'info> {
     ///
     /// # Arguments
     ///
-    /// - `info`: The `info::Container` containing all the information of the data container.
+    /// - `info`: The `Container` containing all the information of the data container.
     ///
     /// # Returns
     ///
     /// A `BuilderGenerator` instance initialized with the provided information.
-    pub fn new(info: &'info info::Container) -> Self {
+    pub fn new(info: &'info Container) -> Self {
         Self { info }
     }
 
@@ -123,7 +125,7 @@ impl<'info> BuilderGenerator<'info> {
             self.info.generics().split_for_impl();
 
         match self.info.solver_kind() {
-            info::SolverKind::BruteForce => {
+            SolverKind::BruteForce => {
                 let build_impls = self.valid_groupident_combinations().map(|group_indices| {
                     let type_generics = self.const_generic_idents_build(&group_indices);
 
@@ -141,7 +143,7 @@ impl<'info> BuilderGenerator<'info> {
                     #(#build_impls)*
                 )
             }
-            info::SolverKind::Compiler => {
+            SolverKind::Compiler => {
                 let builder_ident = self.info.builder_ident();
                 let impl_generics = self.const_generic_group_partial_idents();
                 let type_generics = self.const_generic_idents_build_unset_group();
@@ -177,7 +179,7 @@ impl<'info> BuilderGenerator<'info> {
             .info
             .field_collection()
             .iter()
-            .filter(|field| field.kind() != &info::FieldKind::Skipped)
+            .filter(|field| field.kind() != &FieldKind::Skipped)
             .map(|field| {
                 let const_idents_impl = self.const_generic_idents_set_impl(field);
                 let const_idents_type_input = self.const_generic_idents_set_type(field, false);
@@ -223,7 +225,7 @@ Setter for the [`{}::{field_ident}`] field.
             .info
             .field_collection()
             .iter()
-            .filter_map(info::TrackedField::new)
+            .filter_map(TrackedField::new)
             .map(|field| field.const_ident());
         self.add_const_generics_for_impl(&mut all)
     }
@@ -233,23 +235,23 @@ Setter for the [`{}::{field_ident}`] field.
             .info
             .field_collection()
             .iter()
-            .filter_map(info::TrackedField::new)
+            .filter_map(TrackedField::new)
             .map(|field| match field.kind() {
-                info::TrackedFieldKind::Mandatory => quote!(true),
-                info::TrackedFieldKind::Grouped if true_indices.contains(&field.index()) => {
+                TrackedFieldKind::Mandatory => quote!(true),
+                TrackedFieldKind::Grouped if true_indices.contains(&field.index()) => {
                     quote!(true)
                 }
-                info::TrackedFieldKind::Grouped => quote!(false),
+                TrackedFieldKind::Grouped => quote!(false),
             });
         util::add_const_valued_generics_for_type(&mut all, self.info.generics())
     }
 
-    fn const_generic_idents_set_impl(&self, field_info: &info::Field) -> syn::Generics {
+    fn const_generic_idents_set_impl(&self, field_info: &Field) -> syn::Generics {
         let mut all = self
             .info
             .field_collection()
             .iter()
-            .filter_map(info::TrackedField::new)
+            .filter_map(TrackedField::new)
             .filter_map(|field| {
                 if field.deref() == field_info {
                     None
@@ -260,12 +262,12 @@ Setter for the [`{}::{field_ident}`] field.
         self.add_const_generics_for_impl(&mut all)
     }
 
-    fn const_generic_idents_set_type(&self, field_info: &info::Field, value: bool) -> TokenStream {
+    fn const_generic_idents_set_type(&self, field_info: &Field, value: bool) -> TokenStream {
         let mut all = self
             .info
             .field_collection()
             .iter()
-            .filter_map(info::TrackedField::new)
+            .filter_map(TrackedField::new)
             .map(|field| {
                 if field.deref() == field_info {
                     quote!(#value)
@@ -283,10 +285,8 @@ Setter for the [`{}::{field_ident}`] field.
             .field_collection()
             .iter()
             .filter_map(|field| match field.kind() {
-                info::FieldKind::Grouped => Some(field.const_ident()),
-                info::FieldKind::Optional
-                | info::FieldKind::Skipped
-                | info::FieldKind::Mandatory => None,
+                FieldKind::Grouped => Some(field.const_ident()),
+                FieldKind::Optional | FieldKind::Skipped | FieldKind::Mandatory => None,
             });
         self.add_const_generics_for_impl(&mut all)
     }
@@ -296,10 +296,10 @@ Setter for the [`{}::{field_ident}`] field.
             .info
             .field_collection()
             .iter()
-            .filter_map(info::TrackedField::new)
+            .filter_map(TrackedField::new)
             .map(|field| match field.kind() {
-                info::TrackedFieldKind::Mandatory => quote!(true),
-                info::TrackedFieldKind::Grouped => {
+                TrackedFieldKind::Mandatory => quote!(true),
+                TrackedFieldKind::Grouped => {
                     let ident = field.const_ident();
                     quote!(#ident)
                 }
@@ -353,9 +353,9 @@ Setter for the [`{}::{field_ident}`] field.
 
         for group in self.info.group_collection().values() {
             match group.group_type() {
-                info::GroupType::Exact(_) => exact = true,
-                info::GroupType::AtLeast(_) => at_least = true,
-                info::GroupType::AtMost(_) => at_most = true,
+                GroupType::Exact(_) => exact = true,
+                GroupType::AtLeast(_) => at_least = true,
+                GroupType::AtMost(_) => at_most = true,
             }
 
             if exact && at_least && at_most {
@@ -417,8 +417,8 @@ Setter for the [`{}::{field_ident}`] field.
         )
     }
 
-    fn impl_set_input_type(&self, field: &'info info::Field) -> Option<TokenStream> {
-        if field.kind() == &info::FieldKind::Skipped {
+    fn impl_set_input_type(&self, field: &'info Field) -> Option<TokenStream> {
+        if field.kind() == &FieldKind::Skipped {
             return None;
         }
         let field_ident = field.ident();
@@ -438,8 +438,8 @@ Setter for the [`{}::{field_ident}`] field.
         Some(quote!(#field_ident: #field_ty))
     }
 
-    fn impl_set_input_value(&self, field: &'info info::Field) -> Option<TokenStream> {
-        if field.kind() == &info::FieldKind::Skipped {
+    fn impl_set_input_value(&self, field: &'info Field) -> Option<TokenStream> {
+        if field.kind() == &FieldKind::Skipped {
             return None;
         }
 
@@ -457,7 +457,7 @@ Setter for the [`{}::{field_ident}`] field.
             quote!(#field_ident)
         };
 
-        if field.kind() == &info::FieldKind::Optional {
+        if field.kind() == &FieldKind::Optional {
             Some(quote!(#field_value))
         } else {
             Some(quote!(Some(#field_value)))
