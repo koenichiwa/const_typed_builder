@@ -689,6 +689,21 @@ mod test {
     }
 
     #[test]
+    fn mut_reference() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            bar: &'a mut str,
+        }
+        let mut my_str = "Hello world!".to_string();
+        let mut my_str_clone = my_str.clone();
+        let expected = Foo {
+            bar: my_str.as_mut_str(),
+        };
+        let foo = Foo::builder().bar(my_str_clone.as_mut_str()).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
     fn const_generic() {
         #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<const SIZE: usize> {
