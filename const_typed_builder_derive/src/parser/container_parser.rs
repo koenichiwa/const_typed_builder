@@ -85,7 +85,11 @@ impl ContainerParser {
         }
         match Symbol::from_str(&attr_ident.to_string()) {
             Ok(symbol) => match symbol {
-                Symbol::Group => GroupParser::new(&mut self.groups).parse(attr),
+                Symbol::Group => {
+                    emit_warning!(&attr_ident, "The use of group as a top level attribute is being deprecated, use groups instead");
+                    GroupParser::new(&mut self.groups).parse(attr)
+                }
+                Symbol::Groups => GroupParser::new(&mut self.groups).parse(attr),
                 Symbol::Builder => self.handle_attribute_builder(attr),
                 symbol => {
                     emit_error!(

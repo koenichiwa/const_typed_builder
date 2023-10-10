@@ -48,7 +48,7 @@ pub struct ResourceLimits {
     // ...
 }
 #[derive(Builder)]
-#[group(program = at_least(1))]
+#[groups(program = at_least(1))]
 pub struct Launchd {
     #[builder(mandatory)]
     label: Option<String>,
@@ -93,14 +93,14 @@ This is a quick overview of the features in this library. See [`const_typed_buil
 - `#[builder(assume_mandatory)]`: Indicates that all fields in the struct should be assumed as mandatory.
   If provided without an equals sign (e.g., `#[builder(assume_mandatory)]`), it sets the `mandatory` flag for fields to true.
   If provided with an equals sign (e.g., `#[builder(assume_mandatory = true)]`), it sets the `mandatory` flag for fields based on the value.
-- `#[group(group_name = (exact(N)|at_least(N)|at_most(N)|single)]`:
+- `#[groups(group_name = (exact(N)|at_least(N)|at_most(N)|single)]`:
   Associates fields of the struct with a group named "group_name" and specifies the group's behavior.
   The `group_name` should be a string identifier. The group can have one of the following behaviors:
     - `exact(N)`: Exactly N fields in the group must be set during the builder construction.
     - `at_least(N)`: At least N fields in the group must be set during the builder construction.
     - `at_most(N)`: At most N fields in the group can be set during the builder construction.
     - `single`: Only one field in the group can be set during the builder construction. This is a shorthand for `exact(1)`.
-  e.g `#[group(foo = at_least(2))]` creates a group where at least 2 of the fields need to be initialized.
+  e.g `#[groups(foo = at_least(2))]` creates a group where at least 2 of the fields need to be initialized.
 - `#[builder(solver = (brute_force|compiler))]`: **Use sparingly, see note at bottom of this file!** 
    Specifies the solver type to be used for building the struct. The `solve_type` should be one of the predefined solver types, such as `brute_force` or `compiler`. If provided with an equals sign (e.g., `#[builder(solver = brute_force)]`),
    it sets the "solver type" accordingly. This attribute is still tested, and `brute_force` is the default, and only if there are problems in compilation time then you can try `compiler`. `compiler` gives less guarantees though.

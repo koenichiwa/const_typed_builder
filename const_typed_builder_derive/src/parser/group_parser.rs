@@ -34,7 +34,7 @@ impl<'a> GroupParser<'a> {
                 _ => {
                     emit_error!(
                         &attr.meta, "Can't parse group type";
-                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, Symbol::AtLeast
+                        hint = "Try to define it like `#[groups({} = {}(1))]`", group_name, Symbol::AtLeast
                     );
                     return Ok(());
                 }
