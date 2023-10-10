@@ -18,6 +18,7 @@ pub enum FieldKind {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SetterKind {
     Standard,
+    Propagate,
     Into,
     AsMut,
     AsRef,
@@ -29,7 +30,6 @@ pub struct Field<'a> {
     ty: &'a syn::Type,
     ident: &'a syn::Ident,
     index: usize,
-    propagate: bool,
     kind: FieldKind,
     setter_kind: SetterKind,
 }
@@ -51,14 +51,12 @@ impl<'a> Field<'a> {
         ty: &'a syn::Type,
         index: usize,
         kind: FieldKind,
-        propagate: bool,
         setter_kind: SetterKind,
     ) -> Self {
         Self {
             ident,
             index,
             ty,
-            propagate,
             kind,
             setter_kind,
         }
@@ -67,11 +65,6 @@ impl<'a> Field<'a> {
     /// Retrieves the identifier of the field.
     pub fn ident(&self) -> &syn::Ident {
         self.ident
-    }
-
-    /// Checks if the field's attributes indicate propagation.
-    pub fn propagate(&self) -> bool {
-        self.propagate
     }
 
     /// Checks if the field's type is an Option.
@@ -104,25 +97,8 @@ impl<'a> Field<'a> {
         format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
     }
 
-    pub fn setter_kind(&self) -> SetterKind{
+    pub fn setter_kind(&self) -> SetterKind {
         self.setter_kind
-    }
-
-    /// Retrieves the input type for the builder's setter method.
-    pub fn setter_input_type(&self) -> Option<&syn::Type> {
-        match self.kind() {
-            FieldKind::Optional => Some(self.ty()),
-            FieldKind::Mandatory if self.is_option_type() => Some(self.inner_type().expect(
-                "Couldn't read inner type of option, even though it's seen as an Option type",
-            )),
-            FieldKind::Mandatory => Some(self.ty()),
-            FieldKind::Grouped => {
-                Some(self.inner_type().expect(
-                    "Couldn't read inner type of option, even though it's marked as grouped",
-                ))
-            }
-            FieldKind::Skipped => None,
-        }
     }
 }
 
