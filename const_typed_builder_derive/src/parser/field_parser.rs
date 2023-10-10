@@ -10,7 +10,6 @@ use proc_macro_error::{emit_error, emit_warning};
 pub struct FieldParser<'parser> {
     kind: Option<FieldKind>,
     setter_kind: Option<SetterKind>,
-    propagate: bool,
     index: usize,
     assume_mandatory: bool,
     group_collection: &'parser mut GroupCollection,
@@ -25,7 +24,6 @@ impl<'parser> FieldParser<'parser> {
         Self {
             kind: None,
             setter_kind: None,
-            propagate: false,
             index,
             assume_mandatory,
             group_collection,
@@ -60,7 +58,6 @@ impl<'parser> FieldParser<'parser> {
             ty,
             self.index,
             self.kind.unwrap(),
-            self.propagate,
             self.setter_kind.unwrap(),
         )
     }
@@ -138,8 +135,11 @@ impl<'parser> FieldParser<'parser> {
                 symbol::MANDATORY => self.handle_attribute_mandatory(path_ident),
                 symbol::OPTIONAL => self.handle_attribute_optional(path_ident),
                 symbol::GROUP => self.handle_attribute_group(&meta),
-                symbol::PROPAGATE => self.propagate = true,
-                symbol::SETTER => self.handle_attribute_setter(&meta)?,
+                symbol::PROPAGATE => self.handle_setter_kind(SetterKind::Propagate, path_ident),
+                symbol::ASREF => self.handle_setter_kind(SetterKind::AsRef, path_ident),
+                symbol::ASMUT => self.handle_setter_kind(SetterKind::AsMut, path_ident),
+                symbol::INTO => self.handle_setter_kind(SetterKind::Into, path_ident),
+                symbol::STANDARD => self.handle_setter_kind(SetterKind::Standard, path_ident),
                 _ => emit_error!(&attr.meta, "Unknown attribute"),
             }
             Ok(())
@@ -152,22 +152,12 @@ impl<'parser> FieldParser<'parser> {
         })
     }
 
-    fn handle_attribute_setter(&mut self, meta: &syn::meta::ParseNestedMeta) -> syn::Result<()> {
-        let setter_ident: syn::Ident = meta.value()?.parse()?;
+    fn handle_setter_kind(&mut self, kind: SetterKind, ident: &syn::Ident) {
         if self.setter_kind.is_some() {
-            emit_error!(setter_ident, "Setter type defined multiple times");
-            return Ok(());
+            emit_error!(ident, "Setter type defined multiple times");
+        } else {
+            self.setter_kind = Some(kind);
         }
-        match (&setter_ident.to_string()).into() {
-            symbol::ASREF => self.setter_kind = Some(SetterKind::AsRef),
-            symbol::ASMUT => self.setter_kind = Some(SetterKind::AsMut),
-            symbol::INTO => self.setter_kind = Some(SetterKind::Into),
-            symbol::STANDARD => self.setter_kind = Some(SetterKind::Standard),
-            _ => {
-                emit_error!(setter_ident, "Unknown setter type");
-            }
-        }
-        Ok(())
     }
 
     fn handle_attribute_skip(&mut self, ident: &syn::Ident) {
