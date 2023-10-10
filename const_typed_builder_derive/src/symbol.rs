@@ -35,8 +35,6 @@ pub const COMPILER: Symbol = Symbol("compiler");
 /// Constant representing the `skip` symbol.
 pub const SKIP: Symbol = Symbol("skip");
 /// Constant representing the `setter` symbol.
-pub const SETTER: Symbol = Symbol("setter");
-/// Constant representing the `setter` symbol.
 pub const INTO: Symbol = Symbol("into");
 /// Constant representing the `setter` symbol.
 pub const ASREF: Symbol = Symbol("asref");
