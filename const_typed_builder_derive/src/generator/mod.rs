@@ -118,7 +118,7 @@ mod util {
             syn::GenericParam::Const(cnst) => {
                 let ident = &cnst.ident;
                 quote!(#ident)
-            },
+            }
         });
 
         quote!(< #(#generic_idents,)* #(#constants),* >)

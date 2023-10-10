@@ -1,6 +1,6 @@
 use super::util;
 use crate::info::{
-    Container, Field, FieldKind, GroupType, SolverKind, TrackedField, TrackedFieldKind, SetterKind,
+    Container, Field, FieldKind, GroupType, SetterKind, SolverKind, TrackedField, TrackedFieldKind,
 };
 use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
@@ -425,12 +425,13 @@ Setter for the [`{}::{field_ident}`] field.
         }
 
         let input_type = match field.setter_kind() {
-            SetterKind::Standard => {
-                match field.kind() {
-                    FieldKind::Grouped | FieldKind::Mandatory if field.is_option_type() => field.inner_type().expect("Option types have an inner type").to_token_stream(),
-                    FieldKind::Skipped => unreachable!("Skipped fields have an early return"),
-                    _ => field.ty().to_token_stream()
-                }
+            SetterKind::Standard => match field.kind() {
+                FieldKind::Grouped | FieldKind::Mandatory if field.is_option_type() => field
+                    .inner_type()
+                    .expect("Option types have an inner type")
+                    .to_token_stream(),
+                FieldKind::Skipped => unreachable!("Skipped fields have an early return"),
+                _ => field.ty().to_token_stream(),
             },
             SetterKind::Propagate => {
                 let input = if let Some(inner_ty) = field.inner_type() {
@@ -439,12 +440,14 @@ Setter for the [`{}::{field_ident}`] field.
                     field.ty()
                 };
                 let output = match field.kind() {
-                    FieldKind::Grouped | FieldKind::Mandatory if field.is_option_type() => field.inner_type().expect("Option types have an inner type"),
+                    FieldKind::Grouped | FieldKind::Mandatory if field.is_option_type() => {
+                        field.inner_type().expect("Option types have an inner type")
+                    }
                     FieldKind::Skipped => unreachable!("Skipped fields have an early return"),
-                    _ => field.ty()
+                    _ => field.ty(),
                 };
                 quote!(fn(<#input as Builder>:: BuilderImpl) -> #output)
-            },
+            }
             SetterKind::Into => {
                 let ty = if let Some(inner_ty) = field.inner_type() {
                     inner_ty
@@ -456,34 +459,52 @@ Setter for the [`{}::{field_ident}`] field.
                 } else {
                     quote!(impl Into<#ty>)
                 }
-            },
+            }
             SetterKind::AsMut => {
                 let ty = if let Some(inner_ty) = field.inner_type() {
                     inner_ty
                 } else {
-                    field.ty() 
+                    field.ty()
                 };
-                if let syn::Type::Reference(syn::TypeReference { lifetime, mutability, elem, ..}) = ty {
+                if let syn::Type::Reference(syn::TypeReference {
+                    lifetime,
+                    mutability,
+                    elem,
+                    ..
+                }) = ty
+                {
                     if mutability.is_none() {
-                        emit_error!(ty, "You need a mutable reference to use this type of setter");
+                        emit_error!(
+                            ty,
+                            "You need a mutable reference to use this type of setter"
+                        );
                     }
                     if field.kind() == FieldKind::Optional {
                         quote!(Option<&#lifetime mut impl AsMut<#elem>>)
-                    } else { 
+                    } else {
                         quote!(&#lifetime mut impl AsMut<#elem>)
                     }
                 } else {
-                    emit_error!(ty, "You need a mutable reference to use this type of setter");
+                    emit_error!(
+                        ty,
+                        "You need a mutable reference to use this type of setter"
+                    );
                     return None;
                 }
-            },
+            }
             SetterKind::AsRef => {
                 let ty = if let Some(inner_ty) = field.inner_type() {
                     inner_ty
                 } else {
-                    field.ty() 
+                    field.ty()
                 };
-                if let syn::Type::Reference(syn::TypeReference { lifetime, mutability: _, elem, .. }) = ty {
+                if let syn::Type::Reference(syn::TypeReference {
+                    lifetime,
+                    mutability: _,
+                    elem,
+                    ..
+                }) = ty
+                {
                     if field.kind() == FieldKind::Optional {
                         quote!(Option<&#lifetime impl AsRef<#elem>>)
                     } else {
@@ -493,7 +514,7 @@ Setter for the [`{}::{field_ident}`] field.
                     emit_error!(ty, "You need a reference to use this type of setter");
                     return None;
                 }
-            },
+            }
         };
         Some(input_type)
     }
@@ -512,27 +533,35 @@ Setter for the [`{}::{field_ident}`] field.
                 } else {
                     quote!(Some(#field_ident))
                 }
-            },
-            SetterKind::Propagate => if let Some(inner_ty) = field.inner_type() {
-                quote!(#field_ident(<#inner_ty as Builder>::builder()))
-            } else {
-                let ty = field.ty();
-                quote!(Some(#field_ident(<#ty as Builder>::builder())))
             }
-            SetterKind::Into => if field.kind() == FieldKind::Optional {
-                quote!(#field_ident.map(Into::into))
-            } else {
-                quote!(Some(#field_ident.into()))
-            },
-            SetterKind::AsMut => if field.kind() == FieldKind::Optional {
-                quote!(#field_ident.map(AsMut::as_mut))
-            } else {
-                quote!(Some(#field_ident.as_mut()))
-            },
-            SetterKind::AsRef => if field.kind() == FieldKind::Optional {
-                quote!(#field_ident.map(AsRef::as_ref))
-            } else {
-                quote!(Some(#field_ident.as_ref()))
+            SetterKind::Propagate => {
+                if let Some(inner_ty) = field.inner_type() {
+                    quote!(#field_ident(<#inner_ty as Builder>::builder()))
+                } else {
+                    let ty = field.ty();
+                    quote!(Some(#field_ident(<#ty as Builder>::builder())))
+                }
+            }
+            SetterKind::Into => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident.map(Into::into))
+                } else {
+                    quote!(Some(#field_ident.into()))
+                }
+            }
+            SetterKind::AsMut => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident.map(AsMut::as_mut))
+                } else {
+                    quote!(Some(#field_ident.as_mut()))
+                }
+            }
+            SetterKind::AsRef => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident.map(AsRef::as_ref))
+                } else {
+                    quote!(Some(#field_ident.as_ref()))
+                }
             }
         };
 

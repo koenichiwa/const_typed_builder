@@ -690,13 +690,11 @@ mod test {
 
     #[test]
     fn const_generic() {
-    #[derive(Debug, PartialEq, Builder)]
+        #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<const SIZE: usize> {
             bar: [usize; SIZE],
         }
-        let expected = Foo {
-            bar: [1, 2, 3],
-        };
+        let expected = Foo { bar: [1, 2, 3] };
         let foo = Foo::builder().bar([1, 2, 3]).build();
         assert_eq!(foo, expected);
     }
@@ -747,10 +745,12 @@ mod test {
     fn into_other_strct() {
         #[derive(Debug, PartialEq)]
         pub struct MyStruct {
-            my_str: String
+            my_str: String,
         }
         impl MyStruct {
-            fn new(my_str: String) -> Self { Self { my_str } }
+            fn new(my_str: String) -> Self {
+                Self { my_str }
+            }
         }
         #[derive(Debug, PartialEq, Builder)]
         #[builder(into)]
@@ -758,9 +758,13 @@ mod test {
             bar: MyStruct,
         }
         let expected = Foo {
-            bar: MyStruct { my_str: "Hello world!".to_string() },
+            bar: MyStruct {
+                my_str: "Hello world!".to_string(),
+            },
         };
-        let foo = Foo::builder().bar(MyStruct::new("Hello world!".to_string())).build();
+        let foo = Foo::builder()
+            .bar(MyStruct::new("Hello world!".to_string()))
+            .build();
         assert_eq!(foo, expected);
     }
 
@@ -773,10 +777,8 @@ mod test {
         }
         let m_str = "Hello world!".to_string();
 
-        let expected = Foo {
-            bar: &m_str,
-        };
-        
+        let expected = Foo { bar: &m_str };
+
         let foo = Foo::builder().bar(&m_str).build();
         assert_eq!(foo, expected);
     }
@@ -793,7 +795,7 @@ mod test {
         let expected = Foo {
             bar: Some(m_str.as_str()),
         };
-        
+
         let foo = Foo::builder().bar(Some(&m_str)).build();
         assert_eq!(foo, expected);
     }
@@ -810,7 +812,7 @@ mod test {
         let expected = Foo {
             bar: &mut m_str.clone(),
         };
-        
+
         let foo = Foo::builder().bar(&mut m_str).build();
         assert_eq!(foo, expected);
     }
@@ -828,7 +830,7 @@ mod test {
         let expected = Foo {
             bar: Some(&mut m_str),
         };
-        
+
         let foo = Foo::builder().bar(Some(&mut m_str_clone)).build();
         assert_eq!(foo, expected);
     }

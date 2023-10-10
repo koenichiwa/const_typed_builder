@@ -184,7 +184,13 @@ impl ContainerParser {
                     .ident
                     .as_ref()
                     .expect("FieldsNamed should have an ident");
-                FieldParser::new(index, self.assume_mandatory, self.assume_into, &mut self.groups).parse(ident, field)
+                FieldParser::new(
+                    index,
+                    self.assume_mandatory,
+                    self.assume_into,
+                    &mut self.groups,
+                )
+                .parse(ident, field)
             })
             .collect::<Vec<_>>()
     }
