@@ -128,7 +128,7 @@ impl<'a> DataGenerator<'a> {
             .iter()
             .map(|field| {
                 let field_ident = field.ident();
-                let tokens = match field.kind() {
+                match field.kind() {
                     FieldKind::Skipped => quote!(#field_ident: None),
                     FieldKind::Mandatory if field.is_option_type() => {
                         quote!(#field_ident: data.#field_ident)
@@ -139,8 +139,7 @@ impl<'a> DataGenerator<'a> {
                     FieldKind::Mandatory => {
                         quote!(#field_ident: data.#field_ident.unwrap())
                     }
-                };
-                tokens
+                }
             })
             .collect()
     }
