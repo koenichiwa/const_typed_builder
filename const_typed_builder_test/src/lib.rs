@@ -799,6 +799,21 @@ mod test {
     }
 
     #[test]
+    fn as_ref() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(asref)]
+            bar: &'a str,
+        }
+        let m_str = "Hello world!".to_string();
+
+        let expected = Foo { bar: &m_str };
+
+        let foo = Foo::builder().bar(&m_str).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
     fn asref_optional() {
         #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<'a> {
@@ -820,6 +835,23 @@ mod test {
         #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<'a> {
             #[builder(asmut)]
+            bar: &'a mut str,
+        }
+        let mut m_str = "Hello world!".to_string();
+
+        let expected = Foo {
+            bar: &mut m_str.clone(),
+        };
+
+        let foo = Foo::builder().bar(&mut m_str).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn as_mut() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(as_mut)]
             bar: &'a mut str,
         }
         let mut m_str = "Hello world!".to_string();

@@ -1,8 +1,9 @@
 use crate::{
     info::{Group, GroupCollection, GroupType},
-    symbol,
+    symbol::Symbol,
 };
 use proc_macro_error::emit_error;
+use std::str::FromStr;
 
 pub struct GroupParser<'a> {
     groups: &'a mut GroupCollection,
@@ -20,7 +21,7 @@ impl<'a> GroupParser<'a> {
                 Err(err) => {
                     emit_error!(
                         &meta.path , "Group name is not specified correctly";
-                        help = "Try to define it like `#[{}(foo = {}(1))]`", symbol::GROUP, symbol::AT_LEAST;
+                        help = "Try to define it like `#[{}(foo = {}(1))]`", Symbol::Group, Symbol::AtLeast;
                         note = err
                     );
                     return Ok(());
@@ -33,7 +34,7 @@ impl<'a> GroupParser<'a> {
                 _ => {
                     emit_error!(
                         &attr.meta, "Can't parse group type";
-                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, symbol::AT_LEAST
+                        hint = "Try to define it like `#[group({} = {}(1))]`", group_name, Symbol::AtLeast
                     );
                     return Ok(());
                 }
@@ -66,7 +67,7 @@ impl<'a> GroupParser<'a> {
                 Err(err) => {
                     emit_error!(
                         &expr , "Group type is not specified correctly";
-                        help = "Try to define it like `#[group(foo = {}(1))]`", symbol::AT_LEAST;
+                        help = "Try to define it like `#[{}(foo = {}(1))]`", Symbol::Group, Symbol::AtLeast;
                         note = err
                     );
                     return None;
@@ -75,7 +76,7 @@ impl<'a> GroupParser<'a> {
             _ => {
                 emit_error!(
                     &expr, "No group type specified";
-                    help = "Try to define it like `#[group(foo = {}(1))]`", symbol::AT_LEAST
+                    help = "Try to define it like `#[{}(foo = {}(1))]`", Symbol::Group, Symbol::AtLeast
                 );
                 return None;
             }
@@ -102,27 +103,35 @@ impl<'a> GroupParser<'a> {
             }
         };
 
-        let group_type = match (&type_ident.to_string()).into() {
-            symbol::EXACT => GroupType::Exact(group_argument),
-            symbol::AT_LEAST => GroupType::AtLeast(group_argument),
-            symbol::AT_MOST => GroupType::AtMost(group_argument),
-            symbol::SINGLE => {
+        match Symbol::from_str(&type_ident.to_string()) {
+            Ok(symbol) => match symbol {
+                Symbol::AtLeast => Some(GroupType::AtLeast(group_argument)),
+                Symbol::AtMost => Some(GroupType::AtMost(group_argument)),
+                Symbol::Exact => Some(GroupType::Exact(group_argument)),
+                Symbol::Single => {
+                    emit_error!(
+                        args,
+                        "`{}` is the only group type that doesn't take any arguments", Symbol::Single;
+                        help = "`{}` is shorthand for {}(1)", Symbol::Single, Symbol::Exact
+                    );
+                    None
+                }
+                symbol => {
+                    emit_error!(
+                        type_ident, format!("{symbol} is an unknown group type");
+                        help = "Known group types are {}, {} and {}", Symbol::Single, Symbol::AtLeast, Symbol::AtMost
+                    );
+                    None
+                }
+            },
+            Err(err) => {
                 emit_error!(
-                    args,
-                    "`{}` is the only group type that doesn't take any arguments", symbol::SINGLE;
-                    help = "`{}` is shorthand for {}(1)", symbol::SINGLE, symbol::EXACT
+                    &type_ident, "Unknown specifier";
+                    note = err
                 );
-                return None;
+                None
             }
-            _ => {
-                emit_error!(
-                    type_ident, "Unknown group type";
-                    help = "Known group types are {}, {} and {}", symbol::EXACT, symbol::AT_LEAST, symbol::AT_MOST
-                );
-                return None;
-            }
-        };
-        Some(group_type)
+        }
     }
 
     fn handle_group_path(&self, expr: &syn::ExprPath) -> Option<GroupType> {
@@ -132,28 +141,35 @@ impl<'a> GroupParser<'a> {
             Err(err) => {
                 emit_error!(
                     &expr , "Group type is not specified correctly";
-                    help = "Try to define it like `#[group(foo = {}(1))]`", symbol::AT_LEAST;
+                    help = "Try to define it like `#[{}(foo = {}(1))]`", Symbol::Group, Symbol::AtLeast;
                     note = err
                 );
                 return None;
             }
         };
-
-        match (&type_ident.to_string()).into() {
-            symbol::SINGLE => Some(GroupType::Exact(1)),
-            symbol::EXACT | symbol::AT_LEAST | symbol::AT_MOST => {
+        match Symbol::from_str(&type_ident.to_string()) {
+            Ok(symbol) => match symbol {
+                Symbol::Single => Some(GroupType::Exact(1)),
+                Symbol::Exact | Symbol::AtLeast | Symbol::AtMost => {
+                    emit_error!(
+                        &expr,
+                        "Missing arguments for group type";
+                        help = "Try `{}(1)`, or any other usize", &type_ident
+                    );
+                    None
+                }
+                symbol => {
+                    emit_error!(
+                        type_ident, format!("{symbol} is an unknown group type");
+                        help = "Known group types are {}, {} and {}", Symbol::Single, Symbol::AtLeast, Symbol::AtMost
+                    );
+                    None
+                }
+            },
+            Err(err) => {
                 emit_error!(
-                    &expr,
-                    "Missing arguments for group type";
-                    help = "Try `{}(1)`, or any other usize", &type_ident
-                );
-                None
-            }
-            _ => {
-                emit_error!(
-                    type_ident,
-                    "Unknown group type";
-                    help = "Known group types are {}, {} and {}", symbol::EXACT, symbol::AT_LEAST, symbol::AT_MOST
+                    &type_ident, "Unknown specifier";
+                    note = err
                 );
                 None
             }

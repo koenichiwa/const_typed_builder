@@ -1,9 +1,10 @@
 use super::{FieldParser, GroupParser};
 use crate::{
     info::{Container, Field, FieldCollection, GroupCollection, SolverKind},
-    symbol,
+    symbol::Symbol,
 };
 use proc_macro_error::{emit_call_site_error, emit_error, emit_warning};
+use std::str::FromStr;
 
 /// Represents the parser for struct generation.
 #[derive(Debug)]
@@ -82,10 +83,21 @@ impl ContainerParser {
                 note = err
             ),
         }
-        match (&attr_ident.to_string()).into() {
-            symbol::GROUP => GroupParser::new(&mut self.groups).parse(attr),
-            symbol::BUILDER => self.handle_attribute_builder(attr),
-            _ => emit_error!(&attr, "Unknown attribute"),
+        match Symbol::from_str(&attr_ident.to_string()) {
+            Ok(symbol) => match symbol {
+                Symbol::Group => GroupParser::new(&mut self.groups).parse(attr),
+                Symbol::Builder => self.handle_attribute_builder(attr),
+                symbol => {
+                    emit_error!(
+                        &attr.meta,
+                        format!("Attribute {symbol} can't be used at container level")
+                    )
+                }
+            },
+            Err(err) => emit_error!(
+                &attr_ident, "Unknown symbol";
+                note = err
+            ),
         }
     }
 
@@ -110,31 +122,43 @@ impl ContainerParser {
                 Err(err) => {
                     emit_error!(
                         &attr.meta, "Specifier cannot be parsed";
-                        help = "Try specifying it like #[{}(specifier)]", symbol::BUILDER;
+                        help = "Try specifying it like #[{}(specifier)]", Symbol::Builder;
                         note = err
                     );
                     return Ok(());
                 }
             };
-
-            match (&path_ident.to_string()).into() {
-                symbol::ASSUME_MANDATORY => {
-                    self.assume_mandatory = true;
-                }
-                symbol::INTO => {
-                    self.assume_into = true;
-                }
-                symbol::SOLVER => {
-                    let syn::ExprPath { path, .. } = meta.value()?.parse()?;
-                    match (&path.require_ident()?.to_string()).into() {
-                        symbol::BRUTE_FORCE => self.solver_kind = SolverKind::BruteForce,
-                        symbol::COMPILER => self.solver_kind = SolverKind::Compiler,
-                        _ => emit_error!(&path, "Unknown solver type"),
+            match Symbol::from_str(&path_ident.to_string()) {
+                Ok(symbol) => match symbol {
+                    Symbol::Solver => {
+                        let syn::ExprPath { path, .. } = meta.value()?.parse()?;
+                        match Symbol::from_str(&path.require_ident()?.to_string()) {
+                            Ok(solver) => match solver {
+                                Symbol::BruteForce => self.solver_kind = SolverKind::BruteForce,
+                                Symbol::Compiler => self.solver_kind = SolverKind::Compiler,
+                                solver => {
+                                    emit_error!(&path, format!("{solver} is not a solver type"))
+                                }
+                            },
+                            Err(err) => emit_error!(
+                                &path, "Unknown symbol";
+                                note = err
+                            ),
+                        }
                     }
-                }
-                _ => {
-                    emit_error!(meta.path, "Unknown attribute");
-                }
+                    Symbol::AssumeMandatory => self.assume_mandatory = true,
+                    Symbol::Into => self.assume_into = true,
+                    symbol => {
+                        emit_error!(
+                            &attr.meta,
+                            format!("Specifier {symbol} can't be used at container level")
+                        )
+                    }
+                },
+                Err(err) => emit_error!(
+                    &attr.meta, "Unknown symbol";
+                    note = err
+                ),
             }
             Ok(())
         })

@@ -3,7 +3,7 @@ use crate::info::{
     Container, Field, FieldKind, GroupType, SetterKind, SolverKind, TrackedField, TrackedFieldKind,
 };
 use itertools::{Itertools, Powerset};
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote, ToTokens};
 use std::{collections::BTreeSet, ops::Deref};
@@ -314,11 +314,11 @@ Setter for the [`{}::{field_ident}`] field.
 
         let all = self.info.group_collection().values().map(|group| {
             let partials = group.indices().iter().map(|index| self.info.field_collection().get(*index).expect("Could not find field associated to group").const_ident());
-            let function_call: syn::Ident = group.function_symbol().into();
+            let function_call = syn::Ident::new(group.function_symbol().as_ref(), Span::call_site());
             let count = group.expected_count();
             let ident = group.ident();
-            let function_ident = group.function_symbol().to_string();
-            let err_text = format!("`.build()` failed because the bounds of group `{ident}` where not met ({function_ident} {count})");
+            let function_name = group.function_symbol();
+            let err_text = format!("`.build()` failed because the bounds of group `{ident}` where not met ({function_name} {count})");
 
             quote!(
                 if !Self::#function_call(&[#(#partials),*], #count) {
