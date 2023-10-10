@@ -9,6 +9,7 @@ use proc_macro_error::{emit_call_site_error, emit_error, emit_warning};
 #[derive(Debug)]
 pub struct ContainerParser {
     assume_mandatory: bool,
+    assume_into: bool,
     /// A map of group names to their respective `GroupInfo`.
     groups: GroupCollection,
     /// The solver used to find all possible valid combinations for the groups
@@ -120,6 +121,9 @@ impl ContainerParser {
                 symbol::ASSUME_MANDATORY => {
                     self.assume_mandatory = true;
                 }
+                symbol::INTO => {
+                    self.assume_into = true;
+                }
                 symbol::SOLVER => {
                     let syn::ExprPath { path, .. } = meta.value()?.parse()?;
                     match (&path.require_ident()?.to_string()).into() {
@@ -180,7 +184,7 @@ impl ContainerParser {
                     .ident
                     .as_ref()
                     .expect("FieldsNamed should have an ident");
-                FieldParser::new(index, self.assume_mandatory, &mut self.groups).parse(ident, field)
+                FieldParser::new(index, self.assume_mandatory, self.assume_into, &mut self.groups).parse(ident, field)
             })
             .collect::<Vec<_>>()
     }
@@ -190,6 +194,7 @@ impl Default for ContainerParser {
     fn default() -> Self {
         ContainerParser {
             assume_mandatory: false,
+            assume_into: false,
             groups: GroupCollection::new(),
             solver_kind: SolverKind::BruteForce,
         }

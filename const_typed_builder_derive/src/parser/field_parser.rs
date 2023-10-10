@@ -12,6 +12,7 @@ pub struct FieldParser<'parser> {
     setter_kind: Option<SetterKind>,
     index: usize,
     assume_mandatory: bool,
+    assume_into: bool,
     group_collection: &'parser mut GroupCollection,
 }
 
@@ -19,6 +20,7 @@ impl<'parser> FieldParser<'parser> {
     pub fn new(
         index: usize,
         assume_mandatory: bool,
+        assume_into: bool,
         group_collection: &'parser mut GroupCollection,
     ) -> Self {
         Self {
@@ -26,6 +28,7 @@ impl<'parser> FieldParser<'parser> {
             setter_kind: None,
             index,
             assume_mandatory,
+            assume_into,
             group_collection,
         }
     }
@@ -50,7 +53,11 @@ impl<'parser> FieldParser<'parser> {
         }
 
         if self.setter_kind.is_none() {
-            self.setter_kind = Some(SetterKind::Standard);
+            self.setter_kind = if self.assume_into {
+                Some(SetterKind::Into)
+            } else {
+                Some(SetterKind::Standard)
+            };
         }
 
         Field::new(
