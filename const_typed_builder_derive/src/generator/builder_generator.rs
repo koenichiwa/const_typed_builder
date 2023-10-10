@@ -205,11 +205,10 @@ Setter for the [`{}::{field_ident}`] field.
                 quote!(
                     impl #const_idents_impl #builder_ident #const_idents_type_input #where_clause {
                         #[doc = #documentation]
-                        pub fn #field_ident (self, #field_ident: #input_type) -> #builder_ident #const_idents_type_output {
-                            let mut #data_field = self.#data_field;
-                            #data_field.#field_ident = #input_value;
+                        pub fn #field_ident (mut self, #field_ident: #input_type) -> #builder_ident #const_idents_type_output {
+                            self.#data_field.#field_ident = #input_value;
                             #builder_ident {
-                                #data_field,
+                                #data_field: self.#data_field,
                             }
                         }
                     }
