@@ -730,6 +730,41 @@ mod test {
     }
 
     #[test]
+    fn assume_into() {
+        #[derive(Debug, PartialEq, Builder)]
+        #[builder(into)]
+        pub struct Foo {
+            bar: String,
+        }
+        let expected = Foo {
+            bar: "Hello world!".to_string(),
+        };
+        let foo = Foo::builder().bar("Hello world!").build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn into_other_strct() {
+        #[derive(Debug, PartialEq)]
+        pub struct MyStruct {
+            my_str: String
+        }
+        impl MyStruct {
+            fn new(my_str: String) -> Self { Self { my_str } }
+        }
+        #[derive(Debug, PartialEq, Builder)]
+        #[builder(into)]
+        pub struct Foo {
+            bar: MyStruct,
+        }
+        let expected = Foo {
+            bar: MyStruct { my_str: "Hello world!".to_string() },
+        };
+        let foo = Foo::builder().bar(MyStruct::new("Hello world!".to_string())).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
     fn asref() {
         #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<'a> {
@@ -791,10 +826,10 @@ mod test {
         let mut m_str_clone = m_str.clone();
 
         let expected = Foo {
-            bar: Some(&mut m_str_clone),
+            bar: Some(&mut m_str),
         };
         
-        let foo = Foo::builder().bar(Some(&mut m_str)).build();
+        let foo = Foo::builder().bar(Some(&mut m_str_clone)).build();
         assert_eq!(foo, expected);
     }
 }
