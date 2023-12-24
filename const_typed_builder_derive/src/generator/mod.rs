@@ -107,9 +107,18 @@ mod util {
         generics: &syn::Generics,
     ) -> TokenStream {
         let generic_idents = generics.params.iter().map(|param| match param {
-            syn::GenericParam::Lifetime(lt) => &lt.lifetime.ident,
-            syn::GenericParam::Type(ty) => &ty.ident,
-            syn::GenericParam::Const(cnst) => &cnst.ident,
+            syn::GenericParam::Lifetime(lt) => {
+                let lifetime = &lt.lifetime;
+                quote!(#lifetime)
+            }
+            syn::GenericParam::Type(ty) => {
+                let ident = &ty.ident;
+                quote!(#ident)
+            }
+            syn::GenericParam::Const(cnst) => {
+                let ident = &cnst.ident;
+                quote!(#ident)
+            }
         });
 
         quote!(< #(#generic_idents,)* #(#constants),* >)

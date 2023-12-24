@@ -674,4 +674,179 @@ mod test {
         let foo = Foo::builder().bar("Hello world!".to_string()).build();
         assert_eq!(foo, expected);
     }
+
+    #[test]
+    fn reference() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            bar: &'a str,
+        }
+        let expected = Foo {
+            bar: "Hello world!",
+        };
+        let foo = Foo::builder().bar("Hello world!").build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn mut_reference() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            bar: &'a mut str,
+        }
+        let mut my_str = "Hello world!".to_string();
+        let mut my_str_clone = my_str.clone();
+        let expected = Foo {
+            bar: my_str.as_mut_str(),
+        };
+        let foo = Foo::builder().bar(my_str_clone.as_mut_str()).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn const_generic() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<const SIZE: usize> {
+            bar: [usize; SIZE],
+        }
+        let expected = Foo { bar: [1, 2, 3] };
+        let foo = Foo::builder().bar([1, 2, 3]).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn into() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo {
+            #[builder(into)]
+            bar: String,
+        }
+        let expected = Foo {
+            bar: "Hello world!".to_string(),
+        };
+        let foo = Foo::builder().bar("Hello world!").build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn into_optional() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo {
+            #[builder(into)]
+            bar: Option<String>,
+        }
+        let expected = Foo {
+            bar: Some("Hello world!".to_string()),
+        };
+        let foo = Foo::builder().bar(Some("Hello world!")).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn assume_into() {
+        #[derive(Debug, PartialEq, Builder)]
+        #[builder(into)]
+        pub struct Foo {
+            bar: String,
+        }
+        let expected = Foo {
+            bar: "Hello world!".to_string(),
+        };
+        let foo = Foo::builder().bar("Hello world!").build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn into_other_strct() {
+        #[derive(Debug, PartialEq)]
+        pub struct MyStruct {
+            my_str: String,
+        }
+        impl MyStruct {
+            fn new(my_str: String) -> Self {
+                Self { my_str }
+            }
+        }
+        #[derive(Debug, PartialEq, Builder)]
+        #[builder(into)]
+        pub struct Foo {
+            bar: MyStruct,
+        }
+        let expected = Foo {
+            bar: MyStruct {
+                my_str: "Hello world!".to_string(),
+            },
+        };
+        let foo = Foo::builder()
+            .bar(MyStruct::new("Hello world!".to_string()))
+            .build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn asref() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(asref)]
+            bar: &'a str,
+        }
+        let m_str = "Hello world!".to_string();
+
+        let expected = Foo { bar: &m_str };
+
+        let foo = Foo::builder().bar(&m_str).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn asref_optional() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(asref)]
+            bar: Option<&'a str>,
+        }
+        let m_str = "Hello world!".to_string();
+
+        let expected = Foo {
+            bar: Some(m_str.as_str()),
+        };
+
+        let foo = Foo::builder().bar(Some(&m_str)).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn asmut() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(asmut)]
+            bar: &'a mut str,
+        }
+        let mut m_str = "Hello world!".to_string();
+
+        let expected = Foo {
+            bar: &mut m_str.clone(),
+        };
+
+        let foo = Foo::builder().bar(&mut m_str).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn asmut_optional() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(asmut)]
+            bar: Option<&'a mut str>,
+        }
+        let mut m_str = "Hello world!".to_string();
+        let mut m_str_clone = m_str.clone();
+
+        let expected = Foo {
+            bar: Some(&mut m_str),
+        };
+
+        let foo = Foo::builder().bar(Some(&mut m_str_clone)).build();
+        assert_eq!(foo, expected);
+    }
 }

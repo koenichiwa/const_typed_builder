@@ -34,6 +34,14 @@ pub const BRUTE_FORCE: Symbol = Symbol("brute_force");
 pub const COMPILER: Symbol = Symbol("compiler");
 /// Constant representing the `skip` symbol.
 pub const SKIP: Symbol = Symbol("skip");
+/// Constant representing the `setter` symbol.
+pub const INTO: Symbol = Symbol("into");
+/// Constant representing the `setter` symbol.
+pub const ASREF: Symbol = Symbol("asref");
+/// Constant representing the `setter` symbol.
+pub const ASMUT: Symbol = Symbol("asmut");
+/// Constant representing the `setter` symbol.
+pub const STANDARD: Symbol = Symbol("standard");
 
 impl<'a> From<&'a String> for Symbol<'a> {
     fn from(value: &'a String) -> Self {

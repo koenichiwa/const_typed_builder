@@ -7,12 +7,21 @@ pub type FieldCollection<'a> = Vec<Field<'a>>;
 
 const CONST_IDENT_PREFIX: &str = "__BUILDER_CONST_";
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FieldKind {
     Optional,
     Skipped,
     Mandatory,
     Grouped,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SetterKind {
+    Standard,
+    Propagate,
+    Into,
+    AsMut,
+    AsRef,
 }
 
 /// Represents the information about a struct field used for code generation.
@@ -21,8 +30,8 @@ pub struct Field<'a> {
     ty: &'a syn::Type,
     ident: &'a syn::Ident,
     index: usize,
-    propagate: bool,
     kind: FieldKind,
+    setter_kind: SetterKind,
 }
 
 impl<'a> Field<'a> {
@@ -42,25 +51,20 @@ impl<'a> Field<'a> {
         ty: &'a syn::Type,
         index: usize,
         kind: FieldKind,
-        propagate: bool,
+        setter_kind: SetterKind,
     ) -> Self {
         Self {
             ident,
             index,
             ty,
-            propagate,
             kind,
+            setter_kind,
         }
     }
 
     /// Retrieves the identifier of the field.
     pub fn ident(&self) -> &syn::Ident {
         self.ident
-    }
-
-    /// Checks if the field's attributes indicate propagation.
-    pub fn propagate(&self) -> bool {
-        self.propagate
     }
 
     /// Checks if the field's type is an Option.
@@ -79,8 +83,8 @@ impl<'a> Field<'a> {
     }
 
     /// Retrieves the kind of the field, which can be Optional, Mandatory, Skipped or Grouped.
-    pub fn kind(&self) -> &FieldKind {
-        &self.kind
+    pub fn kind(&self) -> FieldKind {
+        self.kind
     }
 
     /// Retrieves the index of the field within the struct.
@@ -93,27 +97,14 @@ impl<'a> Field<'a> {
         format_ident!("{}{}", CONST_IDENT_PREFIX, self.index)
     }
 
-    /// Retrieves the input type for the builder's setter method.
-    pub fn setter_input_type(&self) -> Option<&syn::Type> {
-        match self.kind() {
-            FieldKind::Optional => Some(self.ty()),
-            FieldKind::Mandatory if self.is_option_type() => Some(self.inner_type().expect(
-                "Couldn't read inner type of option, even though it's seen as an Option type",
-            )),
-            FieldKind::Mandatory => Some(self.ty()),
-            FieldKind::Grouped => {
-                Some(self.inner_type().expect(
-                    "Couldn't read inner type of option, even though it's marked as grouped",
-                ))
-            }
-            FieldKind::Skipped => None,
-        }
+    pub fn setter_kind(&self) -> SetterKind {
+        self.setter_kind
     }
 }
 
 impl<'a> PartialOrd for Field<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.index.partial_cmp(&other.index)
+        Some(self.cmp(other))
     }
 }
 

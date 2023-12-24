@@ -1,10 +1,11 @@
 use super::util;
 use crate::info::{
-    Container, Field, FieldKind, GroupType, SolverKind, TrackedField, TrackedFieldKind,
+    Container, Field, FieldKind, GroupType, SetterKind, SolverKind, TrackedField, TrackedFieldKind,
 };
 use itertools::{Itertools, Powerset};
 use proc_macro2::TokenStream;
-use quote::quote;
+use proc_macro_error::emit_error;
+use quote::{quote, ToTokens};
 use std::{collections::BTreeSet, ops::Deref};
 use syn::{parse_quote, GenericParam};
 
@@ -179,7 +180,7 @@ impl<'info> BuilderGenerator<'info> {
             .info
             .field_collection()
             .iter()
-            .filter(|field| field.kind() != &FieldKind::Skipped)
+            .filter(|field| field.kind() != FieldKind::Skipped)
             .map(|field| {
                 let const_idents_impl = self.const_generic_idents_set_impl(field);
                 let const_idents_type_input = self.const_generic_idents_set_type(field, false);
@@ -187,8 +188,8 @@ impl<'info> BuilderGenerator<'info> {
                 let where_clause = &self.info.generics().where_clause;
 
                 let field_ident = field.ident();
-                let input_type = self.impl_set_input_type(field);
-                let input_value = self.impl_set_input_value(field);
+                let input_type = self.field_input_type(field);
+                let input_value = self.field_input_assign(field);
 
                 let documentation = format!(r#"
 Setter for the [`{}::{field_ident}`] field.
@@ -204,11 +205,10 @@ Setter for the [`{}::{field_ident}`] field.
                 quote!(
                     impl #const_idents_impl #builder_ident #const_idents_type_input #where_clause {
                         #[doc = #documentation]
-                        pub fn #field_ident (self, #input_type) -> #builder_ident #const_idents_type_output {
-                            let mut #data_field = self.#data_field;
-                            #data_field.#field_ident = #input_value;
+                        pub fn #field_ident (mut self, #field_ident: #input_type) -> #builder_ident #const_idents_type_output {
+                            self.#data_field.#field_ident = #input_value;
                             #builder_ident {
-                                #data_field,
+                                #data_field: self.#data_field,
                             }
                         }
                     }
@@ -417,51 +417,154 @@ Setter for the [`{}::{field_ident}`] field.
         )
     }
 
-    fn impl_set_input_type(&self, field: &'info Field) -> Option<TokenStream> {
-        if field.kind() == &FieldKind::Skipped {
+    /// Retrieves the input type for the builder's setter method.
+    pub fn field_input_type(&self, field: &Field) -> Option<TokenStream> {
+        if field.kind() == FieldKind::Skipped {
             return None;
         }
-        let field_ident = field.ident();
-        let field_ty = field.setter_input_type();
-        let bottom_ty = if field.is_option_type() {
-            field.inner_type().unwrap()
-        } else {
-            field_ty.unwrap()
-        };
 
-        let field_ty = if field.propagate() {
-            quote!(fn(<#bottom_ty as Builder>:: BuilderImpl) -> #field_ty)
-        } else {
-            quote!(#field_ty)
+        let input_type = match field.setter_kind() {
+            SetterKind::Standard => match field.kind() {
+                FieldKind::Grouped | FieldKind::Mandatory if field.is_option_type() => field
+                    .inner_type()
+                    .expect("Option types have an inner type")
+                    .to_token_stream(),
+                FieldKind::Skipped => unreachable!("Skipped fields have an early return"),
+                _ => field.ty().to_token_stream(),
+            },
+            SetterKind::Propagate => {
+                let input = if let Some(inner_ty) = field.inner_type() {
+                    inner_ty
+                } else {
+                    field.ty()
+                };
+                let output = match field.kind() {
+                    FieldKind::Grouped | FieldKind::Mandatory if field.is_option_type() => {
+                        field.inner_type().expect("Option types have an inner type")
+                    }
+                    FieldKind::Skipped => unreachable!("Skipped fields have an early return"),
+                    _ => field.ty(),
+                };
+                quote!(fn(<#input as Builder>:: BuilderImpl) -> #output)
+            }
+            SetterKind::Into => {
+                let ty = if let Some(inner_ty) = field.inner_type() {
+                    inner_ty
+                } else {
+                    field.ty()
+                };
+                if field.kind() == FieldKind::Optional {
+                    quote!(Option<impl Into<#ty>>)
+                } else {
+                    quote!(impl Into<#ty>)
+                }
+            }
+            SetterKind::AsMut => {
+                let ty = if let Some(inner_ty) = field.inner_type() {
+                    inner_ty
+                } else {
+                    field.ty()
+                };
+                if let syn::Type::Reference(syn::TypeReference {
+                    lifetime,
+                    mutability,
+                    elem,
+                    ..
+                }) = ty
+                {
+                    if mutability.is_none() {
+                        emit_error!(
+                            ty,
+                            "You need a mutable reference to use this type of setter"
+                        );
+                    }
+                    if field.kind() == FieldKind::Optional {
+                        quote!(Option<&#lifetime mut impl AsMut<#elem>>)
+                    } else {
+                        quote!(&#lifetime mut impl AsMut<#elem>)
+                    }
+                } else {
+                    emit_error!(
+                        ty,
+                        "You need a mutable reference to use this type of setter"
+                    );
+                    return None;
+                }
+            }
+            SetterKind::AsRef => {
+                let ty = if let Some(inner_ty) = field.inner_type() {
+                    inner_ty
+                } else {
+                    field.ty()
+                };
+                if let syn::Type::Reference(syn::TypeReference {
+                    lifetime,
+                    mutability: _,
+                    elem,
+                    ..
+                }) = ty
+                {
+                    if field.kind() == FieldKind::Optional {
+                        quote!(Option<&#lifetime impl AsRef<#elem>>)
+                    } else {
+                        quote!(&#lifetime impl AsRef<#elem>)
+                    }
+                } else {
+                    emit_error!(ty, "You need a reference to use this type of setter");
+                    return None;
+                }
+            }
         };
-
-        Some(quote!(#field_ident: #field_ty))
+        Some(input_type)
     }
 
-    fn impl_set_input_value(&self, field: &'info Field) -> Option<TokenStream> {
-        if field.kind() == &FieldKind::Skipped {
+    pub fn field_input_assign(&self, field: &Field) -> Option<TokenStream> {
+        if field.kind() == FieldKind::Skipped {
             return None;
         }
 
         let field_ident = field.ident();
-        let field_ty = field.setter_input_type();
-        let bottom_ty = if field.is_option_type() {
-            field.inner_type().unwrap()
-        } else {
-            field_ty.unwrap()
+
+        let field_value = match field.setter_kind() {
+            SetterKind::Standard => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident)
+                } else {
+                    quote!(Some(#field_ident))
+                }
+            }
+            SetterKind::Propagate => {
+                if let Some(inner_ty) = field.inner_type() {
+                    quote!(#field_ident(<#inner_ty as Builder>::builder()))
+                } else {
+                    let ty = field.ty();
+                    quote!(Some(#field_ident(<#ty as Builder>::builder())))
+                }
+            }
+            SetterKind::Into => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident.map(Into::into))
+                } else {
+                    quote!(Some(#field_ident.into()))
+                }
+            }
+            SetterKind::AsMut => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident.map(AsMut::as_mut))
+                } else {
+                    quote!(Some(#field_ident.as_mut()))
+                }
+            }
+            SetterKind::AsRef => {
+                if field.kind() == FieldKind::Optional {
+                    quote!(#field_ident.map(AsRef::as_ref))
+                } else {
+                    quote!(Some(#field_ident.as_ref()))
+                }
+            }
         };
 
-        let field_value = if field.propagate() {
-            quote!(#field_ident(<#bottom_ty as Builder>::builder()))
-        } else {
-            quote!(#field_ident)
-        };
-
-        if field.kind() == &FieldKind::Optional {
-            Some(quote!(#field_value))
-        } else {
-            Some(quote!(Some(#field_value)))
-        }
+        Some(quote!(#field_value))
     }
 
     fn valid_groupident_combinations(&self) -> impl Iterator<Item = Vec<usize>> + '_ {
