@@ -6,7 +6,7 @@ pub enum Symbol {
     // Top level attributes
     Builder,
     Groups,
-    
+
     // Field kinds
     Group, // Deprecated as top level attribute
     Mandatory,
