@@ -26,7 +26,7 @@ use syn::DeriveInput;
 ///
 /// This will generate a builder pattern for `MyStruct`, allowing you to
 /// construct instances of `MyStruct` with a fluent API.
-#[proc_macro_derive(Builder, attributes(builder, group))]
+#[proc_macro_derive(Builder, attributes(builder, group, groups))]
 #[proc_macro_error]
 pub fn derive_builder(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = syn::parse_macro_input!(input as DeriveInput);

@@ -1,9 +1,10 @@
 use crate::{
     info::{Field, FieldKind, GroupCollection, SetterKind},
-    symbol,
+    symbol::Symbol,
     util::is_option,
 };
 use proc_macro_error::{emit_error, emit_warning};
+use std::str::FromStr;
 
 /// Represents settings for struct field generation.
 #[derive(Debug)]
@@ -97,7 +98,7 @@ impl<'parser> FieldParser<'parser> {
     ///
     fn handle_attribute(&mut self, attr: &syn::Attribute) {
         let attr_ident = match attr.path().require_ident() {
-            Ok(ident) if ident == symbol::BUILDER => ident,
+            Ok(ident) if Symbol::from_str(&ident.to_string()) == Ok(Symbol::Builder) => ident,
             Ok(ident) => {
                 emit_error!(ident, format!("{ident} can't be used as a field attribute"));
                 return;
@@ -137,17 +138,25 @@ impl<'parser> FieldParser<'parser> {
                 }
             };
 
-            match (&path_ident.to_string()).into() {
-                symbol::SKIP => self.handle_attribute_skip(path_ident),
-                symbol::MANDATORY => self.handle_attribute_mandatory(path_ident),
-                symbol::OPTIONAL => self.handle_attribute_optional(path_ident),
-                symbol::GROUP => self.handle_attribute_group(&meta),
-                symbol::PROPAGATE => self.handle_setter_kind(SetterKind::Propagate, path_ident),
-                symbol::ASREF => self.handle_setter_kind(SetterKind::AsRef, path_ident),
-                symbol::ASMUT => self.handle_setter_kind(SetterKind::AsMut, path_ident),
-                symbol::INTO => self.handle_setter_kind(SetterKind::Into, path_ident),
-                symbol::STANDARD => self.handle_setter_kind(SetterKind::Standard, path_ident),
-                _ => emit_error!(&attr.meta, "Unknown attribute"),
+            match Symbol::from_str(&path_ident.to_string()) {
+                Ok(symbol) => match symbol {
+                    Symbol::Skip => self.handle_attribute_skip(path_ident),
+                    Symbol::Mandatory => self.handle_attribute_mandatory(path_ident),
+                    Symbol::Optional => self.handle_attribute_optional(path_ident),
+                    Symbol::Group => self.handle_attribute_group(&meta),
+                    Symbol::Propagate => self.handle_setter_kind(SetterKind::Propagate, path_ident),
+                    Symbol::AsRef => self.handle_setter_kind(SetterKind::AsRef, path_ident),
+                    Symbol::AsMut => self.handle_setter_kind(SetterKind::AsMut, path_ident),
+                    Symbol::Into => self.handle_setter_kind(SetterKind::Into, path_ident),
+                    Symbol::Standard => self.handle_setter_kind(SetterKind::Standard, path_ident),
+                    symbol => {
+                        emit_error!(&attr.meta, format!("Specifier {symbol} can't be used here"))
+                    }
+                },
+                Err(err) => emit_error!(
+                    &attr.meta, "Unknown attribute";
+                    note = err
+                ),
             }
             Ok(())
         })
@@ -263,7 +272,7 @@ impl<'parser> FieldParser<'parser> {
             Err(err) => {
                 emit_error!(
                     meta.path, "Group name not specified correctly";
-                    help = "Try defining it like #[{}(foo)]", symbol::BUILDER;
+                    help = "Try defining it like #[{}(foo)]", Symbol::Builder;
                     note = err
                 );
             }

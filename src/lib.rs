@@ -132,7 +132,7 @@
 /// ```rust
 /// # use const_typed_builder::Builder;
 /// #[derive(Builder)]
-/// #[group(my_group = single)]
+/// #[groups(my_group = single)]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
 ///     bar: Option<String>,
@@ -148,7 +148,7 @@
 /// ```compile_fail
 /// # use const_typed_builder::Builder;
 /// #[derive(Builder)]
-/// #[group(my_group = single)]
+/// #[groups(my_group = single)]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
 ///     bar: Option<String>,
@@ -165,7 +165,7 @@
 /// ```rust
 /// # use const_typed_builder::Builder;
 /// #[derive(Builder)]
-/// #[group(my_group = at_least(2))]
+/// #[groups(my_group = at_least(2))]
 /// pub struct Foo {
 ///     #[builder(group = my_group)]
 ///     bar: Option<String>,
@@ -186,8 +186,8 @@
 /// ```rust
 /// # use const_typed_builder::Builder;
 /// #[derive(Builder)]
-/// #[group(least = at_least(2))]
-/// #[group(most = at_most(3))]
+/// #[groups(least = at_least(2))]
+/// #[groups(most = at_most(3))]
 /// pub struct Foo {
 ///     #[builder(group = least, group = most)]
 ///     bar: Option<String>,

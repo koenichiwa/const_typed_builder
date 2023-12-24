@@ -1,4 +1,4 @@
-use crate::symbol::{Symbol, AT_LEAST, AT_MOST, EXACT};
+use crate::symbol::Symbol;
 use proc_macro_error::{emit_error, emit_warning};
 use std::{
     cmp::Ordering,
@@ -62,9 +62,9 @@ impl Group {
     /// Retrieves the function symbol associated with the group type.
     pub fn function_symbol(&self) -> Symbol {
         match self.group_type {
-            GroupType::Exact(_) => EXACT,
-            GroupType::AtLeast(_) => AT_LEAST,
-            GroupType::AtMost(_) => AT_MOST,
+            GroupType::Exact(_) => Symbol::Exact,
+            GroupType::AtLeast(_) => Symbol::AtLeast,
+            GroupType::AtMost(_) => Symbol::AtMost,
         }
     }
 

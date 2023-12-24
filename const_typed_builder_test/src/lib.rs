@@ -240,7 +240,7 @@ mod test {
     #[test]
     fn group() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(baz = single)]
+        #[groups(baz = single)]
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
@@ -259,7 +259,7 @@ mod test {
     #[test]
     fn group_solver_compiler() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(baz = single)]
+        #[groups(baz = single)]
         #[builder(solver = compiler)]
         pub struct Foo {
             #[builder(group = baz)]
@@ -279,7 +279,7 @@ mod test {
     #[test]
     fn group_multiple_member() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(baz = single)]
+        #[groups(baz = single)]
         pub struct Foo {
             #[builder(group = baz)]
             bar: Option<String>,
@@ -305,7 +305,7 @@ mod test {
     #[test]
     fn group_and_mandatory() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(quz = single)]
+        #[groups(quz = single)]
         pub struct Foo {
             #[builder(group = quz)]
             bar: Option<String>,
@@ -342,7 +342,7 @@ mod test {
     #[test]
     fn group_and_option_mandatory() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(quz = single)]
+        #[groups(quz = single)]
         pub struct Foo {
             #[builder(group = quz)]
             bar: Option<String>,
@@ -380,7 +380,7 @@ mod test {
     #[test]
     fn group_at_least() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(quz = at_least(2))]
+        #[groups(quz = at_least(2))]
         pub struct Foo {
             #[builder(group = quz)]
             bar: Option<String>,
@@ -431,7 +431,7 @@ mod test {
     #[test]
     fn group_at_most() {
         #[derive(Debug, Default, PartialEq, Eq, Builder)]
-        #[group(quz = at_most(2))]
+        #[groups(quz = at_most(2))]
         pub struct Foo {
             #[builder(group = quz)]
             bar: Option<String>,
@@ -799,6 +799,21 @@ mod test {
     }
 
     #[test]
+    fn as_ref() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(asref)]
+            bar: &'a str,
+        }
+        let m_str = "Hello world!".to_string();
+
+        let expected = Foo { bar: &m_str };
+
+        let foo = Foo::builder().bar(&m_str).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
     fn asref_optional() {
         #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<'a> {
@@ -820,6 +835,23 @@ mod test {
         #[derive(Debug, PartialEq, Builder)]
         pub struct Foo<'a> {
             #[builder(asmut)]
+            bar: &'a mut str,
+        }
+        let mut m_str = "Hello world!".to_string();
+
+        let expected = Foo {
+            bar: &mut m_str.clone(),
+        };
+
+        let foo = Foo::builder().bar(&mut m_str).build();
+        assert_eq!(foo, expected);
+    }
+
+    #[test]
+    fn as_mut() {
+        #[derive(Debug, PartialEq, Builder)]
+        pub struct Foo<'a> {
+            #[builder(as_mut)]
             bar: &'a mut str,
         }
         let mut m_str = "Hello world!".to_string();
